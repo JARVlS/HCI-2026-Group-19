@@ -1,34 +1,34 @@
 <script setup lang="ts">
-import { computed, defineModel, ref, toRaw } from 'vue'
+import { computed, defineEmits, defineModel, defineProps, ref } from 'vue'
 import IndependenceSlider from './IndependenceSlider.vue'
 import type { GraphData, GraphNode, IndependenceLevel } from '@/types/graph'
 
-const model = defineModel<GraphData>('data', { required: true })
+const props = defineProps<{
+  data: GraphData
+}>()
+
 // node clicked in the graph; when set it is used as the parent
 const selected = defineModel<string | null>('selected', { default: null })
 
+// the parent owns the graph data, so new nodes are handed up instead of written here
+const emit = defineEmits<{
+  addNode: [node: GraphNode, parent: string | null]
+}>()
+
 const name = ref('')
 const independence = ref<IndependenceLevel>(50)
-const dropdownParent = ref('')
+// '' means nothing chosen yet, null means the new node is a root
+const dropdownParent = ref<string | null>('')
 
 const parentId = computed(() => selected.value ?? dropdownParent.value)
 
 const trimmedName = computed(() => name.value.trim())
-const nameTaken = computed(() => model.value.nodes.some((n) => n.id === trimmedName.value))
+const nameTaken = computed(() => props.data.nodes.some((n) => n.id === trimmedName.value))
 const canAdd = computed(() => trimmedName.value !== '' && !nameTaken.value && parentId.value !== '')
 
 function addNode() {
   if (!canAdd.value) return
-
-  // build from the raw arrays so force-graph keeps working on plain objects
-  // (it has already replaced link source/target strings with node objects)
-  const raw = toRaw(model.value)
-  const node: GraphNode = { id: trimmedName.value, independence: independence.value }
-  model.value = {
-    nodes: [...raw.nodes, node],
-    links: [...raw.links, { source: parentId.value, target: node.id }],
-  }
-
+  emit('addNode', { id: trimmedName.value, independence: independence.value }, parentId.value)
   name.value = ''
 }
 </script>
@@ -55,7 +55,8 @@ function addNode() {
         Parent
         <select v-model="dropdownParent">
           <option disabled value="">Select a parent node</option>
-          <option v-for="node in model.nodes" :key="node.id" :value="node.id">{{ node.id }}</option>
+          <option :value="null">None (root node)</option>
+          <option v-for="node in data.nodes" :key="node.id" :value="node.id">{{ node.id }}</option>
         </select>
       </label>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineModel } from 'vue'
+import { defineModel, defineProps } from 'vue'
 import {
   INDEPENDENCE_MAX,
   INDEPENDENCE_MIN,
@@ -10,6 +10,11 @@ import {
 } from '@/types/graph'
 
 const level = defineModel<IndependenceLevel>({ required: true })
+
+// read-only when the level is computed elsewhere, e.g. averaged from child nodes
+defineProps<{
+  disabled?: boolean
+}>()
 </script>
 
 <template>
@@ -32,6 +37,7 @@ const level = defineModel<IndependenceLevel>({ required: true })
       :min="INDEPENDENCE_MIN"
       :max="INDEPENDENCE_MAX"
       :step="INDEPENDENCE_STEP"
+      :disabled="disabled"
       :style="{ background: independenceGradient, accentColor: independenceColor(level) }"
     />
   </label>
@@ -70,6 +76,11 @@ const level = defineModel<IndependenceLevel>({ required: true })
   border-radius: 999px;
   appearance: none;
   cursor: pointer;
+}
+
+.independence-slider:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .independence-slider::-webkit-slider-thumb {

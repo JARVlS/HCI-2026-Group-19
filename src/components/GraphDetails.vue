@@ -2,7 +2,13 @@
 import { computed, defineEmits, defineModel, defineProps } from 'vue'
 import MarkdownEditor from './MarkdownEditor.vue'
 import IndependenceSlider from './IndependenceSlider.vue'
-import type { GraphData, GraphLink, GraphNode, IndependenceLevel } from '@/types/graph'
+import {
+  childIds,
+  parentIds,
+  reachableIds,
+  type GraphData,
+  type IndependenceLevel,
+} from '@/types/graph'
 
 const props = defineProps<{
   data: GraphData
@@ -15,6 +21,7 @@ const node = computed(() => props.data.nodes.find((n) => n.id === selected.value
 
 const emit = defineEmits<{
   setIndependence: [id: string, level: IndependenceLevel]
+  addLink: [source: string, target: string]
 }>()
 
 // the parent owns the graph data, so slider changes are handed up instead of written here
@@ -34,35 +41,35 @@ const nodeNotes = computed({
     if (selected.value) notes.value = { ...notes.value, [selected.value]: text }
   },
 })
+const parents = computed(() => (selected.value ? parentIds(props.data, selected.value) : []))
+const children = computed(() => (selected.value ? childIds(props.data, selected.value) : []))
 
-// placeholder until a real summary is generated
-const aiSummary =
-  'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.'
-
-// force-graph replaces link source/target ids with the node objects once it has run
-function endpointId(end: GraphLink['source']): string {
-  return typeof end === 'object' ? (end as GraphNode).id : String(end)
+// nodes that can be linked without duplicating a link or creating a cycle
+function linkCandidates(direction: 'up' | 'down', existing: string[]): string[] {
+  const id = selected.value
+  if (!id) return []
+  // a new parent must not already be below this node, and a new child not above it
+  const blocked = reachableIds(props.data, id, direction === 'up' ? 'down' : 'up')
+  return props.data.nodes
+    .map((n) => n.id)
+    .filter((other) => other !== id && !existing.includes(other) && !blocked.has(other))
 }
 
-function unique(ids: string[]): string[] {
-  return [...new Set(ids)]
+const parentCandidates = computed(() => linkCandidates('up', parents.value))
+const childCandidates = computed(() => linkCandidates('down', children.value))
+
+// the select is reset to its placeholder after each pick
+function addParent(event: Event) {
+  const select = event.target as HTMLSelectElement
+  if (selected.value && select.value) emit('addLink', select.value, selected.value)
+  select.value = ''
 }
 
-const parents = computed(() =>
-  unique(
-    props.data.links
-      .filter((l) => endpointId(l.target) === selected.value)
-      .map((l) => endpointId(l.source)),
-  ),
-)
-
-const children = computed(() =>
-  unique(
-    props.data.links
-      .filter((l) => endpointId(l.source) === selected.value)
-      .map((l) => endpointId(l.target)),
-  ),
-)
+function addChild(event: Event) {
+  const select = event.target as HTMLSelectElement
+  if (selected.value && select.value) emit('addLink', selected.value, select.value)
+  select.value = ''
+}
 </script>
 
 <template>
@@ -77,7 +84,10 @@ const children = computed(() =>
       <dl>
         <dt>Independence Level</dt>
         <dd>
-          <IndependenceSlider v-model="independence" />
+          <IndependenceSlider v-model="independence" :disabled="children.length > 0" />
+          <span v-if="children.length" class="empty">
+            Average of {{ children.length }} {{ children.length === 1 ? 'child' : 'children' }}
+          </span>
         </dd>
 
         <dt>Parents ({{ parents.length }})</dt>
@@ -88,6 +98,10 @@ const children = computed(() =>
             </li>
           </ul>
           <span v-else class="empty">None</span>
+          <select v-if="parentCandidates.length" class="add-link" @change="addParent">
+            <option value="">Add parent…</option>
+            <option v-for="id in parentCandidates" :key="id" :value="id">{{ id }}</option>
+          </select>
         </dd>
 
         <dt>Children ({{ children.length }})</dt>
@@ -98,15 +112,20 @@ const children = computed(() =>
             </li>
           </ul>
           <span v-else class="empty">None</span>
+          <select v-if="childCandidates.length" class="add-link" @change="addChild">
+            <option value="">Add child…</option>
+            <option v-for="id in childCandidates" :key="id" :value="id">{{ id }}</option>
+          </select>
         </dd>
       </dl>
 
       <section>
         <h4>
           AI Summary
-          <span class="badge">Generated</span>
+          <span v-if="node.summary" class="badge">Generated</span>
         </h4>
-        <p class="ai-summary">{{ aiSummary }}</p>
+        <p v-if="node.summary" class="ai-summary">{{ node.summary }}</p>
+        <p v-else class="empty">No summary generated yet.</p>
       </section>
 
       <section>
@@ -157,6 +176,12 @@ ul {
 
 a {
   text-decoration: underline;
+}
+
+.add-link {
+  display: block;
+  margin-top: 0.25rem;
+  max-width: 100%;
 }
 
 .empty {
