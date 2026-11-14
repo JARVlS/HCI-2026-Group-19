@@ -1,0 +1,10 @@
+name = "hci-2026-group-19-api"
+main = "src/main.py"
+compatibility_date = "2026-11-14"
+compatibility_flags = ["python_workers"]
+
+# Plain config values, readable in routes via request.scope["env"].
+# Put secrets (API keys) in the dashboard or `uv run pywrangler secret put NAME`,
+# and locally in .dev.vars (gitignored).
+[vars]
+ENVIRONMENT = "production"
