@@ -37,7 +37,7 @@ Cloudflare: **Workers & Pages → Create → Worker → Import a repository**, t
 | Deploy command | `uv run pywrangler deploy` |
 | Build watch paths | `backend/*` |
 
-Then set `VITE_API_URL` to the Worker's URL (`https://hci-2026-group-19-api.<account>.workers.dev`)
+Then set `VITE_API_URL` to the Worker's URL (`https://hci-backend.<account>.workers.dev`)
 in the **Pages** project's environment variables and redeploy the frontend.
 
 **CORS:** `src/main.py` allows `localhost:5173` and `*.hci-2026-group-19.pages.dev`. Change

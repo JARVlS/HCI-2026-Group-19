@@ -1,4 +1,4 @@
-name = "hci-2026-group-19-api"
+name = "hci-backend"
 main = "src/main.py"
 compatibility_date = "2026-11-14"
 compatibility_flags = ["python_workers"]
