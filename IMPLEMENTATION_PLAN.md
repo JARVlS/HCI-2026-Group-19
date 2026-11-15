@@ -136,7 +136,7 @@ export interface ConceptAttempt {
   supersededBy?: Id;                // relabels never delete; they supersede (keeps study data)
   createdAt: ISO;
 }
-
+```
 
 /** A tree in the forest = the subtree of the graph below one root concept (until the next tree root).
  *  Trees are NOT 1:1 with chats: one chat can grow several trees, one tree collects many chats.
@@ -429,6 +429,51 @@ If the team prefers to keep the Python Worker: the API contract (§4) is languag
 that works. Then generate the Pydantic models from the JSON Schemas (`datamodel-code-generator`)
 instead of hand-mirroring them, and keep the M0 SSE spike mandatory.
 
+### ADR-13 One navigation model; the radial menu is a client of it
+Today views are scattered state flags (`forest.open`, `panelOpen`, `onboarding`…), and there's
+no URL per view. Introduce **one** model in `lib/nav.ts`, used by the radial menu, `/commands`,
+squirrel actions, links in the forest, and the browser back button:
+```ts
+type View =
+  | { kind: 'chat'; conversationId: Id; messageId?: Id }   // #/chat/<id>[/<msg>]
+  | { kind: 'chats' }                                       // #/chats
+  | { kind: 'forest'; treeId?: Id }                         // #/forest[/<tree>]
+  | { kind: 'tree'; treeId: Id; layout?: 'plant' | 'outline' } // #/tree/<id>
+  | { kind: 'graph' }                                       // #/graph (M5, optional)
+  | { kind: 'study'; conceptId?: Id }                       // #/study[/<concept>]
+  | { kind: 'concepts' }                                    // the "?" sheet
+  | { kind: 'settings'; section?: 'model' | 'nudges' | 'appearance' };
+navigate(view: View, opts?: { replace?: boolean }): void    // hash routing; no router library needed
+```
+URL params for the study (`?pid&cond&…`) stay in the query string; the hash only holds the view.
+
+**Radial navigation (interaction concept #11, "marking menu").**
+- **Trigger:** hold **Alt/Option** ≥ 180 ms with no other key → the menu opens centred on the
+  pointer (keyboard-only, or pointer outside the window: centred on the caret, else the viewport).
+  Move toward a wedge and **release Alt to go there**; release in the centre dead zone or press
+  `Esc` to cancel. **Experts don't wait:** Alt + a quick flick + release selects without drawing
+  the menu (Kurtenbach & Buxton's marking menus). Selection is by direction, not distance, so
+  every target is effectively large (Fitts's law). This gives a novice → expert path in the
+  report's rationale.
+- **Must not break typing.** These rules are the acceptance tests:
+  - **Ignore AltGr** (`e.getModifierState('AltGraph')`, or Ctrl+Alt on Windows). Swiss and German
+    layouts type `@ # [ ] { } \ |` with it, so this is critical for our users.
+  - Any other key pressed while Alt is down (Option+⌫, Option+←, Alt+Tab, shortcuts) cancels
+    the gesture, and the key keeps its normal meaning.
+  - Cancel on `blur` / `visibilitychange` (Alt+Tab away).
+  - `preventDefault` on the lone Alt keyup only when the menu was used, so Firefox
+    (Windows/Linux) doesn't focus its menu bar.
+- **Items:** max **8 wedges** (directional reliability drops beyond 8), stable positions so
+  muscle memory forms. Proposed: ↑ chat · ↗ chats · → tree · ↘ forest · ↓ study · ↙ graph/concepts ·
+  ← settings · ↖ new chat. One level of nesting at most: hovering *chats* for 300 ms fans out the
+  5 most recent chats as a second ring. Context-dependent items are **not** allowed; positions
+  never move.
+- **Look:** ASCII design tokens; a ring of glyphs with lowercase labels, the active wedge in
+  the "you" colour, the current view marked. `prefers-reduced-motion`: no scale-in animation.
+- **Accessibility and touch:** while it's open, arrow keys or `1`–`8` pick a wedge and Enter
+  confirms. Every target stays reachable via `/` commands and the modeline lists `alt nav`.
+  Touch: long-press on empty canvas opens the same menu (no Alt key on iOS).
+
 ---
 
 ## 4. API contract (backend ↔ frontend)
@@ -576,6 +621,20 @@ provider (success, error, abort).
 lists both under "grown in"; a leaf touched in both offers both messages and jumps correctly into
 either chat. Offline edits sync after reconnect.
 
+### M2b Navigation model and radial menu (FE, Nov 23–27) ⇢ M1 (needs views from M2 as they land)
+- [ ] `lib/nav.ts` (ADR-13): `View`, hash routing, `navigate()`, back/forward. Migrate
+      `forest.open`, `panelOpen`, the `?` sheet, settings and the chat list onto it. `/forest`,
+      `/chats`, etc. call `navigate()`.
+- [ ] `designs/ascii/Radial.tsx` + `lib/useAltGesture.ts`: trigger, direction picking, flick
+      selection, nested *chats* ring, keyboard and touch fallbacks, per ADR-13.
+- [ ] Tests for the gesture hook (fake timers + synthetic key/pointer events): AltGr ignored,
+      Alt+other key cancels, blur cancels, the flick path selects without opening.
+- [ ] Add to the `?` concepts sheet (#11, *try → hold alt*) and to the modeline.
+
+*Acceptance:* on a Swiss German layout, typing `@`, `{`, `|` in the composer never opens the
+menu; Option+⌫ deletes a word on macOS; every view can be reached in one gesture and returned
+from with the browser back button.
+
 ### M3 Live chat via backend Claude (BE + FE, Nov 20–25) ⇢ M0 SSE spike, M1
 **BE**
 - [ ] `POST /ai/complete`: task allowlist, model per task from env, `max_tokens` cap, budget check
@@ -654,6 +713,7 @@ message mode (tune prompts until it is, or report honestly).
 - [ ] Event log (`lib/telemetry.ts` → `POST /events`): `turn_sent`, `analysis_shown`,
       `relabel`, `veil_shown`, `reveal` (guess length, time-to-reveal), `veil_skip`,
       `nudge_shown`/`nudge_action`, `quiz_answer` (correctness), `forest_open`, `scrubber_move`,
+      `nav` (from → to, via `radial`|`radial_flick`|`command`|`click`, time-to-select),
       `task_start`/`task_end`. Each event has `pid`, `cond`, `clientTs`, `conversationId`.
 - [ ] Study task script: fixed topic plus seed subject; **live Claude via the `arbor` relay**
       (decided), with fixed models per task and temperature 0 for analysis; a session timer.
@@ -720,7 +780,9 @@ and a local Ollama model, with no request to our backend except `/sync`.
    forest?
 6. **Consent and data (M6):** transcripts land in D1. We need a consent line in the protocol,
    and should delete the study data after grading.
-7. **Demo Day date:** decides whether M7 (BYOK) lands before or after it.
+7. **Radial items (M2b):** are the 8 proposed wedges right? It's the same menu in both conditions
+   (not part of the IV).
+8. **Demo Day date:** decides whether M7 (BYOK) lands before or after it.
 
 **Decided:** the study runs on live Claude through the backend relay (department credits);
 ChatGPT sign-in is not viable for the hosted app, so BYOK covers "use your own model" (M7) and
@@ -739,5 +801,7 @@ ChatGPT plan usage moves to the desktop shell (S2).
   `request.scope["env"]`.
 - Keep the ASCII design's vocabulary: lowercase UI copy, glyph language `●◑○`, keyboard-first,
   every new action reachable via `/command`, and listed in the modeline and the `?` sheet.
+- Views change only through `navigate()` (ADR-13). A new view = a new `View` kind + hash route +
+  (if top-level) a radial wedge, never another boolean in the store.
 - `classic` must compile; don't add features to it.
 - Update `frontend/README.md` / `backend/README.md` and this file's checkboxes in the same PR.
