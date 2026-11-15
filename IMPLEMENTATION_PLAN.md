@@ -136,7 +136,7 @@ export interface ConceptAttempt {
   supersededBy?: Id;                // relabels never delete; they supersede (keeps study data)
   createdAt: ISO;
 }
-```
+
 
 /** A tree in the forest = the subtree of the graph below one root concept (until the next tree root).
  *  Trees are NOT 1:1 with chats: one chat can grow several trees, one tree collects many chats.
