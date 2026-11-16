@@ -16,7 +16,7 @@ stop() {
 }
 trap stop EXIT
 
-uv run pywrangler d1 migrations apply arbor --local --persist-to "$STATE" > /dev/null
+uv run pywrangler d1 migrations apply hci-grp19 --local --persist-to "$STATE" > /dev/null
 uv run python tests/fake_anthropic.py --port 8790 &
 FAKE_PID=$!
 uv run pywrangler dev --port "$PORT" --env-file tests/smoke.env --persist-to "$STATE" > "$LOG" 2>&1 &

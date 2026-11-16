@@ -60,7 +60,7 @@ Setup for T-01 to T-12 (fake Claude, no key needed), in two terminals (the `TOKE
 uv run python tests/fake_anthropic.py --port 8790        # terminal 1
 cp .dev.vars.example .dev.vars                            # then fill in made-up values and
                                                           # ANTHROPIC_BASE_URL=http://127.0.0.1:8790
-uv run pywrangler d1 migrations apply arbor --local
+uv run pywrangler d1 migrations apply hci-grp19 --local
 uv run pywrangler dev                                     # terminal 2 -> http://localhost:8787
 TOKEN=$(curl -s -X POST localhost:8787/api/session -H 'content-type: application/json' -d '{}' | jq -r .token)
 ```
@@ -90,7 +90,7 @@ deployed Worker. Each call costs a fraction of a cent.
 | T-21 | Live chat stream | T-06 with a real question | text arrives word by word; `done` with usage |
 | T-22 | Live analyze on Haiku | T-07 | `output` parses and matches the schema (proves JSON outputs work on `claude-haiku-5-5` with this API version) |
 | T-23 | Live nested schema | `tree` or `quiz` task with the nested schema from `docs/api.md` | valid nested JSON; no `invalid_model_output` |
-| T-24 | Deployed streaming | T-06 against `https://hci-backend.<account>.workers.dev` | deltas arrive spread out, not in one block at the end (only verified locally so far) |
+| T-24 | Deployed streaming | T-06 against `https://hci-backend.leon-grass.workers.dev` | deltas arrive spread out, not in one block at the end (only verified locally so far) |
 | T-25 | Deployed CORS | T-12 from the Pages URL against the deployed Worker | no CORS error |
 | T-26 | CPU time | after T-20 to T-25, Cloudflare dashboard: Workers, `hci-backend`, Metrics, CPU time | below the plan's limit (Free plan: 10 ms per request); no error 1102 "Worker exceeded CPU time limit" in the logs |
 

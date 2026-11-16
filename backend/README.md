@@ -38,7 +38,7 @@ Needs uv ≥ 0.13.4 (`uv self update`) and Node 20+.
 ```bash
 npm install                                        # wrangler, used by pywrangler under the hood
 cp .dev.vars.example .dev.vars                     # fill in values (see "Secrets and vars")
-uv run pywrangler d1 migrations apply arbor --local   # creates the local D1 database
+uv run pywrangler d1 migrations apply hci-grp19 --local   # creates the local D1 database
 uv run pywrangler dev                              # → http://localhost:8787/api/health
 ```
 
@@ -98,20 +98,25 @@ Cloudflare: **Workers & Pages → Create → Worker → Import a repository**, t
 | Root directory | `backend` |
 | Build command | `pip install uv && npm ci` |
 | Deploy command | `uv run pywrangler deploy` |
+
+Pushes to other branches also start a build, which runs `npx wrangler preview` and fails with
+"missing a `previews` block". That red check on a pull request is expected and does not touch the
+deployed Worker. We left the `previews` block out on purpose: it would need a second database, or
+previews would write into the real one.
 | Build watch paths | `backend/*` |
 
-Then set `VITE_API_URL` to the Worker's URL (`https://hci-backend.<account>.workers.dev`)
+Then set `VITE_API_URL` to the Worker's URL (`https://hci-backend.leon-grass.workers.dev`)
 in the **Pages** project's environment variables and redeploy the frontend.
 
 ### First deploy checklist (for whoever has the Cloudflare account)
 
-Merging to `main` deploys automatically, and **the deploy fails until `wrangler.toml` has the real
-D1 id** (the committed id is a placeholder for local dev). So do steps 1 and 2 before or right
-with the merge:
+Merging to `main` deploys automatically. Do steps 3 and 4 before the merge, otherwise the deployed
+endpoints answer with errors until they are done:
 
-1. `npx wrangler login`, then `npx wrangler d1 create arbor`.
-2. Paste the printed `database_id` into `wrangler.toml` (replace the zeros) and commit it.
-3. Apply the schema to the real database: `uv run pywrangler d1 migrations apply arbor --remote`.
+1. The D1 database exists: `hci-grp19` (created 16 Nov 2026).
+2. Its id is in `wrangler.toml`.
+3. `npx wrangler login`, then apply the schema to the real database:
+   `uv run pywrangler d1 migrations apply hci-grp19 --remote`.
    Do this again for every new file in `migrations/`, before the code that needs it goes live.
 4. Set the three secrets (each command asks for the value):
    `uv run pywrangler secret put ANTHROPIC_API_KEY`, `... SESSION_SECRET`, `... ADMIN_TOKEN`.
@@ -121,7 +126,7 @@ with the merge:
    has measured this Worker yet (FastAPI on Pyodide). After the first real calls, look at
    **Workers → hci-backend → Metrics → CPU time**; if requests fail with error 1102 (CPU limit),
    the Paid plan ($5/month) raises the limit.
-6. Check the deployed Worker: `curl https://hci-backend.<account>.workers.dev/api/health`, then the
+6. Check the deployed Worker: `curl https://hci-backend.leon-grass.workers.dev/api/health`, then the
    live checks T-20 to T-26 in [docs/testing.md](docs/testing.md).
 
 **CORS:** `src/app.py` allows `localhost:5173` and `*.hci-2026-group-19.pages.dev`. Change the
