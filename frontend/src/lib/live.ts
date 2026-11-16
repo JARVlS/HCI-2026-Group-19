@@ -18,7 +18,8 @@ export function liveMode(): boolean {
 export const CHAT_SYSTEM =
   `You are the assistant in a study chat called "${LIVE_TREE.chatTitle}". ` +
   'Help the student understand, do not just hand over answers. Be clear and concise: ' +
-  'at most 150 words unless the student asks for more. Use plain Markdown, and put formulas in backticks.';
+  'at most 150 words unless the student asks for more. The chat renders only paragraphs, "- " lists, ' +
+  '**bold** and *italic*: no headings, tables, code or LaTeX. Write formulas in plain text without underscores.';
 
 const CONCEPTS_SYSTEM =
   'You keep the knowledge tree of a study chat. Given the latest exchange, list the 0 to 3 concepts ' +
