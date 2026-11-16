@@ -213,7 +213,7 @@ auth, budget and fixed models. Revisit if this ever goes public.
 
 ### ADR-4 Provider abstraction
 ```ts
-export type ProviderKind = 'scripted' | 'arbor' | 'openai-compatible' | 'chatgpt';
+export type ProviderKind = 'scripted' | 'arbor' | 'anthropic' | 'openai-compatible' | 'chatgpt';
 export interface Provider {
   kind: ProviderKind;
   label: string;
@@ -562,12 +562,12 @@ each time-boxed to half a day, results noted in this file:**
 - [ ] Anthropic call via raw `httpx`/`fetch` (don't depend on the SDK working in Pyodide).
 
 **FE housekeeping:**
-- [ ] Add `vitest`; tests for `classify.ts` (snapshot of the demo prompts), `retention.ts`.
-- [ ] `lib/domain.ts` with the ADR-2 types (types only, unused yet).
-- [ ] Fix stale docs: README says "browser extension concept" and GitHub Pages, but deploy is
+- [x] Add `vitest`; tests for `classify.ts` (snapshot of the demo prompts), `retention.ts`.
+- [x] `lib/domain.ts` with the ADR-2 types (types only, unused yet).
+- [x] Fix stale docs: README says "browser extension concept" and GitHub Pages, but deploy is
       Cloudflare Pages; `frontend/workflows/deploy.yml` is not in `.github/` so it never runs.
-      Delete it or move it.
-- [ ] Commit or revert the stray `frontend/package-lock.json` change on `main`.
+      Delete it or move it. *(Deleted; Pages deploys through its Git integration.)*
+- [x] Commit or revert the stray `frontend/package-lock.json` change on `main`. *(Already clean.)*
 
 ### M1 Store refactor and provider seam (FE, Nov 17–21) ⇢ M0
 - [ ] Normalize state: `conversations`, `messagesByConv`, `concepts`, `edges`, `attempts`,

@@ -1,0 +1,105 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`classify: demo prompts > Give me a hint: how does the learning rate affect training? 1`] = `
+{
+  "confidence": 0.685,
+  "evidence": [
+    {
+      "end": 14,
+      "mode": "together",
+      "reason": "Asks for a hint rather than the answer",
+      "start": 10,
+    },
+    {
+      "end": 4,
+      "mode": "ai",
+      "reason": "Starts with “Give” — asks the AI to produce it — but framed as a question to explore",
+      "start": 0,
+    },
+  ],
+  "mode": "together",
+  "reasons": [
+    "Asks for a hint rather than the answer",
+    "Starts with “Give” — asks the AI to produce it — but framed as a question to explore",
+  ],
+}
+`;
+
+exports[`classify: demo prompts > I think overfitting is when the model memorizes the training data instead of learning the pattern 1`] = `
+{
+  "confidence": 0.7000000000000001,
+  "evidence": [
+    {
+      "end": 7,
+      "mode": "own",
+      "reason": "Shares your own view (“I think”)",
+      "start": 0,
+    },
+  ],
+  "mode": "own",
+  "reasons": [
+    "Shares your own view (“I think”)",
+  ],
+}
+`;
+
+exports[`classify: demo prompts > Quiz me on the loss function 1`] = `
+{
+  "confidence": 0.73,
+  "evidence": [
+    {
+      "end": 7,
+      "mode": "together",
+      "reason": "Asks the AI to test you",
+      "start": 0,
+    },
+  ],
+  "mode": "together",
+  "reasons": [
+    "Asks the AI to test you",
+  ],
+}
+`;
+
+exports[`classify: demo prompts > What is dropout? 1`] = `
+{
+  "confidence": 0.655,
+  "evidence": [
+    {
+      "end": 7,
+      "mode": "ai",
+      "reason": "Looks up a fact for you",
+      "start": 0,
+    },
+  ],
+  "mode": "ai",
+  "reasons": [
+    "Looks up a fact for you",
+  ],
+}
+`;
+
+exports[`classify: demo prompts > Write me a summary of backpropagation for my exam 1`] = `
+{
+  "confidence": 0.8200000000000001,
+  "evidence": [
+    {
+      "end": 5,
+      "mode": "ai",
+      "reason": "Starts with “Write” — asks the AI to produce it",
+      "start": 0,
+    },
+    {
+      "end": 18,
+      "mode": "ai",
+      "reason": "Asks for a finished result (“summary”)",
+      "start": 11,
+    },
+  ],
+  "mode": "ai",
+  "reasons": [
+    "Starts with “Write” — asks the AI to produce it",
+    "Asks for a finished result (“summary”)",
+  ],
+}
+`;

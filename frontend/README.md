@@ -1,11 +1,11 @@
 # Arbor — high-fidelity prototype
 
-Arbor is a browser extension concept for LLM chats. It does two things:
+Arbor is a web app for learning with LLM chats. It looks like an overlay on a chat, and it does two things:
 
 1. **Awareness: who is doing the thinking?** Every prompt is labelled as *your thinking* ●, *thinking together* ◑ or *delegated to AI* ○. Before you delegate, Arbor can offer a gentle speed bump: add your own take first.
 2. **Organisation: a knowledge tree, zoomable to a forest.** Each concept you touch becomes a leaf on the conversation's tree. Filled leaves are ideas you reasoned through yourself; hollow leaves are still the AI's. Zoom out to see all your conversations as a forest, grouped into groves and connected by roots (shared concepts).
 
-The prototype simulates the extension on top of a generic chat app inside a mock browser window. The assistant's answers are scripted ("Wizard of Oz"), so the prototype runs offline and behaves the same way for every test participant.
+The prototype shows Arbor on top of a generic chat app inside a mock browser window. For now the assistant's answers are scripted ("Wizard of Oz"), so the prototype runs offline and behaves the same way for every test participant. The plan for making it live (real LLM, persistence, study setup) is in [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md).
 
 ## Design styles
 
@@ -40,16 +40,19 @@ Press `?` in the app for the same list, each with a *try it* button that sets up
 ```bash
 npm install
 npm run dev        # → http://localhost:5173
-npm run build      # static build in dist/ (deployable to GitHub Pages, Netlify, …)
+npm run build      # type-check (tsc) + static build in dist/
+npm test           # unit tests (vitest); npm run test:watch while developing
 ```
 
-Requires Node 20+.
+Requires Node 22.12+ (`.node-version` pins 22).
 
-## Deploy (GitHub Pages)
+Tests sit next to the code they test (`src/lib/*.test.ts`). `classify.test.ts` snapshots the linter's output for the demo prompts; if you change a rule on purpose, update the snapshot with `npx vitest run -u` and check the diff.
 
-Every push to `main` builds the app and publishes it via `.github/workflows/deploy.yml`. The live prototype is at `https://<user>.github.io/<repo>/`; append the URL parameters below to set up test conditions.
+## Deploy (Cloudflare Pages)
 
-One-time setup: in the GitHub repo, go to **Settings → Pages** and set **Source** to **GitHub Actions**.
+The app is the Cloudflare Pages project `hci-2026-group-19` (see `wrangler.toml`), connected to this GitHub repo: every push to `main` builds and deploys it, and other branches get preview URLs. The live prototype is at https://hci-2026-group-19.pages.dev; append the URL parameters below to set up test conditions.
+
+Pages project settings: root directory `frontend`, build command `npm run build`, output directory `dist`. The environment variable `VITE_API_URL` points at the backend Worker (locally it comes from `.env.development`).
 
 ## Demo script, ASCII style (≈ 3 minutes)
 
@@ -139,11 +142,14 @@ src/
   App.tsx                 one store, then the chosen design (lazy-loaded, so only its CSS is on the page)
   lib/                    shared by every design
     store.tsx             state (reducer + context), send/stream flow, veil/reveal, derived live tree
+    types.ts              render contract the designs consume (TreeData, Branch, Leaf, ChatMessage, …)
+    domain.ts             canonical data model (concepts, attempts, trees; ADR-2), not wired up yet
     classify.ts           rule-based "who's thinking" classifier with explanations and evidence spans
     engine.ts             scripted assistant
     retention.ts          illustrative forgetting model
     asciiTree.ts          the tree on a character grid: botanical layout and outline
     layout.ts, camera.ts  SVG tree + forest layout and camera (classic)
+    *.test.ts             unit tests (vitest)
   data/
     scenario.ts           live conversation script
     forest.ts             past trees
