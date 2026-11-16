@@ -120,6 +120,21 @@ def test_budget_of_yesterday_and_other_users_does_not_count(client, env, upstrea
     assert client.post("/api/ai/complete", json=chat(), headers=session["headers"]).status_code == 200
 
 
+def test_total_budget_counts_all_users_and_all_days(upstream):
+    env = make_env(TOTAL_TOKEN_BUDGET="1000")
+    with build_client(env, upstream) as client:
+        headers = {"Authorization": f"Bearer {client.post('/api/session', json={}).json()['token']}"}
+        env.DB.conn.execute("INSERT INTO usage VALUES ('someone-else', '2000-01-01', 'chat', 600, 399)")
+        upstream.reply_message("ok", input_tokens=1, cache_read=0, output_tokens=0)
+        assert client.post("/api/ai/complete", json=chat(), headers=headers).status_code == 200
+        response = client.post("/api/ai/complete", json=chat(), headers=headers)
+    assert response.status_code == 429
+    error = response.json()["error"]
+    assert error["code"] == "total_budget_exceeded"
+    assert "1000 of 1000" in error["message"]
+    assert len(upstream.requests) == 1
+
+
 def test_refusal_is_502_and_still_recorded(client, env, upstream, session):
     upstream.reply_message("", stop_reason="refusal", input_tokens=4, cache_read=0, output_tokens=0)
     response = client.post("/api/ai/complete", json=chat(), headers=session["headers"])

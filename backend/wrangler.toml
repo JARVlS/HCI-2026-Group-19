@@ -17,12 +17,20 @@ migrations_dir = "migrations"
 # `uv run pywrangler secret put NAME` or the dashboard, and locally .dev.vars (gitignored).
 [vars]
 ENVIRONMENT = "production"
-MODEL_CHAT = "claude-sonnet-5-5"
-MODEL_ANALYZE = "claude-haiku-5-5"
+# Stopgap since 16 Nov 2026, until the group's own Anthropic key exists: the model API is Claude in
+# Amazon Bedrock (same Messages API, key in the secret ANTHROPIC_API_KEY). That account has no
+# Sonnet 5.5 and no Haiku 5.5, so both tasks run on Sonnet 5. With an Anthropic key switch back to:
+#   MODEL_CHAT = "claude-sonnet-5-5", MODEL_ANALYZE = "claude-haiku-5-5",
+#   ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+MODEL_CHAT = "anthropic.claude-sonnet-5"
+MODEL_ANALYZE = "anthropic.claude-sonnet-5"
 EFFORT_CHAT = "low"
 EFFORT_ANALYZE = "low"
 MAX_TOKENS_CHAT = "4096"
 MAX_TOKENS_JSON = "4096"
 MAX_INPUT_CHARS = "200000"
 DAILY_TOKEN_BUDGET = "200000"
-ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+# All users together, never resets. 900 000 tokens cost at most 10 USD on Sonnet 5 through Bedrock
+# (worst case: every token billed as output at 11 USD per million). Raise it when the money is there.
+TOTAL_TOKEN_BUDGET = "900000"
+ANTHROPIC_BASE_URL = "https://bedrock-mantle.us-east-1.api.aws/anthropic"

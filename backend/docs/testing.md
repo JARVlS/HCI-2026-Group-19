@@ -76,13 +76,15 @@ TOKEN=$(curl -s -X POST localhost:8787/api/session -H 'content-type: application
 | T-07 | Analyze | analyze `curl` from `docs/api.md` | `output` is a JSON object that matches the schema, `model` `claude-haiku-5-5` |
 | T-08 | Validation | chat request with a `"schema"`; analyze without one; `"model":"x"` added | 422 `invalid_request`, the message names the problem |
 | T-09 | Budget | set `DAILY_TOKEN_BUDGET=1` in `.dev.vars`, restart dev, new token, two chat calls | first 200, second 429 `budget_exceeded` with the reset time |
+| T-13 | Total budget | set `TOTAL_TOKEN_BUDGET=1` in `.dev.vars`, restart dev, new token, two chat calls | first 200, second 429 `total_budget_exceeded` |
 | T-10 | Events | events `curl` from `docs/api.md` twice | `stored: 1`, then `stored: 0` |
 | T-11 | Export | `curl -s 'localhost:8787/api/admin/export?table=events' -H 'x-admin-token: <ADMIN_TOKEN from .dev.vars>'`, then with a wrong token | CSV with header row and the event from T-10; wrong token 403 |
 | T-12 | CORS from the frontend | run the frontend (`npm run dev` in `frontend/`), open the browser console on `localhost:5173`: `await (await fetch('http://localhost:8787/api/session', {method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'})).json()` | returns `userId` and `token`, no CORS error |
 
-**Live Claude checks (need the group API key; nobody has run them yet).** Put the real key into
-`.dev.vars` as `ANTHROPIC_API_KEY` and remove the `ANTHROPIC_BASE_URL` line, or run against the
-deployed Worker. Each call costs a fraction of a cent.
+**Live Claude checks (need a real key).** Put the key into `.dev.vars` as `ANTHROPIC_API_KEY` and
+remove the `ANTHROPIC_BASE_URL` line, or run against the deployed Worker. Each call costs a
+fraction of a cent. T-20 to T-23 passed on 16 Nov 2026 through the Bedrock stopgap (Sonnet 5); with
+an Anthropic key and the planned models they have to be run again.
 
 | ID | Test | Steps | Expected |
 |---|---|---|---|
@@ -102,6 +104,8 @@ ID in the table below. Write what you actually saw, not what you expected.
 | Date | Tester | Test ID | Commit | Expected | Actual | Pass/fail | Notes |
 |---|---|---|---|---|---|---|---|
 | 2026-11-16 | Claude (for Salomon) | smoke (`tests/smoke.sh`) | `e55729d` | `23 passed, 0 failed` | `23 passed, 0 failed`; 9 deltas at 0.32 s to 2.71 s | pass | local `pywrangler dev` (wrangler 4.162.0) with the fake Claude API; deployed Worker and live Claude not tested |
+| 2026-11-16 | Claude (for Salomon) | T-20, T-21, T-22, T-23 | `9b457cf` + total budget | real answers; stream in pieces; JSON matches the schemas | all four 200 on `anthropic.claude-sonnet-5`; stream: 53 deltas over 2.2 s, then `done`; flat and nested JSON valid | pass | local `pywrangler dev` against Claude in Amazon Bedrock (stopgap); not yet on the deployed Worker; not on the planned models |
+| 2026-11-16 | Claude (for Salomon) | smoke (`tests/smoke.sh`) | `9b457cf` + total budget | `23 passed, 0 failed` | `23 passed, 0 failed` | pass | after adding `TOTAL_TOKEN_BUDGET`; 92 automatic tests pass |
 
 Rule: every PR that adds or changes an endpoint adds or updates its test ID in section 3 (and an
 automatic test), and adds a row here with the result of its own run.

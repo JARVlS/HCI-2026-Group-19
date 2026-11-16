@@ -72,16 +72,17 @@ the Worker bundle (pywrangler bundles only `[project.dependencies]`, see `pylock
 
 | Name | Kind | What |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | secret | the group's Claude API key |
+| `ANTHROPIC_API_KEY` | secret | the key for the model API (today a Bedrock key, see the stopgap note in docs/api.md "Budget and cost") |
 | `SESSION_SECRET` | secret | signs session tokens; changing it logs everybody out |
 | `ADMIN_TOKEN` | secret | for `/api/admin/export` |
 | `ENVIRONMENT` | var | shown by `/api/health` |
-| `MODEL_CHAT`, `MODEL_ANALYZE` | var | `claude-sonnet-5-5` for chat, `claude-haiku-5-5` for analyze/tree/quiz |
+| `MODEL_CHAT`, `MODEL_ANALYZE` | var | planned: `claude-sonnet-5-5` for chat, `claude-haiku-5-5` for analyze/tree/quiz; today both `anthropic.claude-sonnet-5` (Bedrock stopgap) |
 | `EFFORT_CHAT`, `EFFORT_ANALYZE` | var | how much Claude thinks: `low` (also `medium`, `high`) |
 | `MAX_TOKENS_CHAT`, `MAX_TOKENS_JSON` | var | output cap per call (4096); thinking counts against it |
 | `MAX_INPUT_CHARS` | var | max characters of system + messages per call (200000) |
 | `DAILY_TOKEN_BUDGET` | var | tokens per user per UTC day (200000), see docs/api.md "Budget and cost" |
-| `ANTHROPIC_BASE_URL` | var | `https://api.anthropic.com`; locally the fake API |
+| `TOTAL_TOKEN_BUDGET` | var | tokens for all users together, never resets (900000, at most 10 USD) |
+| `ANTHROPIC_BASE_URL` | var | planned: `https://api.anthropic.com`; today the Bedrock endpoint; locally the fake API |
 
 Vars live in `[vars]` in `wrangler.toml`. Secrets never go in a file that is committed: on Cloudflare
 use `uv run pywrangler secret put NAME` (or the Worker's settings in the dashboard), locally

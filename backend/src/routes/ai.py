@@ -30,7 +30,7 @@ async def complete(
     upstream: Annotated[Upstream, Depends(get_upstream)],
 ) -> Any:
     """Relay one call to Claude. The server picks model, max_tokens and effort per task and
-    enforces the per-user daily token budget. See docs/api.md for the SSE format."""
+    enforces the per-user daily token budget and the project's total token budget. See docs/api.md for the SSE format."""
     api_key = secret(env, "ANTHROPIC_API_KEY")
     if body.input_chars() > settings.max_input_chars:
         raise ApiError(
@@ -46,6 +46,13 @@ async def complete(
             429, "budget_exceeded",
             f"Daily token budget used up ({used} of {settings.daily_token_budget} tokens)."
             f" It resets at {reset}T00:00:00Z (midnight UTC).",
+        )
+    total = await db.tokens_used_total(env.DB)
+    if total >= settings.total_token_budget:
+        raise ApiError(
+            429, "total_budget_exceeded",
+            f"The project's total token budget is used up ({total} of {settings.total_token_budget} tokens,"
+            " all users together). It does not reset; the team has to raise TOTAL_TOKEN_BUDGET.",
         )
 
     model = llm.model_for(body.task, settings)
