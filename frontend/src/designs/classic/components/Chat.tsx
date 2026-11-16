@@ -2,6 +2,7 @@ import { ArrowUp, FlaskConical, Lightbulb, PenLine, Sparkles, X } from 'lucide-r
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CONCEPT_BY_ID, DEMO_PROMPTS, LIVE_TREE } from '../../../data/scenario';
 import { useDismiss } from '../../../lib/hooks';
+import { liveMode } from '../../../lib/live';
 import { MODES, MODE_META, pct } from '../../../lib/modes';
 import { useStore } from '../../../lib/store';
 import type { ChatMessage, Classification } from '../../../lib/types';
@@ -384,7 +385,9 @@ function Composer() {
           </button>
         </div>
       </form>
-      <p className="fineprint">Prototype — the assistant’s answers are scripted.</p>
+      <p className="fineprint">
+        {liveMode() ? 'Prototype — live answers from Claude through the Arbor backend.' : 'Prototype — the assistant’s answers are scripted.'}
+      </p>
     </div>
   );
 }
