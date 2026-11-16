@@ -90,8 +90,26 @@ Pages project settings: root directory `frontend`, build command `npm run build`
 | `?mascot=0` / `?mascot=1` | hide / show the squirrel (e.g. to test whether it changes behaviour) |
 | `?design=ascii\|classic` | design style (the choice is remembered) |
 | `?layout=outline` | ASCII style: start with the outline view of the tree |
+| `?live=1` | live mode: the assistant is Claude through the backend, the chat starts empty (see below) |
 
 Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=active`. In the ASCII style, `nudge=gentle` gives the linter only and `nudge=active` adds predict → reveal.
+
+## Live mode (`?live=1`)
+
+With `?live=1` the answers come from Claude through the backend relay (`backend/docs/api.md`)
+instead of the scripted assistant. It works in both design styles, because it lives in the store:
+
+- `src/lib/arbor.ts` keeps an anonymous session (`POST /api/session`, token in localStorage) and
+  calls `POST /api/ai/complete`: the chat answer as a stream, structured answers as JSON.
+- `src/lib/live.ts` holds the two prompts. After each answer one structured call asks which
+  concepts the turn was about, and those become leaves on the tree. Branches are made up by the
+  model, so they differ from the scripted scenario.
+- The prompt classifier ("who did the thinking") is still the local heuristic in `classify.ts`.
+- Not in live mode yet: quizzes, "make it yours" and the past trees in the forest, which all
+  depend on the scripted concept list. Study events are not sent to `/api/events` yet.
+
+The backend URL comes from `VITE_API_URL` (`.env.development` locally, `.env.production` for
+builds). If a call fails, the reason shows in the chat (for example a used-up budget).
 
 ## Where to change things
 

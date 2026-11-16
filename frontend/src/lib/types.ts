@@ -30,6 +30,8 @@ export interface ChatMessage {
   /** Concepts this exchange touched. */
   conceptIds: string[];
   streaming?: boolean;
+  /** Assistant only, live mode: the call failed and `text` is the reason (not sent back to the model). */
+  failed?: boolean;
   /** Assistant only: concept the "Make it yours" actions refer to. */
   reflectOn?: string;
   /** Assistant only: the answer is hidden until the user guesses or reveals it (predict → reveal). */

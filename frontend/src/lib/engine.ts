@@ -153,6 +153,9 @@ export function respond({ text, mode, pendingQuiz, known }: EngineInput): Engine
   };
 }
 
+/** Prefix of branch ids made in live mode (lib/live.ts): the rest of the id is the label. */
+export const LIVE_BRANCH = 'live:';
+
 export function branchLabel(id: string) {
-  return BRANCHES[id] ?? 'Side questions';
+  return BRANCHES[id] ?? (id.startsWith(LIVE_BRANCH) ? id.slice(LIVE_BRANCH.length) : 'Side questions');
 }

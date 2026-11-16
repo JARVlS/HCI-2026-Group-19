@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
-import { BRANCHES, CONCEPT_BY_ID, LIVE_TREE, SEED } from '../data/scenario';
+import { CONCEPT_BY_ID, LIVE_TREE, SEED } from '../data/scenario';
+import { chat, type Turn } from './arbor';
 import { classify } from './classify';
-import { looksLikeQuizAnswer, respond, type TouchedConcept } from './engine';
+import { branchLabel, looksLikeQuizAnswer, respond, type TouchedConcept } from './engine';
+import { CHAT_SYSTEM, conceptsOf, liveMode } from './live';
 import { MODE_SCORE } from './modes';
 import type { ChatMessage, Classification, LiveConcept, Mode, Settings, TreeData } from './types';
 
@@ -28,6 +30,8 @@ type Action =
   | { type: 'assistantStart'; msg: ChatMessage; concepts: TouchedConcept[]; userId: string; pendingQuiz: string | null }
   | { type: 'stream'; id: string; text: string }
   | { type: 'assistantDone'; id: string }
+  | { type: 'assistantFailed'; id: string; text: string }
+  | { type: 'touch'; userId: string; assistantId: string; concepts: TouchedConcept[] }
   | { type: 'reclassify'; id: string; mode: Mode }
   | { type: 'reveal'; id: string; guess: string }
   | { type: 'settings'; patch: Partial<Settings> }
@@ -127,7 +131,8 @@ function init(): State {
   const design = p.get('design');
   if (design === 'ascii' || design === 'classic') settings.design = design;
   return {
-    ...(p.get('empty') === '1' ? { messages: [], concepts: {} } : seedState()),
+    // Live mode starts empty: the seeded turns are scripted answers.
+    ...(p.get('empty') === '1' || liveMode() ? { messages: [], concepts: {} } : seedState()),
     pendingQuiz: null,
     busy: false,
     settings,
@@ -160,6 +165,20 @@ function reducer(s: State, a: Action): State {
       return { ...s, messages: s.messages.map((m) => (m.id === a.id ? { ...m, text: a.text } : m)) };
     case 'assistantDone':
       return { ...s, busy: false, messages: s.messages.map((m) => (m.id === a.id ? { ...m, streaming: false } : m)) };
+    case 'assistantFailed':
+      return {
+        ...s,
+        busy: false,
+        messages: s.messages.map((m) => (m.id === a.id ? { ...m, text: a.text, streaming: false, failed: true } : m)),
+      };
+    case 'touch': {
+      const ids = a.concepts.map((c) => c.id);
+      return {
+        ...s,
+        messages: s.messages.map((m) => (m.id === a.userId || m.id === a.assistantId ? { ...m, conceptIds: ids } : m)),
+        concepts: addTouches(s.concepts, a.concepts, a.userId),
+      };
+    }
     case 'reclassify':
       return {
         ...s,
@@ -238,7 +257,7 @@ export function buildLiveTree(s: Pick<State, 'messages' | 'concepts'>): TreeData
     live: true,
     branches: branchOrder.map((bid) => ({
       id: bid,
-      label: BRANCHES[bid] ?? 'Side questions',
+      label: branchLabel(bid),
       leaves: concepts
         .filter((c) => c.branchId === bid)
         .map((c) => ({
@@ -293,6 +312,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return classify(text, { pendingQuiz: looksLikeQuizAnswer(text, pq) ? pq : null });
   }, []);
 
+  /** Live mode: stream Claude's answer through the relay, then grow the tree from the turn. */
+  const sendLive = useCallback(async (s: State, user: ChatMessage, veil?: boolean) => {
+    const aid = newId('a');
+    dispatch({
+      type: 'assistantStart',
+      userId: user.id,
+      concepts: [],
+      pendingQuiz: null,
+      msg: { id: aid, role: 'assistant', text: '', conceptIds: [], streaming: true, veiled: veil || undefined },
+    });
+    const history: Turn[] = [...s.messages.filter((m) => m.text && !m.failed), user].map((m) => ({
+      role: m.role,
+      content: m.text,
+    }));
+    let reply = '';
+    try {
+      await chat({ system: CHAT_SYSTEM, messages: history }, (text) => {
+        reply += text;
+        dispatch({ type: 'stream', id: aid, text: reply });
+      });
+    } catch (e) {
+      dispatch({ type: 'assistantFailed', id: aid, text: `No answer: ${(e as Error).message}` });
+      return;
+    }
+    dispatch({ type: 'assistantDone', id: aid });
+    try {
+      const concepts = await conceptsOf(user.text, reply, Object.values(ref.current.concepts));
+      dispatch({ type: 'touch', userId: user.id, assistantId: aid, concepts });
+    } catch (e) {
+      dispatch({ type: 'toast', text: `The tree was not updated: ${(e as Error).message}` });
+    }
+  }, []);
+
   const send = useCallback(
     (text: string, cls?: Classification, opts?: { veil?: boolean }) => {
       const s = ref.current;
@@ -300,6 +352,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const classification = cls ?? classifyDraft(text);
       const user: ChatMessage = { id: newId('u'), role: 'user', text: text.trim(), classification, conceptIds: [] };
       dispatch({ type: 'user', msg: user });
+
+      if (liveMode()) return void sendLive(s, user, opts?.veil);
 
       const byId = Object.fromEntries(s.messages.map((m) => [m.id, m]));
       const known = Object.values(s.concepts)
@@ -339,7 +393,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }, think),
       );
     },
-    [classifyDraft],
+    [classifyDraft, sendLive],
   );
 
   const jumpTo = useCallback((messageId: string) => {
