@@ -54,6 +54,7 @@ class Settings:
     max_tokens_json: int
     max_input_chars: int
     daily_token_budget: int
+    total_token_budget: int
     anthropic_base_url: str
 
     @classmethod
@@ -67,6 +68,7 @@ class Settings:
             max_tokens_json=_positive_int(env, "MAX_TOKENS_JSON"),
             max_input_chars=_positive_int(env, "MAX_INPUT_CHARS"),
             daily_token_budget=_positive_int(env, "DAILY_TOKEN_BUDGET"),
+            total_token_budget=_positive_int(env, "TOTAL_TOKEN_BUDGET"),
             anthropic_base_url=_text(env, "ANTHROPIC_BASE_URL").rstrip("/"),
         )
 
