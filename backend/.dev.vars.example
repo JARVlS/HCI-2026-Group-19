@@ -1,7 +1,8 @@
 # Copy to .dev.vars (gitignored) for `uv run pywrangler dev`. Values here override [vars] in
 # wrangler.toml. Use made-up values locally; the real ones are Worker secrets.
+ENVIRONMENT=development
 ANTHROPIC_API_KEY=
 SESSION_SECRET=
 ADMIN_TOKEN=
-# Optional: a fake model API for the smoke test (tests/fake_anthropic.py), e.g.
+# Optional, when you have no key: the fake model API (uv run python tests/fake_anthropic.py), e.g.
 # ANTHROPIC_BASE_URL=http://127.0.0.1:8790

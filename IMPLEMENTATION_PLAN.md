@@ -211,6 +211,9 @@ duplicating prompts in Python. The backend:
 logged-in session could use the relay as a general chatbot **within its budget**. Mitigated by
 auth, budget and fixed models. Revisit if this ever goes public.
 
+*Built 16 Nov:* structured calls use JSON outputs (`output_config.format`), not forced tool use,
+which returns a 400 on `claude-sonnet-5-5` (keep in mind for the BYOK `anthropic` provider too).
+
 ### ADR-4 Provider abstraction
 ```ts
 export type ProviderKind = 'scripted' | 'arbor' | 'openai-compatible' | 'chatgpt';
@@ -428,6 +431,10 @@ If the team prefers to keep the Python Worker: the API contract (§4) is languag
 that works. Then generate the Pydantic models from the JSON Schemas (`datamodel-code-generator`)
 instead of hand-mirroring them, and keep the M0 SSE spike mandatory.
 
+**Decided 16 Nov: keep the Python Worker for now.** Spike result: the D1 binding and SSE
+passthrough work locally under `pywrangler dev` (see M0); the deployed Worker is not checked yet.
+Open risk: the CPU limit on the Cloudflare Free plan (10 ms per request), not measured for this Worker.
+
 ### ADR-13 One navigation model; the radial menu is a client of it
 Today views are scattered state flags (`forest.open`, `panelOpen`, `onboarding`…), and there's
 no URL per view. Introduce **one** model in `lib/nav.ts`, used by the radial menu, `/commands`,
@@ -487,9 +494,15 @@ Errors: `{ error: { code, message } }` with an HTTP status.
 | `GET /state` | → `{ concepts, edges, trees, conversations, attempts }` | bootstrap; messages excluded |
 | `GET /conversations/:id/messages` | → `{ messages }` | lazy per conversation |
 | `PUT /sync` | `{ concepts?, edges?, trees?, conversations?, messages?, attempts? }` → `{ ok, serverTime }` | idempotent upsert by client id, one `db.batch()`; last-write-wins on `updatedAt` |
-| `POST /ai/complete` | `{ task: 'chat'\|'analyze'\|'tree'\|'quiz', system, messages, schema?, stream? }` | `chat` + `stream:true` → **SSE**: `event: delta {text}` … `event: done {usage}` / `event: error {code,message}`. Others → `{ output, usage }` (tool-use JSON). 429 `budget_exceeded` when over budget. |
+| `POST /ai/complete` | `{ task: 'chat'\|'analyze'\|'tree'\|'quiz', system, messages, schema?, stream? }` | `chat` + `stream:true` → **SSE**: `event: delta {text}` … `event: done {usage}` / `event: error {code,message}`. Others → `{ output, usage }` (JSON outputs, see note below). 429 `budget_exceeded` when over budget. |
 | `POST /events` | `{ events: StudyEvent[] }` → `{ ok }` | batched, fire-and-forget |
 | `GET /admin/export?table=events\|attempts\|messages` | → CSV | header `X-Admin-Token` |
+
+*Built 16 Nov* (`backend/docs/api.md`): `health`, `session`, `ai/complete`, `events`, `admin/export`.
+Where it differs: structured calls use JSON outputs (`output_config.format`), not forced tool use
+(400 on Sonnet 5.5); `temperature` cannot be set on API version 2026-10-21; export tables are
+`events|usage|users` for now; the token is `<userId>.<hex HMAC-SHA256(userId, SESSION_SECRET)>`;
+the first migration is `0001_users_usage_events.sql` with only these three tables.
 
 ### D1 schema (`backend/migrations/0001_init.sql`)
 ```sql
@@ -553,13 +566,18 @@ Legend: **FE** = frontend, **BE** = backend, **⇢** = depends on. Each mileston
 The spikes below then shrink to the D1 check. **If Python stays, these spikes are mandatory,
 each time-boxed to half a day, results noted in this file:**
 - [ ] D1 binding from the Python Worker (`wrangler d1 create arbor`, read and write one row locally and deployed).
+      *Result 16 Nov:* works locally under `pywrangler dev` (`run`, `first`, `all`, `batch`, upserts); deployed not checked yet.
 - [ ] **SSE passthrough:** stream a Claude response through the Python Worker to the browser
       (try returning the upstream `fetch` body stream directly; avoid buffering in FastAPI).
       *Decision rule:* if it doesn't stream cleanly within the time box, use fallback A:
       non-streaming relay plus the existing client-side chunked reveal (the UX already does this).
       Fallback B, a small TypeScript Worker just for `/ai/*`, is only worth it if A feels too slow
       in the pilot.
+      *Result 16 Nov:* streams chunk by chunk locally under `pywrangler dev`, also with CORS
+      (`backend/tests/smoke.sh`); deployed not checked yet.
 - [ ] Anthropic call via raw `httpx`/`fetch` (don't depend on the SDK working in Pyodide).
+      *Result 16 Nov:* built on the Workers `fetch`, not the SDK; tested against a fake API only,
+      the live call has not run yet (no key on the dev machine).
 
 **FE housekeeping:**
 - [ ] Add `vitest`; tests for `classify.ts` (snapshot of the demo prompts), `retention.ts`.
@@ -598,7 +616,9 @@ provider (success, error, abort).
 **BE**
 - [ ] Migration `0001_init.sql`, Pydantic models (camelCase aliases), `POST /session`,
       `GET /state`, `GET /conversations/:id/messages`, `PUT /sync` (batched, idempotent, user-scoped).
-- [ ] Auth dependency (HMAC token), CORS allows `Authorization`.
+      *16 Nov:* migration 0001 (users, usage, events), camelCase models and `POST /session` built;
+      `/state`, `/conversations`, `/sync` not yet.
+- [x] Auth dependency (HMAC token), CORS allows `Authorization`.
 
 **FE**
 - [ ] `lib/session.ts` (create or restore a token), `lib/sync.ts` (debounced queue, retry with
@@ -636,9 +656,9 @@ from with the browser back button.
 
 ### M3 Live chat via backend Claude (BE + FE, Nov 20–25) ⇢ M0 SSE spike, M1
 **BE**
-- [ ] `POST /ai/complete`: task allowlist, model per task from env, `max_tokens` cap, budget check
+- [x] `POST /ai/complete`: task allowlist, model per task from env, `max_tokens` cap, budget check
       and accounting in `usage`, SSE for `chat` (or fallback A), tool-use structured output for
-      `analyze`/`tree`/`quiz`.
+      `analyze`/`tree`/`quiz`. *16 Nov:* JSON outputs instead of tool use; live Claude not run yet.
 
 **FE**
 - [ ] `ArborProvider` (chat + json); provider picker in settings (scripted | arbor); default
@@ -714,10 +734,13 @@ message mode (tune prompts until it is, or report honestly).
       `nudge_shown`/`nudge_action`, `quiz_answer` (correctness), `forest_open`, `scrubber_move`,
       `nav` (from → to, via `radial`|`radial_flick`|`command`|`click`, time-to-select),
       `task_start`/`task_end`. Each event has `pid`, `cond`, `clientTs`, `conversationId`.
+      *16 Nov:* backend `POST /events` built; `cond` comes from the session on the server, `pid` via
+      `users.participant_id` (join on `user_id`).
 - [ ] Study task script: fixed topic plus seed subject; **live Claude via the `arbor` relay**
       (decided), with fixed models per task and temperature 0 for analysis; a session timer.
+      (*16 Nov:* temperature cannot be set on API version 2026-10-21; fixed model and effort instead.)
       Log model ids per message so variance can be discussed in the report's limitations.
-- [ ] `GET /admin/export` CSVs feed straight into the analysis notebook.
+- [x] `GET /admin/export` CSVs feed straight into the analysis notebook. *16 Nov:* tables `events|usage|users`.
 - [ ] Pilot checklist: full run in under 20 min, export opens in pandas, no absurd values.
 
 **Freeze Dec 5.** After that: bug fixes only, until the study ends.
