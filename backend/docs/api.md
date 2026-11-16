@@ -23,6 +23,7 @@ Every error has an HTTP status and this body:
 | 413 | `input_too_large` | `system` + all message texts longer than `MAX_INPUT_CHARS` |
 | 422 | `invalid_request` | body or query does not match the contract (the message says which field) |
 | 429 | `budget_exceeded` | daily token budget used up (the message says when it resets) |
+| 429 | `total_budget_exceeded` | the project's total token budget is used up (all users together; it does not reset) |
 | 500 | `server_misconfigured` | a var or secret is missing; the message names it (never its value) |
 | 500 | `internal_error` | a bug; details are only in the Worker logs |
 | 502 | `upstream_error` | the Claude API failed (its HTTP status and error type are in the message) |
@@ -203,7 +204,7 @@ export async function streamChat(
 }
 ```
 
-Errors: 401, 413 `input_too_large`, 422 `invalid_request`, 429 `budget_exceeded`,
+Errors: 401, 413 `input_too_large`, 422 `invalid_request`, 429 `budget_exceeded` / `total_budget_exceeded`,
 500 `server_misconfigured`, 502 `upstream_error` / `upstream_refusal` / `output_truncated` /
 `invalid_model_output`.
 
@@ -272,6 +273,17 @@ Errors: 403 `forbidden` (checked first, so a wrong token never learns which tabl
   refusals and truncated or broken answers, because those tokens are billed too. A call the API
   rejected with an error status records nothing. For streams, the tokens are written before the
   `done` event; if the browser disconnects mid-stream, the server records what it saw (best effort).
+
+- On top of that sits one budget for the whole project: `TOTAL_TOKEN_BUDGET` (900 000), all users
+  and all days together. At or above it every call is 429 `total_budget_exceeded` until somebody
+  raises the var. It caps the bill: 900 000 tokens cost at most 10 USD on Sonnet 5 through Bedrock,
+  even if every token were billed at the output price.
+
+**Which model API (stopgap since 16 Nov 2026).** Until the group has its own Anthropic key, the
+deployed Worker calls Claude in Amazon Bedrock. It is the same Messages API, so only three vars
+differ: `ANTHROPIC_BASE_URL`, and both model vars set to `anthropic.claude-sonnet-5` (that account
+has no Sonnet 5.5 and no Haiku 5.5). The `model` field in responses shows what answered. The
+tables below describe the planned setup with an Anthropic key.
 
 Rough cost of one full daily budget (200 000 tokens), list prices per million tokens:
 

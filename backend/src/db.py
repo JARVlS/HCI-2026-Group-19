@@ -55,6 +55,11 @@ async def tokens_used(db: Any, user_id: str, day: str) -> int:
     return int(row["used"])
 
 
+async def tokens_used_total(db: Any) -> int:
+    row = await db.prepare("SELECT COALESCE(SUM(input_tokens + output_tokens), 0) AS used FROM usage").first()
+    return int(row["used"])
+
+
 async def add_usage(db: Any, user_id: str, day: str, task: str, input_tokens: int, output_tokens: int) -> None:
     await db.prepare(
         "INSERT INTO usage (user_id, day, task, input_tokens, output_tokens) VALUES (?, ?, ?, ?, ?)"

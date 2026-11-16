@@ -81,6 +81,7 @@ def make_env(**overrides: str) -> SimpleNamespace:
         "MAX_TOKENS_JSON": "4096",
         "MAX_INPUT_CHARS": "200000",
         "DAILY_TOKEN_BUDGET": "200000",
+        "TOTAL_TOKEN_BUDGET": "100000000",
         "ANTHROPIC_BASE_URL": "https://api.anthropic.test",
         **SECRETS,
         **overrides,
