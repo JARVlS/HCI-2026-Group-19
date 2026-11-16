@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
-import { DEMO_PROMPTS } from '../../data/scenario';
-import { matchConcepts } from '../../lib/engine';
 import { MODE_META, pct } from '../../lib/modes';
 import { useStore } from '../../lib/store';
 import type { Classification, Mode, NudgeLevel, Theme } from '../../lib/types';
@@ -18,10 +16,12 @@ const AFTER: Record<Mode, string> = {
 };
 
 export function Composer() {
-  const { state, dispatch, send, classifyDraft } = useStore();
+  const { state, dispatch, send, stop, classifyDraft, busy, demoPrompts } = useStore();
   const { focusPrompt } = useUi();
   const { enabled: arborOn, nudge } = state.settings;
   const lint = arborOn && nudge !== 'off';
+  /** Predict → reveal: a delegating prompt's answer arrives veiled (no keyword match: the linter decides). */
+  const willVeil = (mode: Mode) => mode === 'ai' && nudge === 'active' && !state.session.pendingQuiz;
   const [text, setText] = useState('');
   const [lens, setLens] = useState<{ text: string; c: Classification } | null>(null);
   const [hot, setHot] = useState<number | null>(null);
@@ -37,14 +37,14 @@ export function Composer() {
   useEffect(() => {
     const t = setTimeout(() => setLens(text.trim() && !text.startsWith('/') ? { text, c: classifyDraft(text) } : null), 140);
     return () => clearTimeout(t);
-  }, [text, classifyDraft, state.pendingQuiz]);
+  }, [text, classifyDraft, state.session.pendingQuiz]);
 
   // Text pushed in from elsewhere (explain it back, concept sheet, …).
   useEffect(() => {
-    if (!state.draft.nonce) return;
-    setText(state.draft.text);
+    if (!state.ui.draft.nonce) return;
+    setText(state.ui.draft.text);
     focusPrompt();
-  }, [state.draft, focusPrompt]);
+  }, [state.ui.draft, focusPrompt]);
 
   useEffect(() => setSel(0), [word]);
 
@@ -66,10 +66,9 @@ export function Composer() {
       if (!rest.length && cmd.args && !cmd.args.startsWith('[')) return setText(`/${cmd.name} `);
       return run(cmd, arg);
     }
-    if (state.busy || !text.trim()) return;
+    if (busy || !text.trim()) return;
     const c = classifyDraft(text);
-    const veil = arborOn && nudge === 'active' && c.mode === 'ai' && !state.pendingQuiz && matchConcepts(text).length > 0;
-    send(text, c, { veil });
+    send(text, c, { veil: arborOn && willVeil(c.mode) });
     setText('');
   };
 
@@ -87,21 +86,22 @@ export function Composer() {
         setText(`/${menu[Math.min(sel, menu.length - 1)].name} `);
         return;
       }
-      const i = DEMO_PROMPTS.indexOf(text);
-      if (!text || i >= 0) {
+      const i = demoPrompts.indexOf(text);
+      if (demoPrompts.length && (!text || i >= 0)) {
         e.preventDefault();
-        const n = DEMO_PROMPTS.length;
+        const n = demoPrompts.length;
         const j = i < 0 ? (e.shiftKey ? n - 1 : 0) : (i + (e.shiftKey ? n - 1 : 1)) % n;
-        setText(DEMO_PROMPTS[j]);
+        setText(demoPrompts[j]);
       }
     } else if (e.key === 'Escape') {
-      if (text) setText('');
+      if (busy) stop();
+      else if (text) setText('');
       else e.currentTarget.blur();
     }
   };
 
   const c = lint && lens && lens.text === text ? lens.c : null;
-  const next = DEMO_PROMPTS[(DEMO_PROMPTS.indexOf(text) + 1) % DEMO_PROMPTS.length];
+  const next = demoPrompts.length ? demoPrompts[(demoPrompts.indexOf(text) + 1) % demoPrompts.length] : null;
 
   return (
     <div className="a-composer">
@@ -148,7 +148,7 @@ export function Composer() {
             rows={1}
             spellCheck={false}
             autoComplete="off"
-            placeholder={state.pendingQuiz ? 'type your answer…' : 'message the assistant…'}
+            placeholder={state.session.pendingQuiz ? 'type your answer…' : 'message the assistant…'}
             aria-label="Message"
             aria-describedby="a-lint"
             onChange={(e) => setText(e.target.value)}
@@ -167,12 +167,12 @@ export function Composer() {
             <Diagnostics text={text} c={c} onHot={setHot} />
             <p className="a-after">
               <K>↵</K>{' '}
-              {c.mode === 'ai' && nudge === 'active' && !state.pendingQuiz && matchConcepts(text).length
+              {willVeil(c.mode)
                 ? 'sends · the answer arrives veiled, so you can guess first'
                 : `sends · ${AFTER[c.mode]}`}
             </p>
           </div>
-        ) : !text && !state.busy ? (
+        ) : !text && !busy && next ? (
           <p className="a-try">
             <K>tab</K>{' '}
             <button className="a-try-btn" onClick={() => setText(next)}>
@@ -198,7 +198,7 @@ interface Cmd {
 const TIMES = Object.fromEntries(TIME_TICKS.map((t) => [t.label, t.days]));
 
 function useCommands(): Cmd[] {
-  const { state, dispatch, send, toast } = useStore();
+  const { state, dispatch, send, stop, retry, busy, toast, messages } = useStore();
   const ui = useUi();
   return useMemo(() => {
     const s = state.settings;
@@ -208,7 +208,7 @@ function useCommands(): Cmd[] {
       if (allowed.includes(v)) apply(v);
       else toast(`/${what} takes ${allowed.join(' | ')}`);
     };
-    const lastUser = [...state.messages].reverse().find((m) => m.role === 'user');
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
     return [
       { name: 'quiz', args: '[topic]', desc: 'quiz me (retrieval practice)', run: (a) => send(a ? `Quiz me on ${a}` : 'Quiz me') },
       {
@@ -216,6 +216,12 @@ function useCommands(): Cmd[] {
         args: '<question>',
         desc: 'a hint, not the answer',
         run: (a) => send(`Give me a hint, not the full answer: ${a}`),
+      },
+      { name: 'stop', desc: busy ? 'stop the reply (or esc)' : 'stop a reply while it streams', run: () => (busy ? stop() : toast('nothing to stop')) },
+      {
+        name: 'retry',
+        desc: 'run the failed reply again',
+        run: () => (state.session.turn.status === 'error' ? retry() : toast('nothing failed')),
       },
       { name: 'forest', desc: 'zoom out to all your chats', run: () => dispatch({ type: 'forest', open: true }) },
       {
@@ -268,5 +274,5 @@ function useCommands(): Cmd[] {
       { name: 'concepts', desc: 'the interaction ideas in this design', run: () => ui.setSheet('concepts') },
       { name: 'intro', desc: 'replay the introduction', run: () => dispatch({ type: 'onboarding', open: true }) },
     ] satisfies Cmd[];
-  }, [state.settings, state.messages, dispatch, send, toast, ui]);
+  }, [state.settings, state.session.turn.status, messages, busy, dispatch, send, stop, retry, toast, ui]);
 }

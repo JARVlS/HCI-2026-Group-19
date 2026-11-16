@@ -1,13 +1,12 @@
 import { ArrowLeft, ChevronRight, Lightbulb, Maximize, MessageSquare, Minus, Plus, Search, Trees, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GROVES, GROVE_ROWS, PAST_TREES } from '../../../data/forest';
-import { LIVE_TREE } from '../../../data/scenario';
 import { fitTarget, useCamera } from '../../../lib/camera';
 import { useSize } from '../../../lib/hooks';
 import { GROUND_DEPTH, groveBounds, layoutForest, treeBounds, type ForestLayout, type PlacedTree } from '../../../lib/layout';
 import { mean, pct } from '../../../lib/modes';
 import { useStore } from '../../../lib/store';
 import { fitText, measure } from '../../../lib/text';
+import { shortDate } from '../../../lib/time';
 import { Glyph } from './Glyph';
 import { TreeSvg } from './TreeSvg';
 
@@ -17,9 +16,8 @@ const TITLE_FONT = '600 12.5px Inter, -apple-system, system-ui, sans-serif';
 const META_FONT = '400 11px Inter, -apple-system, system-ui, sans-serif';
 
 export function Forest() {
-  const { state, dispatch, liveTree, jumpTo } = useStore();
-  const trees = useMemo(() => [liveTree, ...PAST_TREES], [liveTree]);
-  const forest = useMemo(() => layoutForest(trees, GROVES, GROVE_ROWS), [trees]);
+  const { state, dispatch, activeTree, forestTrees, groves, groveRows, jumpTo } = useStore();
+  const forest = useMemo(() => layoutForest(forestTrees, groves, groveRows), [forestTrees, groves, groveRows]);
   const forestRef = useRef(forest);
   forestRef.current = forest;
 
@@ -78,15 +76,15 @@ export function Forest() {
   useEffect(() => {
     if (started.current || !size.w) return;
     started.current = true;
-    const focus = state.forest.focus;
-    if (focus && focus !== LIVE_TREE.id) {
+    const focus = state.ui.forest.focus;
+    if (focus && focus !== activeTree.id) {
       set(fitAll());
       setTimeout(() => selectTree(focus), 380);
       return;
     }
-    const live = forest.byId[LIVE_TREE.id];
+    const live = forest.byId[activeTree.id] ?? Object.values(forest.byId)[0];
     set(fitTarget(treeBounds(live, true), size, { pad: 48, maxK: 1.25 }));
-    setPeek(LIVE_TREE.id);
+    setPeek(live.tree.id);
     setTimeout(() => {
       setPeek(null);
       animateTo(fitAll(), 1400);
@@ -181,7 +179,7 @@ export function Forest() {
   const overall = pct(mean(allLeaves.map((l) => l.score)));
   const { x, y, k } = cam;
   const sel = selected ? forest.byId[selected] : null;
-  const groveLabel = (id: string) => GROVES.find((g) => g.id === id)?.label ?? id;
+  const groveLabel = (id: string) => groves.find((g) => g.id === id)?.label ?? id;
 
   return (
     <div className="forest" role="dialog" aria-modal="true" aria-label="Your knowledge forest">
@@ -488,12 +486,13 @@ function RootLabels({ forest, focusId, cam }: { forest: ForestLayout; focusId: s
 /* ───────────── Hover card & drawer ───────────── */
 
 function HoverCard({ p, x, y, w }: { p: PlacedTree; x: number; y: number; w: number }) {
+  const { groves } = useStore();
   const left = x > w - 280 ? x - 260 : x + 18;
   return (
     <div className="forest-ui hover-card" style={{ left, top: y + 18 }} role="tooltip">
       <strong>{p.tree.title}</strong>
       <span className="muted">
-        {GROVES.find((g) => g.id === p.tree.grove)?.label} · {p.tree.live ? 'Live now' : `Last grown ${p.tree.updated}`}
+        {groves.find((g) => g.id === p.tree.grove)?.label} · {p.tree.live ? 'Live now' : `Last grown ${shortDate(p.tree.updatedAt)}`}
       </span>
       <span>
         <Glyph score={p.layout.score} size={11} /> {pct(p.layout.score)}% your thinking · {p.layout.count} concepts
@@ -514,7 +513,7 @@ function TreeDrawer({
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
-  const { dispatch, send } = useStore();
+  const { dispatch, send, groves } = useStore();
   const t = p.tree;
   const leaves = t.branches.flatMap((b) => b.leaves);
   const own = leaves.filter((l) => l.score >= 0.75).length;
@@ -533,9 +532,9 @@ function TreeDrawer({
       <button className="icon-btn drawer-close" aria-label="Close details" onClick={onClose}>
         <X size={16} />
       </button>
-      <p className="eyebrow">{GROVES.find((g) => g.id === t.grove)?.label}</p>
+      <p className="eyebrow">{groves.find((g) => g.id === t.grove)?.label}</p>
       <h2>{t.title}</h2>
-      <p className="muted small">{t.live ? 'Live — this conversation' : `Past conversation · last grown ${t.updated}`}</p>
+      <p className="muted small">{t.live ? 'Live — this conversation' : `Past conversation · last grown ${shortDate(t.updatedAt)}`}</p>
 
       <div className="balance-nums">
         <span className="num-you">

@@ -130,6 +130,16 @@ function run(rules: Rule[], text: string, mode: Mode, offset: number) {
 const evidenceOf = (hits: Hit[]): Evidence[] =>
   hits.filter((h) => h.start >= 0 && h.end > h.start).map(({ start, end, mode, reason }) => ({ start, end, mode, reason }));
 
+const QUIZ_REQUEST = /\b(quiz|test) me\b|\bask me\b/i;
+
+/**
+ * Is this message an answer to the pending quiz question rather than a new request? Generic
+ * fallback; a provider that knows its concepts can do better (`Provider.isQuizAnswer`).
+ */
+export function looksLikeQuizAnswer(text: string, quizId: string | null): boolean {
+  return Boolean(quizId) && !QUIZ_REQUEST.test(text);
+}
+
 export interface ClassifyContext {
   /** Concept id if the AI just asked the user a quiz question. */
   pendingQuiz?: string | null;

@@ -56,22 +56,22 @@ export function Onboarding() {
   const primary = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (state.onboarding) {
+    if (state.ui.onboarding) {
       setStep(0);
       requestAnimationFrame(() => primary.current?.focus());
     }
-  }, [state.onboarding]);
+  }, [state.ui.onboarding]);
 
   useEffect(() => {
-    if (!state.onboarding) return;
+    if (!state.ui.onboarding) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') finishOnboarding();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [state.onboarding, finishOnboarding]);
+  }, [state.ui.onboarding, finishOnboarding]);
 
-  if (!state.onboarding) return null;
+  if (!state.ui.onboarding) return null;
   const s = STEPS[step];
   const last = step === STEPS.length - 1;
 
@@ -115,14 +115,14 @@ export function Toast() {
   const { state } = useStore();
   const [visible, setVisible] = useState(false);
   useEffect(() => {
-    if (!state.toast) return;
+    if (!state.ui.toast) return;
     setVisible(true);
     const t = setTimeout(() => setVisible(false), 3400);
     return () => clearTimeout(t);
-  }, [state.toast]);
+  }, [state.ui.toast]);
   return (
     <div className={`toast ${visible ? 'show' : ''}`} role="status" aria-live="polite">
-      {state.toast?.text}
+      {state.ui.toast?.text}
     </div>
   );
 }

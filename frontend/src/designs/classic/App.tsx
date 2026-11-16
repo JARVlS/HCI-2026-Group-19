@@ -24,8 +24,8 @@ export default function ClassicApp() {
       <div className="viewport">
         <HostSidebar />
         <ChatView />
-        {state.panelOpen && <ArborPanel />}
-        {state.forest.open && <Forest />}
+        {state.ui.panelOpen && <ArborPanel />}
+        {state.ui.forest.open && <Forest />}
       </div>
       <Onboarding />
       <Toast />

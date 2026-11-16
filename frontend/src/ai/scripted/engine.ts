@@ -1,10 +1,10 @@
-import { BRANCHES, CONCEPTS, CONCEPT_BY_ID, type ConceptDef } from '../data/scenario';
-import type { Mode } from './types';
+import { CONCEPTS, CONCEPT_BY_ID, type ConceptDef } from '../../data/scenario';
+import type { Mode } from '../../lib/types';
 
 /**
  * The scripted "assistant". Given the user's prompt and how Arbor classified it,
  * pick a plausible reply and report which concepts the exchange touched.
- * Swap this module for a real LLM call to turn the prototype into a live system.
+ * Only `ScriptedProvider` uses it; the live path goes through an LLM provider (M3).
  */
 
 export interface TouchedConcept {
@@ -153,6 +153,11 @@ export function respond({ text, mode, pendingQuiz, known }: EngineInput): Engine
   };
 }
 
-export function branchLabel(id: string) {
-  return BRANCHES[id] ?? 'Side questions';
+/** How a quiz answer scores: 1 if it hits an expected key point, 0 if not or if the user gave up. */
+export function gradeQuizAnswer(text: string, quizId: string): number | null {
+  const c = CONCEPT_BY_ID[quizId];
+  if (!c) return null;
+  if (GIVE_UP.test(text)) return 0;
+  const lower = text.toLowerCase();
+  return c.quiz.expect.some((k) => lower.includes(k)) ? 1 : 0;
 }

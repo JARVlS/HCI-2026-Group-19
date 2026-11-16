@@ -1,0 +1,868 @@
+{
+ "seed": {
+  "branches": [
+   {
+    "id": "blocks",
+    "label": "Building blocks",
+    "leaves": [
+     {
+      "label": "Artificial neuron",
+      "score": 0,
+      "count": 1
+     },
+     {
+      "label": "Layers",
+      "score": 0,
+      "count": 1
+     },
+     {
+      "label": "Activation functions",
+      "score": 0.5,
+      "count": 1
+     }
+    ]
+   },
+   {
+    "id": "learning",
+    "label": "How it learns",
+    "leaves": [
+     {
+      "label": "Gradient descent",
+      "score": 1,
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "pendingQuiz": null,
+  "replies": [
+   "A neural network is built from simple un",
+   "Great question. If every layer only mult",
+   "That’s a really good analogy — it’s how "
+  ],
+  "reflectOn": [
+   null,
+   null,
+   null
+  ],
+  "modes": [
+   "ai",
+   "together",
+   "own"
+  ]
+ },
+ "demo": {
+  "branches": [
+   {
+    "id": "blocks",
+    "label": "Building blocks",
+    "leaves": [
+     {
+      "label": "Artificial neuron",
+      "score": 1,
+      "count": 1
+     },
+     {
+      "label": "Layers",
+      "score": 1,
+      "count": 1
+     },
+     {
+      "label": "Activation functions",
+      "score": 0.5,
+      "count": 3
+     }
+    ]
+   },
+   {
+    "id": "learning",
+    "label": "How it learns",
+    "leaves": [
+     {
+      "label": "Gradient descent",
+      "score": 1,
+      "count": 1
+     },
+     {
+      "label": "Backpropagation",
+      "score": 0.5,
+      "count": 1
+     },
+     {
+      "label": "Loss function",
+      "score": 1,
+      "count": 2
+     }
+    ]
+   },
+   {
+    "id": "other",
+    "label": "Side questions",
+    "leaves": [
+     {
+      "label": "Weather lisbon",
+      "score": 0,
+      "count": 1
+     }
+    ]
+   },
+   {
+    "id": "general",
+    "label": "Generalization",
+    "leaves": [
+     {
+      "label": "Overfitting",
+      "score": 1,
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "pendingQuiz": null,
+  "replies": [
+   "A neural network is built from simple un",
+   "Great question. If every layer only mult",
+   "That’s a really good analogy — it’s how ",
+   "**Backpropagation** is the algorithm tha",
+   "Sure — here’s one on **Loss function**:\n",
+   "**Yes — that’s it.** How wrong its predi",
+   "Here’s the short version: that goes a bi",
+   "Sure — here’s one on **Activation functi",
+   "No problem — here’s the answer: The whol",
+   "Yes — memorising instead of generalising",
+   "Here’s a compact cheat-sheet of what we’"
+  ],
+  "reflectOn": [
+   null,
+   null,
+   null,
+   "backprop",
+   null,
+   null,
+   null,
+   null,
+   "activation",
+   null,
+   null
+  ],
+  "modes": [
+   "own",
+   "together",
+   "own",
+   "together",
+   "together",
+   "own",
+   "ai",
+   "together",
+   "ai",
+   "own",
+   "ai"
+  ]
+ },
+ "past": [
+  {
+   "id": "sql",
+   "title": "SQL joins",
+   "grove": "cs",
+   "updated": "Oct 28",
+   "branches": [
+    {
+     "id": "sql-b0",
+     "label": "Join types",
+     "leaves": [
+      {
+       "id": "sql-b0-l0",
+       "label": "Inner join",
+       "score": 1
+      },
+      {
+       "id": "sql-b0-l1",
+       "label": "Left join",
+       "score": 1
+      },
+      {
+       "id": "sql-b0-l2",
+       "label": "Full outer join",
+       "score": 0.5
+      },
+      {
+       "id": "sql-b0-l3",
+       "label": "Self join",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "sql-b1",
+     "label": "Performance",
+     "leaves": [
+      {
+       "id": "sql-b1-l0",
+       "label": "Hash tables",
+       "score": 0
+      },
+      {
+       "id": "sql-b1-l1",
+       "label": "Indexes",
+       "score": 0.5
+      },
+      {
+       "id": "sql-b1-l2",
+       "label": "Query plans",
+       "score": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "git",
+   "title": "Git branching",
+   "grove": "cs",
+   "updated": "Oct 3",
+   "branches": [
+    {
+     "id": "git-b0",
+     "label": "Basics",
+     "leaves": [
+      {
+       "id": "git-b0-l0",
+       "label": "Commits",
+       "score": 1
+      },
+      {
+       "id": "git-b0-l1",
+       "label": "Branches",
+       "score": 1
+      }
+     ]
+    },
+    {
+     "id": "git-b1",
+     "label": "Merging",
+     "leaves": [
+      {
+       "id": "git-b1-l0",
+       "label": "Merge conflicts",
+       "score": 0.5
+      },
+      {
+       "id": "git-b1-l1",
+       "label": "Rebase",
+       "score": 0
+      },
+      {
+       "id": "git-b1-l2",
+       "label": "Fast-forward",
+       "score": 1
+      }
+     ]
+    },
+    {
+     "id": "git-b2",
+     "label": "Collaboration",
+     "leaves": [
+      {
+       "id": "git-b2-l0",
+       "label": "Pull requests",
+       "score": 0.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bigo",
+   "title": "Big-O notation",
+   "grove": "cs",
+   "updated": "Sep 21",
+   "branches": [
+    {
+     "id": "bigo-b0",
+     "label": "Complexity",
+     "leaves": [
+      {
+       "id": "bigo-b0-l0",
+       "label": "Time complexity",
+       "score": 1
+      },
+      {
+       "id": "bigo-b0-l1",
+       "label": "Space complexity",
+       "score": 0.5
+      },
+      {
+       "id": "bigo-b0-l2",
+       "label": "Worst case",
+       "score": 1
+      }
+     ]
+    },
+    {
+     "id": "bigo-b1",
+     "label": "Data structures",
+     "leaves": [
+      {
+       "id": "bigo-b1-l0",
+       "label": "Hash tables",
+       "score": 0.5
+      },
+      {
+       "id": "bigo-b1-l1",
+       "label": "Binary search",
+       "score": 1
+      },
+      {
+       "id": "bigo-b1-l2",
+       "label": "Linked lists",
+       "score": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hyp",
+   "title": "Hypothesis testing",
+   "grove": "stats",
+   "updated": "Nov 2",
+   "branches": [
+    {
+     "id": "hyp-b0",
+     "label": "Core ideas",
+     "leaves": [
+      {
+       "id": "hyp-b0-l0",
+       "label": "Null hypothesis",
+       "score": 1
+      },
+      {
+       "id": "hyp-b0-l1",
+       "label": "p-value",
+       "score": 0.5
+      },
+      {
+       "id": "hyp-b0-l2",
+       "label": "Significance level",
+       "score": 0.5
+      }
+     ]
+    },
+    {
+     "id": "hyp-b1",
+     "label": "Errors",
+     "leaves": [
+      {
+       "id": "hyp-b1-l0",
+       "label": "Type I error",
+       "score": 0
+      },
+      {
+       "id": "hyp-b1-l1",
+       "label": "Type II error",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "hyp-b2",
+     "label": "Design",
+     "leaves": [
+      {
+       "id": "hyp-b2-l0",
+       "label": "Sample size",
+       "score": 0.5
+      },
+      {
+       "id": "hyp-b2-l1",
+       "label": "Conditional probability",
+       "score": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bayes",
+   "title": "Bayes’ theorem",
+   "grove": "stats",
+   "updated": "Oct 19",
+   "branches": [
+    {
+     "id": "bayes-b0",
+     "label": "Foundations",
+     "leaves": [
+      {
+       "id": "bayes-b0-l0",
+       "label": "Conditional probability",
+       "score": 1
+      },
+      {
+       "id": "bayes-b0-l1",
+       "label": "Prior",
+       "score": 1
+      },
+      {
+       "id": "bayes-b0-l2",
+       "label": "Posterior",
+       "score": 0.5
+      }
+     ]
+    },
+    {
+     "id": "bayes-b1",
+     "label": "Applications",
+     "leaves": [
+      {
+       "id": "bayes-b1-l0",
+       "label": "Medical tests",
+       "score": 1
+      },
+      {
+       "id": "bayes-b1-l1",
+       "label": "Spam filters",
+       "score": 0.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "reg",
+   "title": "Linear regression",
+   "grove": "stats",
+   "updated": "Oct 8",
+   "branches": [
+    {
+     "id": "reg-b0",
+     "label": "Model",
+     "leaves": [
+      {
+       "id": "reg-b0-l0",
+       "label": "Least squares",
+       "score": 0.5
+      },
+      {
+       "id": "reg-b0-l1",
+       "label": "Coefficients",
+       "score": 0
+      },
+      {
+       "id": "reg-b0-l2",
+       "label": "Residuals",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "reg-b1",
+     "label": "Fitting",
+     "leaves": [
+      {
+       "id": "reg-b1-l0",
+       "label": "Gradient descent",
+       "score": 0
+      },
+      {
+       "id": "reg-b1-l1",
+       "label": "Loss function",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "reg-b2",
+     "label": "Pitfalls",
+     "leaves": [
+      {
+       "id": "reg-b2-l0",
+       "label": "Overfitting",
+       "score": 0.5
+      },
+      {
+       "id": "reg-b2-l1",
+       "label": "Multicollinearity",
+       "score": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "nielsen",
+   "title": "Nielsen’s heuristics",
+   "grove": "hci",
+   "updated": "Nov 5",
+   "branches": [
+    {
+     "id": "nielsen-b0",
+     "label": "Heuristics",
+     "leaves": [
+      {
+       "id": "nielsen-b0-l0",
+       "label": "Visibility of status",
+       "score": 1
+      },
+      {
+       "id": "nielsen-b0-l1",
+       "label": "Recognition over recall",
+       "score": 1
+      },
+      {
+       "id": "nielsen-b0-l2",
+       "label": "Error prevention",
+       "score": 0.5
+      },
+      {
+       "id": "nielsen-b0-l3",
+       "label": "User control",
+       "score": 1
+      }
+     ]
+    },
+    {
+     "id": "nielsen-b1",
+     "label": "Method",
+     "leaves": [
+      {
+       "id": "nielsen-b1-l0",
+       "label": "Heuristic evaluation",
+       "score": 0.5
+      },
+      {
+       "id": "nielsen-b1-l1",
+       "label": "Severity ratings",
+       "score": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ut",
+   "title": "Usability testing",
+   "grove": "hci",
+   "updated": "Oct 30",
+   "branches": [
+    {
+     "id": "ut-b0",
+     "label": "Planning",
+     "leaves": [
+      {
+       "id": "ut-b0-l0",
+       "label": "Tasks & scenarios",
+       "score": 1
+      },
+      {
+       "id": "ut-b0-l1",
+       "label": "Sample size",
+       "score": 0.5
+      },
+      {
+       "id": "ut-b0-l2",
+       "label": "Recruiting",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "ut-b1",
+     "label": "Running",
+     "leaves": [
+      {
+       "id": "ut-b1-l0",
+       "label": "Think-aloud",
+       "score": 1
+      },
+      {
+       "id": "ut-b1-l1",
+       "label": "Moderation",
+       "score": 0.5
+      }
+     ]
+    },
+    {
+     "id": "ut-b2",
+     "label": "Analysis",
+     "leaves": [
+      {
+       "id": "ut-b2-l0",
+       "label": "Heuristic evaluation",
+       "score": 0
+      },
+      {
+       "id": "ut-b2-l1",
+       "label": "SUS score",
+       "score": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "mm",
+   "title": "Mental models",
+   "grove": "hci",
+   "updated": "Oct 14",
+   "branches": [
+    {
+     "id": "mm-b0",
+     "label": "Concepts",
+     "leaves": [
+      {
+       "id": "mm-b0-l0",
+       "label": "Gulf of execution",
+       "score": 1
+      },
+      {
+       "id": "mm-b0-l1",
+       "label": "Gulf of evaluation",
+       "score": 1
+      },
+      {
+       "id": "mm-b0-l2",
+       "label": "Affordances",
+       "score": 0.5
+      }
+     ]
+    },
+    {
+     "id": "mm-b1",
+     "label": "Design",
+     "leaves": [
+      {
+       "id": "mm-b1-l0",
+       "label": "Recognition over recall",
+       "score": 0.5
+      },
+      {
+       "id": "mm-b1-l1",
+       "label": "Conceptual models",
+       "score": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "essay",
+   "title": "Essay structure",
+   "grove": "writing",
+   "updated": "Sep 30",
+   "branches": [
+    {
+     "id": "essay-b0",
+     "label": "Shape",
+     "leaves": [
+      {
+       "id": "essay-b0-l0",
+       "label": "Thesis statement",
+       "score": 1
+      },
+      {
+       "id": "essay-b0-l1",
+       "label": "Opening hook",
+       "score": 0.5
+      },
+      {
+       "id": "essay-b0-l2",
+       "label": "Signposting",
+       "score": 1
+      }
+     ]
+    },
+    {
+     "id": "essay-b1",
+     "label": "Argument",
+     "leaves": [
+      {
+       "id": "essay-b1-l0",
+       "label": "Counterarguments",
+       "score": 0.5
+      },
+      {
+       "id": "essay-b1-l1",
+       "label": "Evidence",
+       "score": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cover",
+   "title": "Cover letter",
+   "grove": "writing",
+   "updated": "Nov 1",
+   "branches": [
+    {
+     "id": "cover-b0",
+     "label": "Draft",
+     "leaves": [
+      {
+       "id": "cover-b0-l0",
+       "label": "Opening hook",
+       "score": 0
+      },
+      {
+       "id": "cover-b0-l1",
+       "label": "Tone",
+       "score": 0
+      },
+      {
+       "id": "cover-b0-l2",
+       "label": "Company research",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "cover-b1",
+     "label": "Polish",
+     "leaves": [
+      {
+       "id": "cover-b1-l0",
+       "label": "Length",
+       "score": 0
+      },
+      {
+       "id": "cover-b1-l1",
+       "label": "Call to action",
+       "score": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bread",
+   "title": "Sourdough baking",
+   "grove": "life",
+   "updated": "Oct 22",
+   "branches": [
+    {
+     "id": "bread-b0",
+     "label": "Starter",
+     "leaves": [
+      {
+       "id": "bread-b0-l0",
+       "label": "Feeding ratio",
+       "score": 1
+      },
+      {
+       "id": "bread-b0-l1",
+       "label": "Fermentation",
+       "score": 0.5
+      }
+     ]
+    },
+    {
+     "id": "bread-b1",
+     "label": "Bake",
+     "leaves": [
+      {
+       "id": "bread-b1-l0",
+       "label": "Hydration",
+       "score": 1
+      },
+      {
+       "id": "bread-b1-l1",
+       "label": "Scoring",
+       "score": 1
+      },
+      {
+       "id": "bread-b1-l2",
+       "label": "Oven spring",
+       "score": 0.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "lisbon",
+   "title": "Lisbon trip",
+   "grove": "life",
+   "updated": "Oct 10",
+   "branches": [
+    {
+     "id": "lisbon-b0",
+     "label": "Plan",
+     "leaves": [
+      {
+       "id": "lisbon-b0-l0",
+       "label": "Itinerary",
+       "score": 0
+      },
+      {
+       "id": "lisbon-b0-l1",
+       "label": "Neighbourhoods",
+       "score": 0
+      },
+      {
+       "id": "lisbon-b0-l2",
+       "label": "Day trips",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "lisbon-b1",
+     "label": "Money",
+     "leaves": [
+      {
+       "id": "lisbon-b1-l0",
+       "label": "Daily budget",
+       "score": 0.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "budget",
+   "title": "Budgeting basics",
+   "grove": "life",
+   "updated": "Sep 15",
+   "branches": [
+    {
+     "id": "budget-b0",
+     "label": "Rules",
+     "leaves": [
+      {
+       "id": "budget-b0-l0",
+       "label": "50/30/20 rule",
+       "score": 1
+      },
+      {
+       "id": "budget-b0-l1",
+       "label": "Emergency fund",
+       "score": 0.5
+      },
+      {
+       "id": "budget-b0-l2",
+       "label": "Daily budget",
+       "score": 1
+      }
+     ]
+    },
+    {
+     "id": "budget-b1",
+     "label": "Tools",
+     "leaves": [
+      {
+       "id": "budget-b1-l0",
+       "label": "Spreadsheets",
+       "score": 0.5
+      },
+      {
+       "id": "budget-b1-l1",
+       "label": "Index funds",
+       "score": 0
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

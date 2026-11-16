@@ -4,7 +4,7 @@ import {
   TIME_MAX,
   TIME_TICKS,
   daysAt,
-  daysSince,
+  ageDays,
   eroded,
   formatDays,
   hash01,
@@ -13,20 +13,21 @@ import {
   stability,
 } from './retention';
 
-describe('daysSince (scenario today = Nov 7; replaced by ISO dates + now in M1)', () => {
-  it('counts days back from the scenario date', () => {
-    expect(daysSince('Nov 7')).toBe(0);
-    expect(daysSince('Oct 28')).toBe(10);
-    expect(daysSince('October 28')).toBe(10);
-    expect(daysSince('  sep 30 ')).toBe(38);
+describe('ageDays', () => {
+  const now = Date.parse('2026-11-07T12:00:00Z');
+
+  it('counts whole days back from now', () => {
+    expect(ageDays('2026-11-07T08:00:00Z', now)).toBe(0);
+    expect(ageDays('2026-10-28T12:00:00Z', now)).toBe(10);
+    expect(ageDays('2026-09-30T12:00:00Z', new Date(now))).toBe(38);
   });
 
   it('clamps future dates to 0', () => {
-    expect(daysSince('Dec 1')).toBe(0);
+    expect(ageDays('2026-12-01T00:00:00Z', now)).toBe(0);
   });
 
-  it('returns 0 for labels it cannot parse', () => {
-    for (const label of ['Today', '', 'yesterday', 'Foo 12', '28 Oct']) expect(daysSince(label)).toBe(0);
+  it('returns 0 for timestamps it cannot parse', () => {
+    for (const iso of ['', 'Today', 'Oct 28']) expect(ageDays(iso, now)).toBe(0);
   });
 });
 

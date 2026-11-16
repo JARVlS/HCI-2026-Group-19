@@ -26,7 +26,7 @@ Press `?` in the app for the same list, each with a *try it* button that sets up
 |---|---|---|---|
 | 01 | **Thought linter** | Explainable feedforward | While you type, the words that make a prompt delegating get a wavy underline (dashed: together, solid: yours, so shape carries the meaning as well as colour), and the reason sits right below, like a spellchecker or compiler diagnostic. |
 | 02 | **Modeline** | Ambient awareness, calm technology | Like vim's `-- INSERT --`, the status bar always says who is thinking right now and lists the keys that work in this moment. Even the caret takes the mode's colour. |
-| 03 | **Predict → reveal** | Desirable difficulty, generation effect | With nudges on *active*, a delegated answer arrives veiled (`░░░`): its shape is visible, its words are not. Type a hunch and reveal it, and a decode sweep uncovers the answer with the words you already had highlighted; the prompt becomes *thinking together*. Or just press ↵. It is never blocked. |
+| 03 | **Predict → reveal** | Desirable difficulty, generation effect | With nudges on *active*, the answer to a prompt the linter reads as delegating arrives veiled (`░░░`): its shape is visible, its words are not. Type a hunch and reveal it, and a decode sweep uncovers the answer with the words you already had highlighted; the prompt becomes *thinking together*. Or just press ↵. It is never blocked. |
 | 04 | **Two views, one tree** | Multiple views, object constancy | `t` switches between the growing plant and a `tree`-command outline. Every leaf keeps its identity and glides to its new place. |
 | 05 | **Forgetting scrubber** | Feedforward of consequences | Drag time forward (`[` `]`): letters drop out of labels and forgotten leaves fall to the ground. What you delegated falls first. An illustrative Ebbinghaus-style model (`src/lib/retention.ts`), labelled as such. |
 | 06 | **Semantic zoom** | Overview first, zoom & filter, details on demand | Pinch out or press `f`: the camera pulls back from your tree to the forest, where every chat is a crown of glyphs. Hover a tree and labelled roots run to chats that share a concept; zoom in for the full tree and a "revisit, most faded first" list. |
@@ -98,9 +98,13 @@ Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=activ
 | What | File |
 |---|---|
 | Scripted answers, concepts, demo prompts, seed conversation | `src/data/scenario.ts` |
-| Past conversations (the rest of the forest), groves, sidebar | `src/data/forest.ts` |
+| Past conversations (the rest of the forest) and groves | `src/data/forest.ts` |
+| How the demo data becomes concepts, trees, chats and attempts | `src/ai/scripted/fixture.ts` |
 | Classification rules ("who's thinking"), their explanations and the words they point at | `src/lib/classify.ts` |
-| Assistant behaviour (hint / quiz / feedback / full answer) | `src/lib/engine.ts` |
+| Scripted assistant behaviour (hint / quiz / feedback / full answer) | `src/ai/scripted/engine.ts` |
+| What a turn does (send, stream, stop, retry, analysis) | `src/lib/turn.ts` |
+| How leaves are scored and trees are drawn from the data | `src/lib/project.ts` |
+| When a tree splits | `src/lib/planner.ts` (`MAX_LEAVES`, `MAX_BRANCH_LEAVES`) |
 | Forgetting model (fading, fallen leaves) | `src/lib/retention.ts` |
 | ASCII tree: layout (tree and outline), then drawing and motion | `src/lib/asciiTree.ts`, `src/shared/AsciiTreeView.tsx`, `src/shared/ascii-tree.css` |
 | ASCII style: colours, type, dark mode | tokens at the top of `src/designs/ascii/ascii.css` |
@@ -111,7 +115,19 @@ Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=activ
 | Classic style: squirrel | `src/designs/classic/components/Squirrel.tsx`, `Mascot` in `.../Panel.tsx` |
 | Tree and forest geometry (classic) | `src/lib/layout.ts` |
 
-To make it live, replace `respond()` in `engine.ts` and `classify()` in `classify.ts` with LLM calls that return the same shapes. The UI does not need to change.
+To make it live, add a `Provider` (`src/ai/provider.ts`) that calls a model and returns the same shapes (a streamed reply, and a `TurnAnalysis` for each prompt), then pass it to `StoreProvider`. The designs never talk to a provider or to `src/data/` directly. See `IMPLEMENTATION_PLAN.md` (M3) for the backend relay.
+
+### How the data flows
+
+```
+prompt ─▶ classify.ts (live linter, while typing)
+       ─▶ turn.ts ─▶ Provider.chat ──── streamed reply ───────────▶ messages
+                  └▶ Provider.json('analyze') ─▶ graph.ts merge ─▶ concepts + attempts
+                                                                   │  planner.ts: which trees exist
+designs ◀── TreeData / Leaf ◀── project.ts, links.ts (pure selectors) ◀┘
+```
+
+The store (`lib/state.ts`) keeps canonical entities (concepts, attempts, trees, conversations, messages: `lib/domain.ts`), and the trees the designs draw are computed from them, never stored. A leaf's id is its concept id, and every attempt records the chat and message it came from, so chats, trees and leaves link to each other in both directions.
 
 ## Design rationale (HCI principles)
 
@@ -140,25 +156,36 @@ Learning-science background for the interventions: the *generation effect* (a fi
 ```
 src/
   App.tsx                 one store, then the chosen design (lazy-loaded, so only its CSS is on the page)
-  lib/                    shared by every design
-    store.tsx             state (reducer + context), send/stream flow, veil/reveal, derived live tree
+  lib/                    shared by every design; pure modules have a *.test.ts next to them
+    store.tsx             React side of the store: context, send/stop/retry, memoized projections
+    state.ts              state slices (domain / session / ui) and the pure reducer
+    turn.ts               one chat turn: linter label → streamed reply → analysis → merge
+    domain.ts             canonical data model (concepts, attempts, trees, chats; ADR-2)
     types.ts              render contract the designs consume (TreeData, Branch, Leaf, ChatMessage, …)
-    domain.ts             canonical data model (concepts, attempts, trees; ADR-2), not wired up yet
-    classify.ts           rule-based "who's thinking" classifier with explanations and evidence spans
-    engine.ts             scripted assistant
+    project.ts            domain → TreeData (projection), leaf scores, roots between trees
+    links.ts              chats ↔ trees ↔ leaves, derived from attempts
+    graph.ts              merging an analysis into the concept graph (slug dedup, new-node cap)
+    planner.ts            which trees exist; splits big trees (the M3 optimization plugs in here)
+    evidence.ts           quoted evidence → character offsets
+    classify.ts           rule-based "who's thinking" linter with explanations and evidence spans
     retention.ts          illustrative forgetting model
+    time.ts               ISO date helpers
     asciiTree.ts          the tree on a character grid: botanical layout and outline
     layout.ts, camera.ts  SVG tree + forest layout and camera (classic)
-    *.test.ts             unit tests (vitest)
+  ai/
+    provider.ts           the Provider interface every model backend implements
+    schemas/              structured outputs (TurnAnalysis)
+    scripted/             the offline "Wizard of Oz" provider: engine, demo fixture, parity test
   data/
-    scenario.ts           live conversation script
-    forest.ts             past trees
+    scenario.ts           live conversation script (demo fixture)
+    forest.ts             past trees (demo fixture)
+  test/                   test helpers: a store without React, graph builders
   shared/
     AsciiTreeView.tsx     the animated ASCII tree (ASCII style; kept here so other styles can reuse it)
   designs/
     ascii/
       App.tsx             layout, global keys, browser line, toast
-      Transcript.tsx      the log: evidence, why + relabel, predict → reveal, make it yours
+      Transcript.tsx      the log: evidence, why + relabel, predict → reveal, make it yours, failed/stopped replies
       Composer.tsx        thought linter, slash commands, demo prompts
       Pane.tsx            balance, trail, squirrel, tree, forgetting scrubber, settings
       Forest.tsx          semantic zoom: forest of glyph crowns, roots, tree detail

@@ -36,26 +36,37 @@ export interface ChatMessage {
   veiled?: boolean;
   /** Assistant only: what the user predicted before revealing the answer. */
   guess?: string;
+  /** Assistant only: the user stopped the reply while it streamed. */
+  stopped?: boolean;
+  /** Assistant only: the reply failed (after `text` had partly arrived, if any). */
+  error?: string;
 }
 
-/** A concept that has appeared in the live conversation. */
-export interface LiveConcept {
-  id: string;
-  label: string;
-  branchId: string;
-  /** Creation order — the tree grows upwards in this order. */
-  order: number;
-  /** User messages that touched this concept. */
-  messageIds: string[];
+/** Where a concept was touched: one user message in one conversation. */
+export interface LeafRef {
+  conversationId: string;
+  messageId: string;
+  /** ISO timestamp of the attempt. */
+  at: string;
 }
 
+/**
+ * The render contract for one leaf. Computed from the domain model by `lib/project.ts`,
+ * never stored. `id` is the concept id, so it is stable across chats and tree splits.
+ */
 export interface Leaf {
   id: string;
   label: string;
   /** 0 = AI did the thinking, 0.5 = together, 1 = you. */
   score: number;
+  /** The latest message that touched it (in the active chat if it was touched there). */
   messageId?: string;
+  /** Number of distinct messages that touched it. */
   count?: number;
+  /** Every place it was touched, oldest first. */
+  refs?: LeafRef[];
+  /** Touched in the active chat. */
+  here?: boolean;
 }
 
 export interface Branch {
@@ -68,7 +79,9 @@ export interface TreeData {
   id: string;
   title: string;
   grove: string;
-  updated: string;
+  /** ISO timestamp: when the tree last grew. */
+  updatedAt: string;
+  /** Touched by the active chat (or the active chat's subject tree). */
   live?: boolean;
   branches: Branch[];
 }

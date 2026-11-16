@@ -9,9 +9,10 @@ import { K, useUi } from './ui';
  * periphery, and lists the keys that work in this moment (recognition over recall).
  */
 export function Modeline() {
-  const { state } = useStore();
+  const { state, messages, busy } = useStore();
   const { days, view, sheet } = useUi();
-  const { settings, composer, busy, messages, forest } = state;
+  const { settings } = state;
+  const { composer, forest } = state.ui;
   const [focus, setFocus] = useState<'prompt' | 'guess' | 'tree' | 'other'>('other');
 
   useEffect(() => {
@@ -40,6 +41,7 @@ export function Modeline() {
   else if (forest.open) badge = { cls: 'idle', text: 'forest' };
   else if (veiled) badge = { cls: 'veil', text: '▒ veiled' };
   else if (busy) badge = { cls: 'idle', text: 'ai writing' };
+  else if (state.session.turn.status === 'error') badge = { cls: 'idle', text: '! failed' };
   else if (composer.lens === 'own') badge = { cls: 'own', text: '● your thinking' };
   else if (composer.lens === 'together') badge = { cls: 'together', text: '◑ together' };
   else if (composer.lens === 'ai') badge = { cls: 'ai', text: '○ delegating' };
@@ -47,6 +49,8 @@ export function Modeline() {
 
   let keys: ReactNode;
   if (sheet) keys = <><K>esc</K> close</>;
+  else if (busy && !forest.open) keys = <><K>esc</K> stop</>;
+  else if (state.session.turn.status === 'error' && focus !== 'prompt') keys = <><K>r</K> retry · <K>i</K> type</>;
   else if (forest.open) keys = <><K>esc</K> back · <K>[ ]</K> time</>;
   else if (focus === 'guess') keys = <><K>↵</K> reveal · type a guess first, or don’t</>;
   else if (focus === 'prompt')

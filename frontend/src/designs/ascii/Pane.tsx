@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { CONCEPT_BY_ID } from '../../data/scenario';
 import { useDismiss } from '../../lib/hooks';
 import { MODE_META, MODE_SCORE, mean, pct } from '../../lib/modes';
 import { TIME_MAX, TIME_TICKS, daysAt, formatDays, posOf, retention } from '../../lib/retention';
-import { useStore, type State } from '../../lib/store';
+import type { Concept, Id, Message } from '../../lib/domain';
+import { useStore } from '../../lib/store';
 import type { Mode, NudgeLevel, Theme } from '../../lib/types';
 import { AsciiTreeView } from '../../shared/AsciiTreeView';
 import { Squirrel, type Pose } from './Squirrel';
@@ -75,8 +75,8 @@ function useTween(value: number, ms = 450) {
 }
 
 function Balance() {
-  const { state, jumpTo } = useStore();
-  const turns = state.messages.filter((m) => m.role === 'user' && m.classification);
+  const { jumpTo, messages } = useStore();
+  const turns = messages.filter((m) => m.role === 'user' && m.classification);
   const you = turns.length ? mean(turns.map((t) => MODE_SCORE[t.classification!.mode])) : 0.5;
   const shown = useTween(you);
   const filled = Math.round(shown * BAR);
@@ -117,13 +117,13 @@ function Balance() {
 
 /* ───────────── Squirrel and what it says ───────────── */
 
-function insightFor(state: State): string {
-  const turns = state.messages.filter((m) => m.role === 'user' && m.classification);
+function insightFor(messages: Message[], concepts: Record<Id, Concept>): string {
+  const turns = messages.filter((m) => m.role === 'user' && m.classification);
   if (!turns.length) return 'start chatting. i’ll reflect who is doing the thinking.';
   const modes = turns.map((t) => t.classification!.mode);
   const last = turns[turns.length - 1];
   const lastMode = modes[modes.length - 1];
-  const concept = last.conceptIds.map((id) => state.concepts[id]?.label.toLowerCase()).find(Boolean);
+  const concept = last.conceptIds.map((id) => concepts[id]?.label.toLowerCase()).find(Boolean);
   if (modes.length >= 3 && modes.slice(-3).every((m) => m === 'ai'))
     return 'your last three prompts handed the thinking to the ai. try one answer in your own words?';
   if (lastMode === 'own')
@@ -166,16 +166,16 @@ interface Tip {
 
 /** Poking the squirrel cycles through things worth knowing right now, each with something to do. */
 function useTips(): Tip[] {
-  const { state, dispatch, liveTree, send } = useStore();
+  const { dispatch, activeTree, send, busy, canQuiz } = useStore();
   const { days, setDays } = useUi();
-  const leaves = liveTree.branches.flatMap((b) => b.leaves);
-  const weakest = [...leaves].filter((l) => CONCEPT_BY_ID[l.id]).sort((a, b) => a.score - b.score)[0];
+  const leaves = activeTree.branches.flatMap((b) => b.leaves);
+  const weakest = [...leaves].filter((l) => canQuiz(l.id)).sort((a, b) => a.score - b.score)[0];
   const tips: Tip[] = [];
   if (weakest && weakest.score < 1) {
     const label = weakest.label.toLowerCase();
     tips.push({
       text: `“${label}” is ${weakest.score === 0 ? 'still all the ai’s' : 'only half yours'}. want me to quiz you on it?`,
-      action: state.busy ? undefined : { label: 'quiz me', run: () => send(`Quiz me on ${label}`) },
+      action: busy ? undefined : { label: 'quiz me', run: () => send(`Quiz me on ${label}`) },
     });
   } else if (leaves.length) {
     tips.push({ text: 'every leaf on this tree is yours. i’m impressed.' });
@@ -196,19 +196,19 @@ function useTips(): Tip[] {
 const DIZZY_LINE = 'whoa. okay. okay. i’m dizzy.';
 
 function Companion() {
-  const { state } = useStore();
-  const turns = state.messages.filter((m) => m.role === 'user' && m.classification);
+  const { state, messages } = useStore();
+  const turns = messages.filter((m) => m.role === 'user' && m.classification);
   const lastMode = turns.length ? turns[turns.length - 1].classification!.mode : null;
   const cheer = useCheer(turns.length, lastMode);
-  const veiled = state.messages.some((m) => m.veiled);
-  const lens = state.composer.lens;
+  const veiled = messages.some((m) => m.veiled);
+  const lens = state.ui.composer.lens;
 
   const pose: Pose = veiled ? 'nudge' : cheer ? 'cheer' : (lens ?? lastMode ?? 'idle');
   const [say, key] = veiled
     ? ['it’s veiled for now. what’s your hunch? a rough guess is plenty.', 'veil']
     : lens
       ? [LENS_LINE[lens], `lens-${lens}`]
-      : [insightFor(state), `in-${turns.length}-${lastMode}`];
+      : [insightFor(messages, state.domain.concepts), `in-${turns.length}-${lastMode}`];
 
   // A tip holds the floor until something new happens, or for a while.
   const tips = useTips();
@@ -250,17 +250,17 @@ function Companion() {
 /* ───────────── Tree ───────────── */
 
 function TreeSection() {
-  const { state, dispatch, liveTree, jumpTo, send } = useStore();
+  const { state, dispatch, activeTree, activeTrees, jumpTo, send, canQuiz } = useStore();
   const { view, setView, days, setDays, setLink } = useUi();
   const wrap = useRef<HTMLDivElement>(null);
-  const highlight = useMemo(() => new Set(state.highlight), [state.highlight]);
+  const highlight = useMemo(() => new Set(state.ui.highlight), [state.ui.highlight]);
   const messageOf = useMemo(
-    () => new Map(liveTree.branches.flatMap((b) => b.leaves.map((l) => [l.id, l.messageId] as const))),
-    [liveTree],
+    () => new Map(activeTree.branches.flatMap((b) => b.leaves.map((l) => [l.id, l.messageId] as const))),
+    [activeTree],
   );
   const keep = useMemo(
-    () => new Map(liveTree.branches.flatMap((b) => b.leaves.map((l) => [l.id, retention(l.score, days, l.count ?? 1)] as const))),
-    [liveTree, days],
+    () => new Map(activeTree.branches.flatMap((b) => b.leaves.map((l) => [l.id, retention(l.score, days, l.count ?? 1)] as const))),
+    [activeTree, days],
   );
 
   // Semantic zoom: pinching out on the tree zooms out to the forest.
@@ -285,6 +285,7 @@ function TreeSection() {
     <section className="a-tree" aria-label="Knowledge tree">
       <p className="a-row a-tree-head">
         <span>knowledge tree</span>
+        {activeTrees.length > 1 && <TreeSwitcher />}
         <Radios
           label="Tree view"
           value={view}
@@ -297,7 +298,7 @@ function TreeSection() {
       </p>
       <div className="a-tree-scroll" ref={wrap}>
         <AsciiTreeView
-          tree={liveTree}
+          tree={activeTree}
           view={view}
           retention={days > 0 ? keep : undefined}
           highlight={highlight}
@@ -307,7 +308,7 @@ function TreeSection() {
           }}
           onJump={jumpTo}
           onNodeKey={(n, e) => {
-            if (e.key === 'q' && n.kind === 'leaf' && CONCEPT_BY_ID[n.id]) {
+            if (e.key === 'q' && n.kind === 'leaf' && canQuiz(n.id)) {
               e.preventDefault();
               e.stopPropagation(); // the "make it yours" shortcut listens for q too
               send(`Quiz me on ${n.fullLabel.toLowerCase()}`);
@@ -327,6 +328,26 @@ function TreeSection() {
         </p>
       </footer>
     </section>
+  );
+}
+
+/** When a chat grew several trees: step through them (most recent first). */
+function TreeSwitcher() {
+  const { dispatch, activeTree, activeTrees } = useStore();
+  const i = Math.max(0, activeTrees.findIndex((t) => t.id === activeTree.id));
+  const go = (d: number) => dispatch({ type: 'paneTree', id: activeTrees[(i + d + activeTrees.length) % activeTrees.length].id });
+  return (
+    <span className="a-switch" aria-label="Trees this chat grew">
+      <button className="a-icon" onClick={() => go(-1)} aria-label="Previous tree">
+        ‹
+      </button>
+      <span title={activeTree.title}>
+        {lower(activeTree.title)} <span className="a-dim">{i + 1}/{activeTrees.length}</span>
+      </span>
+      <button className="a-icon" onClick={() => go(1)} aria-label="Next tree">
+        ›
+      </button>
+    </span>
   );
 }
 

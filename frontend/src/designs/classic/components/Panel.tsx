@@ -3,15 +3,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDismiss, useSize } from '../../../lib/hooks';
 import { layoutTree, type PlacedBranch, type PlacedLeaf } from '../../../lib/layout';
 import { MODE_META, MODE_SCORE, mean, pct, scoreToMode } from '../../../lib/modes';
-import { CONCEPT_BY_ID } from '../../../data/scenario';
-import { useStore, type State } from '../../../lib/store';
+import type { Concept, Id, Message } from '../../../lib/domain';
+import { useStore } from '../../../lib/store';
 import type { Design, Mode, NudgeLevel, Theme } from '../../../lib/types';
 import { ArborLogo, Glyph } from './Glyph';
 import { Squirrel, type SquirrelPose } from './Squirrel';
 import { TreeSvg, type LeafEvent } from './TreeSvg';
 
 export function ArborPanel() {
-  const { state, dispatch, liveTree } = useStore();
+  const { state, dispatch, activeTree } = useStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const enabled = state.settings.enabled;
 
@@ -45,7 +45,7 @@ export function ArborPanel() {
           <div className="tree-head">
             <div>
               <p className="eyebrow">Knowledge tree</p>
-              <h2>{liveTree.title}</h2>
+              <h2>{activeTree.title}</h2>
             </div>
             <button
               className="btn btn-sm"
@@ -65,13 +65,13 @@ export function ArborPanel() {
 
 /* ───────────── Who's thinking ───────────── */
 
-function insightFor(state: State): string {
-  const turns = state.messages.filter((m) => m.role === 'user' && m.classification);
+function insightFor(messages: Message[], concepts: Record<Id, Concept>): string {
+  const turns = messages.filter((m) => m.role === 'user' && m.classification);
   if (!turns.length) return 'Start chatting — Arbor reflects who is doing the thinking.';
   const modes = turns.map((t) => t.classification!.mode);
   const last = turns[turns.length - 1];
   const lastMode = modes[modes.length - 1];
-  const concept = last.conceptIds.map((id) => state.concepts[id]?.label).find(Boolean);
+  const concept = last.conceptIds.map((id) => concepts[id]?.label).find(Boolean);
   if (modes.length >= 3 && modes.slice(-3).every((m) => m === 'ai'))
     return 'Your last three prompts handed the thinking to the AI. Try putting one answer in your own words.';
   if (lastMode === 'own')
@@ -84,8 +84,8 @@ function insightFor(state: State): string {
 }
 
 function Balance() {
-  const { state, jumpTo } = useStore();
-  const turns = state.messages.filter((m) => m.role === 'user' && m.classification);
+  const { state, jumpTo, messages } = useStore();
+  const turns = messages.filter((m) => m.role === 'user' && m.classification);
   const you = turns.length ? pct(mean(turns.map((t) => MODE_SCORE[t.classification!.mode]))) : 50;
 
   return (
@@ -125,7 +125,7 @@ function Balance() {
           ))}
         </div>
       )}
-      {state.settings.mascot ? <Mascot insight={insightFor(state)} /> : <p className="insight">{insightFor(state)}</p>}
+      {state.settings.mascot ? <Mascot insight={insightFor(messages, state.domain.concepts)} /> : <p className="insight">{insightFor(messages, state.domain.concepts)}</p>}
     </section>
   );
 }
@@ -169,14 +169,14 @@ interface SquirrelTip {
 
 /** Poking the squirrel cycles through things worth doing right now. */
 function useSquirrelTips(): SquirrelTip[] {
-  const { state, dispatch, liveTree, send } = useStore();
-  const leaves = liveTree.branches.flatMap((b) => b.leaves);
-  const weakest = [...leaves].filter((l) => CONCEPT_BY_ID[l.id]).sort((a, b) => a.score - b.score)[0];
+  const { dispatch, activeTree, send, busy, canQuiz } = useStore();
+  const leaves = activeTree.branches.flatMap((b) => b.leaves);
+  const weakest = [...leaves].filter((l) => canQuiz(l.id)).sort((a, b) => a.score - b.score)[0];
   const tips: SquirrelTip[] = [];
   if (weakest && weakest.score < 1) {
     tips.push({
       text: `“${weakest.label}” is ${weakest.score === 0 ? 'still all the AI’s' : 'only half yours'}. Want me to quiz you on it?`,
-      action: state.busy ? undefined : { label: 'Quiz me', run: () => send(`Quiz me on ${weakest.label.toLowerCase()}`) },
+      action: busy ? undefined : { label: 'Quiz me', run: () => send(`Quiz me on ${weakest.label.toLowerCase()}`) },
     });
   } else if (leaves.length) {
     tips.push({ text: 'Every leaf on this tree is yours. I’m impressed.' });
@@ -191,9 +191,9 @@ function useSquirrelTips(): SquirrelTip[] {
 const DIZZY_LINE = 'Whoa. Okay. Okay. I’m dizzy.';
 
 function Mascot({ insight }: { insight: string }) {
-  const { state } = useStore();
-  const { composer } = state;
-  const turns = state.messages.filter((m) => m.role === 'user' && m.classification);
+  const { state, messages } = useStore();
+  const { composer } = state.ui;
+  const turns = messages.filter((m) => m.role === 'user' && m.classification);
   const lastMode = turns.length ? turns[turns.length - 1].classification!.mode : null;
   const cheer = useCheer(turns.length, lastMode);
 
@@ -251,13 +251,14 @@ interface Tip {
 }
 
 function LiveTree() {
-  const { state, dispatch, liveTree, jumpTo } = useStore();
+  const { state, dispatch, activeTree, jumpTo } = useStore();
   const wrap = useRef<HTMLDivElement>(null);
   const { w } = useSize(wrap);
-  const layout = useMemo(() => layoutTree(liveTree), [liveTree]);
-  const highlight = useMemo(() => new Set(state.highlight), [state.highlight]);
+  const layout = useMemo(() => layoutTree(activeTree), [activeTree]);
+  const highlight = useMemo(() => new Set(state.ui.highlight), [state.ui.highlight]);
   const [tip, setTip] = useState<Tip | null>(null);
-  const prevCount = useRef(layout.count);
+  const leafIds = layout.branches.flatMap((b) => b.leaves.map((l) => l.id));
+  const prevIds = useRef(new Set(leafIds));
 
   const W = Math.max(w, 300);
   const top = layout.top - 18;
@@ -266,17 +267,18 @@ function LiveTree() {
 
   // Bring a newly sprouted leaf into view.
   useEffect(() => {
-    if (layout.count > prevCount.current && wrap.current) {
-      const newest = Object.values(state.concepts).sort((a, b) => b.order - a.order)[0];
-      const b = layout.branches.find((br) => br.leaves.some((l) => l.id === newest?.id));
-      const l = b?.leaves.find((x) => x.id === newest?.id);
+    const newest = leafIds.filter((id) => !prevIds.current.has(id)).at(-1);
+    if (newest && wrap.current) {
+      const b = layout.branches.find((br) => br.leaves.some((l) => l.id === newest));
+      const l = b?.leaves.find((x) => x.id === newest);
       if (b && l) {
         const y = b.base + l.y - top;
         wrap.current.scrollTo({ top: Math.max(0, y - wrap.current.clientHeight / 2), behavior: 'smooth' });
       }
     }
-    prevCount.current = layout.count;
-  }, [layout, state.concepts, top]);
+    prevIds.current = new Set(leafIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, top]);
 
   // Semantic zoom: pinching out on the tree zooms out to the forest.
   useEffect(() => {
@@ -322,7 +324,7 @@ function LiveTree() {
           height={height}
           viewBox={`${-W / 2} ${top} ${W} ${height}`}
           role="img"
-          aria-label={`Knowledge tree for ${liveTree.title}: ${layout.count} concepts, ${pct(layout.score)}% your thinking`}
+          aria-label={`Knowledge tree for ${activeTree.title}: ${layout.count} concepts, ${pct(layout.score)}% your thinking`}
         >
           <line className="ground" x1={-80} x2={80} y1={0} y2={0} />
           <TreeSvg
@@ -335,7 +337,7 @@ function LiveTree() {
             onLeafClick={({ leaf }) => leaf.messageId && jumpTo(leaf.messageId)}
           />
           <text className="root-title" x={0} y={24} textAnchor="middle">
-            {liveTree.title}
+            {activeTree.title}
           </text>
           <text className="root-meta" x={0} y={40} textAnchor="middle">
             {layout.count} concepts · {pct(layout.score)}% your thinking

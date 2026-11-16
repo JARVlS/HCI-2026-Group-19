@@ -518,6 +518,16 @@ body {
   box-shadow: 0 1.5px 0 var(--you);
   animation: a-fade 0.6s 0.2s backwards;
 }
+/* A failed or stopped reply. No third meaning colour: the "!" in bold text carries it. */
+.a-failed,
+.a-stopped {
+  margin: 6px 0 0;
+  animation: a-rise 0.3s var(--ease);
+}
+.a-fail-mark {
+  font-weight: 700;
+  color: var(--text);
+}
 .a-reflect {
   display: flex;
   flex-wrap: wrap;
@@ -1537,4 +1547,15 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
   }
+}
+
+/* Pane: step through the trees a chat grew (only shown when there are several). */
+.a-switch {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5ch;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

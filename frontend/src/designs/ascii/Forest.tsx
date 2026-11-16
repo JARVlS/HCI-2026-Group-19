@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { GROVES, GROVE_ROWS, PAST_TREES } from '../../data/forest';
-import { CONCEPT_BY_ID, LIVE_TREE } from '../../data/scenario';
 import { prefersReducedMotion } from '../../lib/hooks';
 import { mean, pct, scoreToMode, MODE_META } from '../../lib/modes';
-import { FALLEN, daysSince, eroded, hash01, retention } from '../../lib/retention';
+import type { Root } from '../../lib/project';
+import { FALLEN, ageDays, eroded, hash01, retention } from '../../lib/retention';
 import { useStore } from '../../lib/store';
+import { shortDate } from '../../lib/time';
 import type { TreeData } from '../../lib/types';
 import { AsciiTreeView } from '../../shared/AsciiTreeView';
 import { Scrubber } from './Pane';
@@ -42,17 +42,17 @@ interface TreeInfo {
   leaves: LeafInfo[];
   fading: number;
   fallen: number;
-  /** Other tree id → shared concept labels. */
-  roots: Map<string, string[]>;
+  /** Other tree id → roots to it (shared concepts, splits, chats). */
+  roots: Map<string, Root[]>;
 }
 
 function useForestData(days: number) {
-  const { liveTree } = useStore();
+  const { forestTrees, roots } = useStore();
   return useMemo(() => {
-    const trees = [liveTree, ...PAST_TREES];
-    const infos: TreeInfo[] = trees.map((tree) => {
-      const live = tree.id === LIVE_TREE.id;
-      const age = (live ? 0 : daysSince(tree.updated)) + days;
+    const now = Date.now();
+    const infos: TreeInfo[] = forestTrees.map((tree) => {
+      const live = Boolean(tree.live);
+      const age = (live ? 0 : ageDays(tree.updatedAt, now)) + days;
       const leaves = tree.branches.flatMap((b) =>
         b.leaves.map((l) => ({
           id: l.id,
@@ -71,29 +71,21 @@ function useForestData(days: number) {
         leaves,
         fading: leaves.filter((l) => l.keep < 0.6 && l.keep >= FALLEN).length,
         fallen: leaves.filter((l) => l.keep < FALLEN).length,
-        roots: new Map(),
+        // Roots between chats ("the wood wide web"), matched by concept id.
+        roots: roots.get(tree.id) ?? new Map(),
       };
     });
-    // Shared concepts between chats become roots ("the wood wide web").
-    for (const a of infos) {
-      const mine = new Map(a.leaves.map((l) => [l.label.toLowerCase(), l.label]));
-      for (const b of infos) {
-        if (a === b) continue;
-        const shared = b.leaves.map((l) => l.label.toLowerCase()).filter((k) => mine.has(k));
-        if (shared.length) a.roots.set(b.tree.id, shared.map((k) => mine.get(k)!));
-      }
-    }
     return { infos, byId: new Map(infos.map((i) => [i.tree.id, i])) };
-  }, [liveTree, days]);
+  }, [forestTrees, roots, days]);
 }
 
 export function Forest() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, activeTree, groves } = useStore();
   const { days, setDays } = useUi();
   const { infos, byId } = useForestData(days);
-  const startFocus = state.forest.focus && byId.has(state.forest.focus) ? state.forest.focus : null;
+  const startFocus = state.ui.forest.focus && byId.has(state.ui.forest.focus) ? state.ui.forest.focus : null;
   const [level, setLevel] = useState<'forest' | 'tree'>(startFocus ? 'tree' : 'forest');
-  const [focus, setFocus] = useState<string>(startFocus ?? LIVE_TREE.id);
+  const [focus, setFocus] = useState<string>(startFocus ?? activeTree.id);
   const [hover, setHover] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -101,7 +93,7 @@ export function Forest() {
   const body = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
   /** Where the camera comes from when the forest (re)appears: a tree id and how long to pull back. */
-  const zoomFrom = useRef<{ id: string; ms: number } | null>(startFocus ? null : { id: LIVE_TREE.id, ms: 1100 });
+  const zoomFrom = useRef<{ id: string; ms: number } | null>(startFocus ? null : { id: activeTree.id, ms: 1100 });
   const busy = useRef(false);
 
   const close = useCallback(() => dispatch({ type: 'forest', open: false }), [dispatch]);
@@ -201,8 +193,8 @@ export function Forest() {
   }, [zoomIn, zoomOut, level]);
 
   const all = infos.flatMap((i) => i.leaves);
-  const focused = byId.get(focus)!;
-  const groveOf = (id: string) => GROVES.find((g) => g.id === id)?.label.toLowerCase() ?? '';
+  const focused = byId.get(focus) ?? infos[0];
+  const groveOf = (id: string) => groves.find((g) => g.id === id)?.label.toLowerCase() ?? '';
 
   return (
     <div className="a-forest" role="dialog" aria-modal="true" aria-label="Forest: all your chats">
@@ -221,7 +213,7 @@ export function Forest() {
         {level === 'forest' ? (
           <>
             <span className="a-dim">
-              {infos.length} chats · {GROVES.length} groves · {all.length} concepts · {pct(mean(all.map((l) => l.score)))}% your thinking
+              {infos.length} chats · {groves.length} groves · {all.length} concepts · {pct(mean(all.map((l) => l.score)))}% your thinking
             </span>
             <label className="a-search">
               <span className="a-dim">search ›</span>
@@ -248,7 +240,7 @@ export function Forest() {
         ) : (
           <span className="a-dim">
             <G score={focused.score} /> {pct(focused.score)}% your thinking · {focused.leaves.length} concepts ·{' '}
-            {focused.live ? 'this chat' : `last opened ${lower(focused.tree.updated)}`}
+            {focused.live ? 'this chat' : `last opened ${lower(shortDate(focused.tree.updatedAt))}`}
           </span>
         )}
         <span className="a-forest-time">
@@ -327,6 +319,7 @@ function Groves({
   setGrove: (g: string | null) => void;
   onOpen: (id: string) => void;
 }) {
+  const { activeTree, groves, groveRows } = useStore();
   const wrap = useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
   const hovered = hover ? byId.get(hover) : undefined;
@@ -334,10 +327,9 @@ function Groves({
   const hitsOf = (i: TreeInfo) => (q ? new Set(i.leaves.filter((l) => l.label.toLowerCase().includes(q)).map((l) => l.id)) : null);
   const sharedWithHover = (i: TreeInfo) => {
     if (!hovered || hovered === i) return null;
-    const labels = hovered.roots.get(i.tree.id);
-    if (!labels) return null;
-    const set = new Set(labels.map((l) => l.toLowerCase()));
-    return new Set(i.leaves.filter((l) => set.has(l.label.toLowerCase())).map((l) => l.id));
+    const roots = hovered.roots.get(i.tree.id);
+    if (!roots) return null;
+    return new Set(roots.flatMap((r) => (r.toLeafId ? [r.toLeafId] : [])));
   };
 
   // Arrow keys move between trees in reading order.
@@ -346,7 +338,7 @@ function Groves({
     const els = [...(wrap.current?.querySelectorAll<HTMLElement>('[data-tree]') ?? [])];
     const i = els.indexOf(document.activeElement as HTMLElement);
     e.preventDefault();
-    if (i < 0) return els.find((el) => el.dataset.tree === LIVE_TREE.id)?.focus();
+    if (i < 0) return els.find((el) => el.dataset.tree === activeTree.id)?.focus();
     const cur = els[i].getBoundingClientRect();
     let next: HTMLElement | undefined;
     if (e.key === 'ArrowLeft') next = els[i - 1];
@@ -370,8 +362,8 @@ function Groves({
 
   return (
     <div className="a-groves" ref={wrap} onKeyDown={onKeyDown}>
-      {GROVE_ROWS.flat().map((gid) => {
-        const g = GROVES.find((x) => x.id === gid)!;
+      {groveRows.flat().map((gid) => {
+        const g = groves.find((x) => x.id === gid)!;
         const members = infos.filter((i) => i.tree.grove === gid);
         const leaves = members.flatMap((i) => i.leaves);
         const away = grove !== null && grove !== gid;
@@ -450,7 +442,7 @@ function MiniTree({
   const slots = crown(leaves.length);
   const title = tree.title.toLowerCase();
   const fitTitle = title.length > W - 1 ? `${title.slice(0, W - 2)}…` : title;
-  const meta = hits && hits.size && !related ? `${hits.size} match${hits.size === 1 ? '' : 'es'}` : `${pct(info.score)}% · ${live ? 'now' : lower(tree.updated)}`;
+  const meta = hits && hits.size && !related ? `${hits.size} match${hits.size === 1 ? '' : 'es'}` : `${pct(info.score)}% · ${live ? 'now' : lower(shortDate(tree.updatedAt))}`;
   const ref = useRef<HTMLButtonElement>(null);
   const [flip, setFlip] = useState(false);
 
@@ -506,9 +498,10 @@ function MiniTree({
 
 /** Box-drawn card with what the tree holds and where its roots go. */
 function TreeCard({ info, flip }: { info: TreeInfo; flip: boolean }) {
-  const roots = [...info.roots.entries()].slice(0, 3).map(([id, labels]) => {
-    const t = id === LIVE_TREE.id ? LIVE_TREE.title : PAST_TREES.find((x) => x.id === id)?.title ?? id;
-    return `→ ${t.toLowerCase()} (${labels.map((l) => l.toLowerCase()).join(', ')})`;
+  const { forestTrees } = useStore();
+  const roots = [...info.roots.entries()].slice(0, 3).map(([id, rs]) => {
+    const t = forestTrees.find((x) => x.id === id)?.title ?? id;
+    return `→ ${t.toLowerCase()} (${rs.map((r) => r.label.toLowerCase()).join(', ')})`;
   });
   const lines = [
     `${MODE_META[scoreToMode(info.score)].label.toLowerCase()} · ${pct(info.score)}%`,
@@ -575,14 +568,14 @@ function Roots({ from, wrap }: { from: TreeInfo; wrap: React.RefObject<HTMLDivEl
     setCw(ch);
     const out: { x0: number; x1: number; y: number; label: string }[] = [];
     let k = 0;
-    for (const [id, labels] of from.roots) {
+    for (const [id, roots] of from.roots) {
       const eb = root.querySelector<HTMLElement>(`[data-tree="${id}"]`);
       if (!eb) continue;
       const b = box(eb);
       if (Math.abs(b.top - a.top) > 4) continue;
       const xa = a.left + MID * ch;
       const xb = b.left + MID * ch;
-      out.push({ x0: Math.min(xa, xb), x1: Math.max(xa, xb), y: a.bottom + (k % 2) * LH + 2, label: labels[0].toLowerCase() });
+      out.push({ x0: Math.min(xa, xb), x1: Math.max(xa, xb), y: a.bottom + (k % 2) * LH + 2, label: roots[0].label.toLowerCase() });
       k++;
     }
     setLines(out);
@@ -613,13 +606,13 @@ function Roots({ from, wrap }: { from: TreeInfo; wrap: React.RefObject<HTMLDivEl
 /* ───────────── Tree level ───────────── */
 
 function TreeDetail({ info }: { info: TreeInfo }) {
-  const { state, dispatch, send, jumpTo, toast } = useStore();
+  const { state, dispatch, send, jumpTo, toast, canQuiz } = useStore();
   const keep = useMemo(() => new Map(info.leaves.map((l) => [l.id, l.keep])), [info]);
   const order = [...info.leaves].sort((a, b) => a.keep - b.keep || a.score - b.score);
-  const highlight = useMemo(() => new Set(state.highlight), [state.highlight]);
+  const highlight = useMemo(() => new Set(state.ui.highlight), [state.ui.highlight]);
 
   const quiz = (l: LeafInfo) => {
-    if (info.live && CONCEPT_BY_ID[l.id]) {
+    if (info.live && canQuiz(l.id)) {
       dispatch({ type: 'forest', open: false });
       send(`Quiz me on ${l.label.toLowerCase()}`);
     } else toast('prototype: past chats are read-only. this would reopen that chat with a quiz.');

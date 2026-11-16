@@ -13,10 +13,10 @@ interface Concept {
 }
 
 function useConcepts(): Concept[] {
-  const { state, dispatch } = useStore();
+  const { dispatch, messages } = useStore();
   const ui = useUi();
   const delegate = 'Write me a summary of backpropagation for my exam';
-  const lastUser = [...state.messages].reverse().find((m) => m.role === 'user');
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   return [
     {
       name: 'thought linter',
@@ -103,9 +103,9 @@ export function Concepts() {
   const { sheet, setSheet } = useUi();
   const concepts = useConcepts();
   const first = useRef<HTMLButtonElement>(null);
-  const open = sheet === 'concepts' || state.onboarding;
+  const open = sheet === 'concepts' || state.ui.onboarding;
   const close = () => {
-    if (state.onboarding) finishOnboarding();
+    if (state.ui.onboarding) finishOnboarding();
     setSheet(null);
   };
   const closeRef = useRef(close);
@@ -115,7 +115,7 @@ export function Concepts() {
     if (!open) return;
     requestAnimationFrame(() => first.current?.focus());
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || (state.onboarding && e.key === 'Enter' && document.activeElement === first.current)) {
+      if (e.key === 'Escape' || (state.ui.onboarding && e.key === 'Enter' && document.activeElement === first.current)) {
         e.preventDefault();
         e.stopImmediatePropagation();
         closeRef.current();
@@ -123,11 +123,11 @@ export function Concepts() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [open, state.onboarding]);
+  }, [open, state.ui.onboarding]);
 
   if (!open) return null;
 
-  if (state.onboarding)
+  if (state.ui.onboarding)
     return (
       <div className="a-sheet-back" onMouseDown={(e) => e.target === e.currentTarget && close()}>
         <div className="a-intro" role="dialog" aria-modal="true" aria-labelledby="a-intro-title">

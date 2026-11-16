@@ -100,12 +100,12 @@ function useCharWidth() {
 }
 
 export function Links() {
-  const { state, liveTree } = useStore();
+  const { state, activeTree, messages } = useStore();
   const { link } = useUi();
   const cw = useCharWidth();
   const [cells, setCells] = useState<Cell[]>([]);
   const last = useRef('');
-  const on = Boolean(link) && state.settings.enabled && state.panelOpen && !state.forest.open;
+  const on = Boolean(link) && state.settings.enabled && state.ui.panelOpen && !state.ui.forest.open;
 
   useEffect(() => {
     if (!on || !link) {
@@ -113,7 +113,7 @@ export function Links() {
       setCells([]);
       return;
     }
-    const scoreOf = new Map(liveTree.branches.flatMap((b) => b.leaves.map((l) => [l.id, l.score] as const)));
+    const scoreOf = new Map(activeTree.branches.flatMap((b) => b.leaves.map((l) => [l.id, l.score] as const)));
     const colorOf = (leaf: string) => ((scoreOf.get(leaf) ?? 0) > 0 ? 'var(--you)' : 'var(--ai)');
     let raf = 0;
 
@@ -149,7 +149,7 @@ export function Links() {
 
       const paths: Path[] = [];
       if (link.kind === 'message') {
-        const m = state.messages.find((x) => x.id === link.id);
+        const m = messages.find((x) => x.id === link.id);
         const start = msgAt(link.id);
         if (!m || !start) return [];
         for (const leaf of m.conceptIds) {
@@ -196,7 +196,7 @@ export function Links() {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [on, link, cw, state.messages, liveTree]);
+  }, [on, link, cw, messages, activeTree]);
 
   if (!cells.length) return null;
   const still = prefersReducedMotion();

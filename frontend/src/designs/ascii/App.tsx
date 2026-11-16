@@ -25,7 +25,7 @@ export default function AsciiApp() {
 }
 
 function Shell() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, busy, stop } = useStore();
   const ui = useUi();
   const { theme } = state.settings;
 
@@ -44,11 +44,12 @@ function Shell() {
       if (key === '/') ui.fill('/');
       else if (key === 'i') ui.focusPrompt();
       else if (key === '?') ui.setSheet(ui.sheet ? null : 'concepts');
-      else if (key === 't' && !state.forest.open) ui.setView(ui.view === 'tree' ? 'outline' : 'tree');
-      else if (key === 'f') dispatch({ type: 'forest', open: !state.forest.open });
+      else if (key === 't' && !state.ui.forest.open) ui.setView(ui.view === 'tree' ? 'outline' : 'tree');
+      else if (key === 'f') dispatch({ type: 'forest', open: !state.ui.forest.open });
       else if (key === ']') ui.setDays(stops.find((d) => d > ui.days) ?? TIME_MAX);
       else if (key === '[') ui.setDays([...stops].reverse().find((d) => d < ui.days) ?? 0);
       else if (key === 'Escape') {
+        if (busy) stop();
         ui.setWhy(null);
         dispatch({ type: 'highlight', ids: [] });
         return;
@@ -57,7 +58,7 @@ function Shell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [ui, state.forest.open, dispatch]);
+  }, [ui, state.ui.forest.open, dispatch, busy, stop]);
 
   return (
     <div className="ascii">
@@ -67,8 +68,8 @@ function Shell() {
           <Transcript />
           <Composer />
         </main>
-        {state.panelOpen && <Pane />}
-        {state.forest.open && <Forest />}
+        {state.ui.panelOpen && <Pane />}
+        {state.ui.forest.open && <Forest />}
       </div>
       <Modeline />
       <Links />
@@ -80,8 +81,8 @@ function Shell() {
 
 /** A browser reduced to one line, so the overlay still reads as an extension on someone else's chat. */
 function TopLine() {
-  const { state, dispatch, toast } = useStore();
-  const turns = state.messages.filter((m) => m.role === 'user' && m.classification);
+  const { state, dispatch, toast, messages } = useStore();
+  const turns = messages.filter((m) => m.role === 'user' && m.classification);
   const score = turns.length ? mean(turns.map((t) => MODE_SCORE[t.classification!.mode])) : 0.5;
   return (
     <header className="a-top">
@@ -93,10 +94,10 @@ function TopLine() {
       </span>
       <span className="a-top-ext">
         <button
-          className={`a-ext${state.panelOpen ? ' on' : ''}`}
-          aria-pressed={state.panelOpen}
+          className={`a-ext${state.ui.panelOpen ? ' on' : ''}`}
+          aria-pressed={state.ui.panelOpen}
           title="arbor"
-          onClick={() => dispatch({ type: 'panel', open: !state.panelOpen })}
+          onClick={() => dispatch({ type: 'panel', open: !state.ui.panelOpen })}
         >
           {state.settings.enabled ? <G score={score} /> : <span aria-hidden="true">z</span>} arbor
         </button>
@@ -112,15 +113,15 @@ function Toast() {
   const { state } = useStore();
   const [visible, setVisible] = useState(false);
   useEffect(() => {
-    if (!state.toast) return;
+    if (!state.ui.toast) return;
     setVisible(true);
     const t = setTimeout(() => setVisible(false), 3200);
     return () => clearTimeout(t);
-  }, [state.toast]);
+  }, [state.ui.toast]);
   return (
     <div className={`a-toast${visible ? ' show' : ''}`} role="status" aria-live="polite">
       <span className="a-dim">arbor › </span>
-      {state.toast?.text}
+      {state.ui.toast?.text}
     </div>
   );
 }

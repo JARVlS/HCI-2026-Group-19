@@ -51,7 +51,7 @@ the UI does not need to change"*. That is true for the shapes but false in five 
 | `data/scenario.ts`, `data/forest.ts` | Hard-coded concepts and past trees. They become **seed fixtures** loaded through the scripted provider / demo mode, not imports in the UI. |
 | `conceptScore()` in `store.tsx` | `max(message-level mode)` over messages. **Concepts are never judged individually**, which is our core feature. Replaced by per-concept attempts plus help-aware BKT (ADR-7). |
 
-### The five places where "same shapes, UI unchanged" breaks (fix list for M1)
+### The five places where "same shapes, UI unchanged" breaks (fix list for M1; 1, 2 and 5 done in M1, 3 is M2, 4 has its data model and gets real judgements in M4)
 1. **Async and streaming**: the network can fail, be slow or be aborted. The UI needs error and retry states and a stop key.
 2. **UI imports scripted data directly.** These must go through the store:
    - `Pane.tsx:2,172,310`: quiz availability = `CONCEPT_BY_ID[l.id]`
@@ -172,10 +172,12 @@ projectTree(tree, concepts, attempts, opts?: { conversationId?: Id }): TreeData
 //  branch = direct child of the root (fallback branch id 'other' = "side questions"); branch.id = that concept's id
 //  leaf   = every attempted descendant, flattened onto its branch; leaf.id = concept.id (stable across splits!)
 //  leaf.score = mean independence across all chats (glyph); leaf.mastery = BKT P(L) (fading), ADR-7
+//    (M1 keeps the prototype's max for parity: `leafScore()` in project.ts; switch to mean in M4)
 //  leaf.refs  = refsOfConcept(id); leaf.messageId = latest ref (kept for existing code)
 //  opts.conversationId → leaves touched in that chat are marked `here: true` (the pane highlights them)
 projectForest(trees, concepts, attempts): TreeData[]
-crossRoots(trees, concepts, edges): Map<treeId, Map<otherTreeId, { label: string; kind: 'edge' | 'split' | 'chat' }[]>>
+crossRoots(forest, edges, trees, attempts?, conversations?): Map<treeId, Map<otherTreeId, Root[]>>
+//  Root = { label, kind: 'edge' | 'split' | 'chat', fromLeafId?, toLeafId? }; takes the projected forest so only leaves (attempted) connect
 //  roots between trees: prerequisite/related edges crossing trees, split provenance, chats that touched both
 ```
 `TreeData` changes: `updated: string` becomes `updatedAt: ISO`; `live?: boolean` means "touched
@@ -221,7 +223,8 @@ export interface Provider {
   kind: ProviderKind;
   label: string;
   chat(req: ChatRequest, onDelta: (text: string) => void, signal: AbortSignal): Promise<ChatResult>;
-  json<T>(req: JsonRequest<T>, signal: AbortSignal): Promise<T>;   // structured output against a JSON schema
+  json<K extends JsonTask>(task: K, input: JsonTasks[K]['input'], signal: AbortSignal): Promise<JsonTasks[K]['output']>;
+  // structured output; requests are structured (no prompt strings), LLM providers render them with ai/prompts/*
   models?(): Promise<string[]>;
 }
 ```
@@ -588,29 +591,52 @@ each time-boxed to half a day, results noted in this file:**
 - [x] Commit or revert the stray `frontend/package-lock.json` change on `main`. *(Already clean.)*
 
 ### M1 Store refactor and provider seam (FE, Nov 17–21) ⇢ M0
-- [ ] Normalize state: `conversations`, `messagesByConv`, `concepts`, `edges`, `attempts`,
+- [x] Normalize state: `conversations`, `messagesByConv`, `concepts`, `edges`, `attempts`,
       `activeConversationId`; separate `ui` slice (panel, forest, draft, toast, highlight,
       composer, flash, onboarding).
-- [ ] `lib/project.ts` + `lib/links.ts` (ADR-2 selectors) replace `buildLiveTree`; `liveTree` in
+- [x] `lib/project.ts` + `lib/links.ts` (ADR-2 selectors) replace `buildLiveTree`; `liveTree` in
       context becomes `activeTrees` (trees touched by the active chat; the pane shows the most
       recent one, with a switcher if a chat grew several), plus a new `forestTrees`.
       `HeuristicPlanner` with the scripted fixtures: one tree per subject, so the demo looks as it does today.
-- [ ] `lib/turn.ts` async orchestrator: linter classify → `user` → `provider.chat` (stream deltas,
+- [x] `lib/turn.ts` async orchestrator: linter classify → `user` → `provider.chat` (stream deltas,
       `AbortController`) → `assistantDone` → `provider.json(analyze)` → `analysisDone` (attempts +
       concept merge) → enqueue sync. New actions: `hydrate`, `conversationNew/Open`,
       `analysisDone`, `turnError`, `abort`.
-- [ ] `ScriptedProvider` wraps `engine.ts`/`classify.ts`/`matchConcepts` and returns a
+- [x] `ScriptedProvider` wraps `engine.ts`/`classify.ts`/`matchConcepts` and returns a
       `TurnAnalysis`; seed data (`scenario.ts`, `forest.ts`) loads as fixture entities through it.
-- [ ] Remove every UI import of `data/*` and `engine.ts` (fix list in §2). The veil decision
+- [x] Remove every UI import of `data/*` and `engine.ts` (fix list in §2). The veil decision
       becomes `linter.mode === 'ai' && nudge === 'active' && !pendingQuiz` (no keyword match).
       `DEMO_PROMPTS` comes from the active fixture.
-- [ ] `retention.ts` on ISO dates and `now`.
-- [ ] Error UI in the transcript (`! failed · r retry`), plus `esc` to stop streaming (modeline shows it).
+- [x] `retention.ts` on ISO dates and `now`.
+- [x] Error UI in the transcript (`! failed · r retry`), plus `esc` to stop streaming (modeline shows it).
 
 *Acceptance:* both designs look and behave **identically** to today with the scripted provider
 (manual run of the README demo scripts), and forest roots are matched by concept id. Unit tests
 cover `projectTree`, `crossRoots`, `links.ts`, `HeuristicPlanner`, and `turn.ts` with a fake
 provider (success, error, abort).
+
+*Done 16 Nov.* Parity is a test, not only a manual run: `src/ai/scripted/parity.test.ts`
+replays the seed chat and the README demo script through the new pipeline and compares with
+output captured from the pre-M1 store (`parity.expected.json`); forest roots by concept id are
+checked against the old label matching. Still to do by hand: click through both README demo
+scripts in a browser (headless Chromium renders both builds the same, but does not draw the
+animated tree). Decisions taken on the way (change them here if the team disagrees):
+- **Leaf score stays the max** of a concept's attempts (prototype rule) instead of ADR-2's mean,
+  because "identical" was the acceptance criterion; `leafScore()` in `project.ts`, switch in M4.
+- **Same label in two trees = two concepts + a `related` edge** in the fixture: the hierarchy is a
+  strict forest, so a concept can't sit in two trees; the edge draws the root.
+- **The analysis runs in parallel with the reply** and is applied once the reply starts (not after
+  it ends), so leaves still grow when the answer appears. It is not cancelled by `esc`.
+- **Turn order:** relabels never delete (an `override` attempt supersedes the old one and keeps
+  its timestamp, so leaf order doesn't move); a relabel or a revealed guess made before a late
+  analysis lands wins over it.
+- **Pane for a chat with no tree yet:** its subject's most recent tree (the old "live tree" in `?empty=1`).
+- **Abort** is the `turnStopped` action (or `assistantDone` with `stopped`); `/stop` and `/retry`
+  join `esc` and `r`.
+- **Fixture dates** are "days ago", so the forest fades the same whatever day the demo runs.
+  The classic sidebar's groups are now computed (this week = last 7 days), so *Usability
+  testing* (8 days) moved to *Earlier*.
+- **Enqueue sync** is left for M2 (no persistence yet).
 
 ### M2 Persistence and multi-conversation (BE + FE, Nov 19–24) ⇢ M1 types, M0 D1 spike
 **BE**

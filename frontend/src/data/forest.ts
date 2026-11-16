@@ -1,8 +1,10 @@
-import type { Grove, TreeData } from '../lib/types';
+import type { Grove } from '../lib/types';
 
 /**
- * Past conversations — the rest of the user's forest.
+ * Past conversations — the rest of the user's forest (demo fixture, loaded by
+ * `src/ai/scripted/fixture.ts`; the UI never imports this file).
  * Leaf notation: "Label|y" = your thinking, "|t" = together, "|a" = delegated to AI.
+ * Dates are days before today, so the forest fades the same whenever the demo runs.
  */
 
 export const GROVES: Grove[] = [
@@ -13,20 +15,22 @@ export const GROVES: Grove[] = [
   { id: 'life', label: 'Everyday' },
 ];
 
-/** Groves are laid out in rows on the forest canvas. */
-export const GROVE_ROWS = [
-  ['cs', 'stats'],
-  ['hci', 'writing', 'life'],
-];
-
 const SCORE = { y: 1, t: 0.5, a: 0 } as const;
 
-function tree(id: string, title: string, grove: string, updated: string, spec: Record<string, string[]>): TreeData {
+export interface PastTree {
+  id: string;
+  title: string;
+  grove: string;
+  daysAgo: number;
+  branches: { id: string; label: string; leaves: { id: string; label: string; score: number }[] }[];
+}
+
+function tree(id: string, title: string, grove: string, daysAgo: number, spec: Record<string, string[]>): PastTree {
   return {
     id,
     title,
     grove,
-    updated,
+    daysAgo,
     branches: Object.entries(spec).map(([label, leaves], bi) => ({
       id: `${id}-b${bi}`,
       label,
@@ -38,72 +42,65 @@ function tree(id: string, title: string, grove: string, updated: string, spec: R
   };
 }
 
-export const PAST_TREES: TreeData[] = [
-  tree('sql', 'SQL joins', 'cs', 'Oct 28', {
+export const PAST_TREES: PastTree[] = [
+  tree('sql', 'SQL joins', 'cs', 10, {
     'Join types': ['Inner join|y', 'Left join|y', 'Full outer join|t', 'Self join|a'],
     Performance: ['Hash tables|a', 'Indexes|t', 'Query plans|a'],
   }),
-  tree('git', 'Git branching', 'cs', 'Oct 3', {
+  tree('git', 'Git branching', 'cs', 35, {
     Basics: ['Commits|y', 'Branches|y'],
     Merging: ['Merge conflicts|t', 'Rebase|a', 'Fast-forward|y'],
     Collaboration: ['Pull requests|t'],
   }),
-  tree('bigo', 'Big-O notation', 'cs', 'Sep 21', {
+  tree('bigo', 'Big-O notation', 'cs', 47, {
     Complexity: ['Time complexity|y', 'Space complexity|t', 'Worst case|y'],
     'Data structures': ['Hash tables|t', 'Binary search|y', 'Linked lists|a'],
   }),
-  tree('hyp', 'Hypothesis testing', 'stats', 'Nov 2', {
+  tree('hyp', 'Hypothesis testing', 'stats', 5, {
     'Core ideas': ['Null hypothesis|y', 'p-value|t', 'Significance level|t'],
     Errors: ['Type I error|a', 'Type II error|a'],
     Design: ['Sample size|t', 'Conditional probability|a'],
   }),
-  tree('bayes', 'Bayes’ theorem', 'stats', 'Oct 19', {
+  tree('bayes', 'Bayes’ theorem', 'stats', 19, {
     Foundations: ['Conditional probability|y', 'Prior|y', 'Posterior|t'],
     Applications: ['Medical tests|y', 'Spam filters|t'],
   }),
-  tree('reg', 'Linear regression', 'stats', 'Oct 8', {
+  tree('reg', 'Linear regression', 'stats', 30, {
     Model: ['Least squares|t', 'Coefficients|a', 'Residuals|a'],
     Fitting: ['Gradient descent|a', 'Loss function|a'],
     Pitfalls: ['Overfitting|t', 'Multicollinearity|a'],
   }),
-  tree('nielsen', 'Nielsen’s heuristics', 'hci', 'Nov 5', {
+  tree('nielsen', 'Nielsen’s heuristics', 'hci', 2, {
     Heuristics: ['Visibility of status|y', 'Recognition over recall|y', 'Error prevention|t', 'User control|y'],
     Method: ['Heuristic evaluation|t', 'Severity ratings|a'],
   }),
-  tree('ut', 'Usability testing', 'hci', 'Oct 30', {
+  tree('ut', 'Usability testing', 'hci', 8, {
     Planning: ['Tasks & scenarios|y', 'Sample size|t', 'Recruiting|a'],
     Running: ['Think-aloud|y', 'Moderation|t'],
     Analysis: ['Heuristic evaluation|a', 'SUS score|a'],
   }),
-  tree('mm', 'Mental models', 'hci', 'Oct 14', {
+  tree('mm', 'Mental models', 'hci', 24, {
     Concepts: ['Gulf of execution|y', 'Gulf of evaluation|y', 'Affordances|t'],
     Design: ['Recognition over recall|t', 'Conceptual models|y'],
   }),
-  tree('essay', 'Essay structure', 'writing', 'Sep 30', {
+  tree('essay', 'Essay structure', 'writing', 38, {
     Shape: ['Thesis statement|y', 'Opening hook|t', 'Signposting|y'],
     Argument: ['Counterarguments|t', 'Evidence|y'],
   }),
-  tree('cover', 'Cover letter', 'writing', 'Nov 1', {
+  tree('cover', 'Cover letter', 'writing', 6, {
     Draft: ['Opening hook|a', 'Tone|a', 'Company research|a'],
     Polish: ['Length|a', 'Call to action|a'],
   }),
-  tree('bread', 'Sourdough baking', 'life', 'Oct 22', {
+  tree('bread', 'Sourdough baking', 'life', 16, {
     Starter: ['Feeding ratio|y', 'Fermentation|t'],
     Bake: ['Hydration|y', 'Scoring|y', 'Oven spring|t'],
   }),
-  tree('lisbon', 'Lisbon trip', 'life', 'Oct 10', {
+  tree('lisbon', 'Lisbon trip', 'life', 28, {
     Plan: ['Itinerary|a', 'Neighbourhoods|a', 'Day trips|a'],
     Money: ['Daily budget|t'],
   }),
-  tree('budget', 'Budgeting basics', 'life', 'Sep 15', {
+  tree('budget', 'Budgeting basics', 'life', 53, {
     Rules: ['50/30/20 rule|y', 'Emergency fund|t', 'Daily budget|y'],
     Tools: ['Spreadsheets|t', 'Index funds|a'],
   }),
-];
-
-/** Order of chats in the host app's sidebar. */
-export const HOST_HISTORY: { label: string; items: string[] }[] = [
-  { label: 'Today', items: ['nn'] },
-  { label: 'This week', items: ['nielsen', 'hyp', 'cover', 'ut'] },
-  { label: 'Earlier', items: ['sql', 'bread', 'bayes', 'mm', 'lisbon', 'reg', 'git', 'essay', 'bigo', 'budget'] },
 ];

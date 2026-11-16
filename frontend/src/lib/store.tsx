@@ -1,84 +1,22 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
-import { BRANCHES, CONCEPT_BY_ID, LIVE_TREE, SEED } from '../data/scenario';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { demoFixture, type DemoFixture } from '../ai/scripted/fixture';
+import { ScriptedProvider } from '../ai/scripted/provider';
+import type { Provider } from '../ai/provider';
 import { classify } from './classify';
-import { looksLikeQuizAnswer, respond, type TouchedConcept } from './engine';
-import { MODE_SCORE } from './modes';
-import type { ChatMessage, Classification, LiveConcept, Mode, Settings, TreeData } from './types';
+import type { Conversation, Id, Message } from './domain';
+import { treeOfConcept, treesOfConversation } from './links';
+import { crossRoots, projectForest, type CrossRoots } from './project';
+import { activeConversation, activeMessages, isBusy, reducer, type Action, type DomainState, type State } from './state';
+import { dayGroup, type DayGroup } from './time';
+import { isQuizAnswer, retryTurn, sendTurn } from './turn';
+import type { Classification, Grove, Settings, TreeData } from './types';
 
-export interface State {
-  messages: ChatMessage[];
-  concepts: Record<string, LiveConcept>;
-  pendingQuiz: string | null;
-  busy: boolean;
-  settings: Settings;
-  panelOpen: boolean;
-  forest: { open: boolean; focus: string | null };
-  /** Text pushed into the composer from elsewhere (nudges, "explain it back"…). */
-  draft: { text: string; nonce: number };
-  highlight: string[];
-  /** What the composer is showing right now, so the mascot can react while you type. */
-  composer: { lens: Mode | null; nudge: boolean };
-  flash: { id: string; nonce: number } | null;
-  onboarding: boolean;
-  toast: { text: string; nonce: number } | null;
-}
+export type { State } from './state';
 
-type Action =
-  | { type: 'user'; msg: ChatMessage }
-  | { type: 'assistantStart'; msg: ChatMessage; concepts: TouchedConcept[]; userId: string; pendingQuiz: string | null }
-  | { type: 'stream'; id: string; text: string }
-  | { type: 'assistantDone'; id: string }
-  | { type: 'reclassify'; id: string; mode: Mode }
-  | { type: 'reveal'; id: string; guess: string }
-  | { type: 'settings'; patch: Partial<Settings> }
-  | { type: 'panel'; open: boolean }
-  | { type: 'forest'; open: boolean; focus?: string | null }
-  | { type: 'draft'; text: string }
-  | { type: 'highlight'; ids: string[] }
-  | { type: 'composer'; lens: Mode | null; nudge: boolean }
-  | { type: 'flash'; id: string }
-  | { type: 'onboarding'; open: boolean }
-  | { type: 'toast'; text: string }
-  | { type: 'reset'; empty: boolean };
+/** Everything a design may dispatch: the reducer's actions, plus `reset` (reloads the demo fixture). */
+export type StoreAction = Action | { type: 'reset'; empty: boolean };
 
-let uid = 0;
-const newId = (p: string) => `${p}${++uid}-${Date.now().toString(36)}`;
-
-function addTouches(concepts: Record<string, LiveConcept>, touched: TouchedConcept[], userId: string) {
-  const next = { ...concepts };
-  for (const t of touched) {
-    const existing = next[t.id];
-    if (existing) {
-      if (!existing.messageIds.includes(userId)) next[t.id] = { ...existing, messageIds: [...existing.messageIds, userId] };
-    } else {
-      next[t.id] = { ...t, order: Object.keys(next).length, messageIds: [userId] };
-    }
-  }
-  return next;
-}
-
-function seedState(): Pick<State, 'messages' | 'concepts'> {
-  const messages: ChatMessage[] = [];
-  let concepts: Record<string, LiveConcept> = {};
-  for (const s of SEED) {
-    const u: ChatMessage = { id: newId('u'), role: 'user', text: s.user, classification: classify(s.user), conceptIds: s.concepts };
-    const first = CONCEPT_BY_ID[s.concepts[0]];
-    const a: ChatMessage = {
-      id: newId('a'),
-      role: 'assistant',
-      text: first[s.variant],
-      conceptIds: s.concepts,
-      reflectOn: s.variant === 'full' ? first.id : undefined,
-    };
-    messages.push(u, a);
-    concepts = addTouches(
-      concepts,
-      s.concepts.map((id) => ({ id, label: CONCEPT_BY_ID[id].label, branchId: CONCEPT_BY_ID[id].branch })),
-      u.id,
-    );
-  }
-  return { messages, concepts };
-}
+/* ───────────── Initial state ───────────── */
 
 const SETTINGS_KEY = 'arbor.settings.v1';
 const ONBOARD_KEY = 'arbor.onboarded.v1';
@@ -113,6 +51,15 @@ function urlParams() {
   }
 }
 
+const domainOf = (f: DemoFixture): DomainState => ({
+  conversations: f.conversations,
+  messagesByConv: f.messagesByConv,
+  concepts: f.concepts,
+  edges: f.edges,
+  trees: f.trees,
+  attempts: f.attempts,
+});
+
 function init(): State {
   const p = urlParams();
   const settings = loadSettings();
@@ -126,140 +73,92 @@ function init(): State {
   if (p.get('mascot') === '1') settings.mascot = true;
   const design = p.get('design');
   if (design === 'ascii' || design === 'classic') settings.design = design;
+  const fixture = demoFixture({ empty: p.get('empty') === '1' });
   return {
-    ...(p.get('empty') === '1' ? { messages: [], concepts: {} } : seedState()),
-    pendingQuiz: null,
-    busy: false,
+    domain: domainOf(fixture),
+    session: { activeConversationId: fixture.activeConversationId, pendingQuiz: null, turn: { status: 'idle' }, demoPrompts: fixture.demoPrompts },
+    ui: {
+      panelOpen: p.get('panel') !== '0',
+      forest: { open: p.get('view') === 'forest', focus: p.get('tree') },
+      draft: { text: '', nonce: 0 },
+      highlight: [],
+      composer: { lens: null, nudge: false },
+      flash: null,
+      onboarding: p.get('intro') === '1' || (p.get('intro') !== '0' && !hasOnboarded()),
+      toast: null,
+      paneTreeId: null,
+    },
     settings,
-    panelOpen: p.get('panel') !== '0',
-    forest: { open: p.get('view') === 'forest', focus: p.get('tree') },
-    draft: { text: '', nonce: 0 },
-    highlight: [],
-    composer: { lens: null, nudge: false },
-    flash: null,
-    onboarding: p.get('intro') === '1' || (p.get('intro') !== '0' && !hasOnboarded()),
-    toast: null,
   };
 }
 
-function reducer(s: State, a: Action): State {
-  switch (a.type) {
-    case 'user':
-      return { ...s, messages: [...s.messages, a.msg], busy: true };
-    case 'assistantStart':
-      return {
-        ...s,
-        messages: [
-          ...s.messages.map((m) => (m.id === a.userId ? { ...m, conceptIds: a.concepts.map((c) => c.id) } : m)),
-          a.msg,
-        ],
-        concepts: addTouches(s.concepts, a.concepts, a.userId),
-        pendingQuiz: a.pendingQuiz,
-      };
-    case 'stream':
-      return { ...s, messages: s.messages.map((m) => (m.id === a.id ? { ...m, text: a.text } : m)) };
-    case 'assistantDone':
-      return { ...s, busy: false, messages: s.messages.map((m) => (m.id === a.id ? { ...m, streaming: false } : m)) };
-    case 'reclassify':
-      return {
-        ...s,
-        messages: s.messages.map((m) =>
-          m.id === a.id && m.classification
-            ? { ...m, classification: { ...m.classification, mode: a.mode, overridden: true } }
-            : m,
-        ),
-      };
-    case 'reveal': {
-      // A guess before reading turns a delegated prompt into thinking together.
-      const i = s.messages.findIndex((m) => m.id === a.id);
-      const guess = a.guess.trim();
-      const userIdx = guess ? s.messages.slice(0, i).map((m) => m.role).lastIndexOf('user') : -1;
-      return {
-        ...s,
-        messages: s.messages.map((m, j) => {
-          if (j === i) return { ...m, veiled: false, guess: guess || undefined };
-          if (j === userIdx && m.classification && m.classification.mode === 'ai') {
-            return {
-              ...m,
-              classification: {
-                ...m.classification,
-                mode: 'together',
-                reasons: [...m.classification.reasons, 'You predicted the answer before reading it'],
-              },
-            };
-          }
-          return m;
-        }),
-      };
-    }
-    case 'settings':
-      return { ...s, settings: { ...s.settings, ...a.patch } };
-    case 'panel':
-      return { ...s, panelOpen: a.open };
-    case 'forest':
-      return { ...s, forest: { open: a.open, focus: a.focus ?? null } };
-    case 'draft':
-      return { ...s, draft: { text: a.text, nonce: s.draft.nonce + 1 } };
-    case 'highlight':
-      return { ...s, highlight: a.ids };
-    case 'composer':
-      if (s.composer.lens === a.lens && s.composer.nudge === a.nudge) return s;
-      return { ...s, composer: { lens: a.lens, nudge: a.nudge } };
-    case 'flash':
-      return { ...s, flash: { id: a.id, nonce: (s.flash?.nonce ?? 0) + 1 } };
-    case 'onboarding':
-      return { ...s, onboarding: a.open };
-    case 'toast':
-      return { ...s, toast: { text: a.text, nonce: (s.toast?.nonce ?? 0) + 1 } };
-    case 'reset': {
-      const base = a.empty ? { messages: [], concepts: {} } : seedState();
-      return { ...s, ...base, pendingQuiz: null, busy: false, highlight: [], forest: { open: false, focus: null } };
-    }
-  }
+/** A synchronous store: `getState()` is current right after `dispatch`, which `turn.ts` relies on. */
+function createStore(initial: State) {
+  let state = initial;
+  const listeners = new Set<() => void>();
+  return {
+    getState: () => state,
+    dispatch(a: Action) {
+      const next = reducer(state, a);
+      if (next === state) return;
+      state = next;
+      listeners.forEach((l) => l());
+    },
+    subscribe(l: () => void) {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+  };
 }
 
 /* ───────────── Derived data ───────────── */
 
-export function conceptScore(c: LiveConcept, byId: Record<string, ChatMessage>): number {
-  const scores = c.messageIds.map((id) => byId[id]?.classification).filter(Boolean) as Classification[];
-  return scores.length ? Math.max(...scores.map((x) => MODE_SCORE[x.mode])) : 0;
+export interface ChatListItem {
+  id: Id;
+  title: string;
+  updatedAt: string;
+  /** The tree this chat grew most recently (for its glyph), if any. */
+  treeId: Id | null;
+  active: boolean;
 }
 
-export function buildLiveTree(s: Pick<State, 'messages' | 'concepts'>): TreeData {
-  const byId = Object.fromEntries(s.messages.map((m) => [m.id, m]));
-  const concepts = Object.values(s.concepts).sort((a, b) => a.order - b.order);
-  const branchOrder: string[] = [];
-  for (const c of concepts) if (!branchOrder.includes(c.branchId)) branchOrder.push(c.branchId);
-  return {
-    id: LIVE_TREE.id,
-    title: LIVE_TREE.title,
-    grove: LIVE_TREE.grove,
-    updated: 'Today',
-    live: true,
-    branches: branchOrder.map((bid) => ({
-      id: bid,
-      label: BRANCHES[bid] ?? 'Side questions',
-      leaves: concepts
-        .filter((c) => c.branchId === bid)
-        .map((c) => ({
-          id: c.id,
-          label: c.label,
-          score: conceptScore(c, byId),
-          messageId: c.messageIds[c.messageIds.length - 1],
-          count: c.messageIds.length,
-        })),
-    })),
-  };
+function groveRowsOf(groves: Grove[]): string[][] {
+  const ids = groves.map((g) => g.id);
+  const k = Math.floor(ids.length / 2);
+  return k ? [ids.slice(0, k), ids.slice(k)] : [ids];
 }
 
 /* ───────────── Context ───────────── */
 
 interface Ctx {
   state: State;
-  dispatch: React.Dispatch<Action>;
-  liveTree: TreeData;
+  dispatch: (a: StoreAction) => void;
+  /** The active chat and its messages. */
+  conversation: Conversation;
+  messages: Message[];
+  /** True while a reply is on its way. */
+  busy: boolean;
+  /** The tree the pane shows: the active chat's most recent tree (or the one picked in the pane). */
+  activeTree: TreeData;
+  /** Every tree the active chat grew, most recent first. */
+  activeTrees: TreeData[];
+  /** Every tree, for the forest. */
+  forestTrees: TreeData[];
+  /** Roots between trees (shared concepts, splits, chats), matched by concept id. */
+  roots: CrossRoots;
+  groves: Grove[];
+  groveRows: string[][];
+  /** All chats, most recent first, grouped like a chat app's sidebar. */
+  chats: { label: DayGroup; items: ChatListItem[] }[];
+  demoPrompts: string[];
+  /** Can the assistant quiz the user on this concept? */
+  canQuiz: (conceptId: Id) => boolean;
   /** `veil`: hide the answer until the user guesses or reveals it (predict → reveal). */
   send: (text: string, cls?: Classification, opts?: { veil?: boolean }) => void;
+  /** Stop the reply that is streaming. */
+  stop: () => void;
+  /** Run the failed turn again. */
+  retry: () => void;
   /** Classify with the current conversation context (e.g. a pending quiz). */
   classifyDraft: (text: string) => Classification;
   jumpTo: (messageId: string) => void;
@@ -269,11 +168,11 @@ interface Ctx {
 
 const StoreContext = createContext<Ctx | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, init);
-  const ref = useRef(state);
-  ref.current = state;
-  const timers = useRef<number[]>([]);
+export function StoreProvider({ children, provider: given }: { children: ReactNode; provider?: Provider }) {
+  const [store] = useState(() => createStore(init()));
+  const state = useSyncExternalStore(store.subscribe, store.getState);
+  const provider = useMemo(() => given ?? new ScriptedProvider(), [given]);
+  const controller = useRef<AbortController | null>(null);
   const initialSettings = useRef(state.settings);
 
   // Persist only changes the user makes (not URL-parameter overrides on load).
@@ -286,68 +185,58 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [state.settings]);
 
-  useEffect(() => () => timers.current.forEach((t) => clearTimeout(t)), []);
+  useEffect(() => () => controller.current?.abort(), []);
 
-  const classifyDraft = useCallback((text: string) => {
-    const pq = ref.current.pendingQuiz;
-    return classify(text, { pendingQuiz: looksLikeQuizAnswer(text, pq) ? pq : null });
-  }, []);
+  const deps = useMemo(() => ({ provider, dispatch: store.dispatch, getState: store.getState }), [provider, store]);
+
+  const dispatch = useCallback(
+    (a: StoreAction) => {
+      if (a.type !== 'reset') return store.dispatch(a);
+      controller.current?.abort();
+      const f = demoFixture({ empty: a.empty });
+      store.dispatch({ type: 'hydrate', domain: domainOf(f), activeConversationId: f.activeConversationId, demoPrompts: f.demoPrompts });
+    },
+    [store],
+  );
+
+  const classifyDraft = useCallback(
+    (text: string) => {
+      const pq = store.getState().session.pendingQuiz;
+      return classify(text, { pendingQuiz: isQuizAnswer(provider, text, pq) ? pq : null });
+    },
+    [store, provider],
+  );
+
+  const run = useCallback(
+    (go: (signal: AbortSignal) => Promise<void>) => {
+      const c = new AbortController();
+      controller.current = c;
+      void go(c.signal).finally(() => {
+        if (controller.current === c) controller.current = null;
+      });
+    },
+    [],
+  );
 
   const send = useCallback(
     (text: string, cls?: Classification, opts?: { veil?: boolean }) => {
-      const s = ref.current;
-      if (s.busy || !text.trim()) return;
-      const classification = cls ?? classifyDraft(text);
-      const user: ChatMessage = { id: newId('u'), role: 'user', text: text.trim(), classification, conceptIds: [] };
-      dispatch({ type: 'user', msg: user });
-
-      const byId = Object.fromEntries(s.messages.map((m) => [m.id, m]));
-      const known = Object.values(s.concepts)
-        .filter((c) => c.branchId !== 'other')
-        .map((c) => ({ id: c.id, score: conceptScore(c, byId) }));
-      const pq = looksLikeQuizAnswer(text, s.pendingQuiz) ? s.pendingQuiz : null;
-      const result = respond({ text, mode: classification.mode, pendingQuiz: pq, known });
-
-      const aid = newId('a');
-      const think = 650 + Math.random() * 400;
-      timers.current.push(
-        window.setTimeout(() => {
-          dispatch({
-            type: 'assistantStart',
-            userId: user.id,
-            concepts: result.concepts,
-            pendingQuiz: result.pendingQuiz,
-            msg: {
-              id: aid,
-              role: 'assistant',
-              text: '',
-              conceptIds: result.concepts.map((c) => c.id),
-              streaming: true,
-              reflectOn: result.reflectOn,
-              veiled: opts?.veil || undefined,
-            },
-          });
-          const tokens = result.reply.split(/(\s+)/);
-          let i = 0;
-          const tick = () => {
-            i = Math.min(tokens.length, i + 4);
-            dispatch({ type: 'stream', id: aid, text: tokens.slice(0, i).join('') });
-            if (i < tokens.length) timers.current.push(window.setTimeout(tick, 28));
-            else dispatch({ type: 'assistantDone', id: aid });
-          };
-          tick();
-        }, think),
-      );
+      if (isBusy(store.getState().session.turn) || !text.trim()) return;
+      run((signal) => sendTurn(deps, { text, classification: cls ?? classifyDraft(text), veil: opts?.veil }, signal));
     },
-    [classifyDraft],
+    [store, deps, classifyDraft, run],
   );
 
-  const jumpTo = useCallback((messageId: string) => {
-    dispatch({ type: 'forest', open: false });
-    dispatch({ type: 'flash', id: messageId });
-  }, []);
+  const stop = useCallback(() => controller.current?.abort(), []);
+  const retry = useCallback(() => {
+    if (store.getState().session.turn.status === 'error') run((signal) => retryTurn(deps, signal));
+  }, [store, deps, run]);
 
-  const toast = useCallback((text: string) => dispatch({ type: 'toast', text }), []);
+  const jumpTo = useCallback((messageId: string) => {
+    store.dispatch({ type: 'forest', open: false });
+    store.dispatch({ type: 'flash', id: messageId });
+  }, [store]);
+
+  const toast = useCallback((text: string) => store.dispatch({ type: 'toast', text }), [store]);
 
   const finishOnboarding = useCallback(() => {
     try {
@@ -355,14 +244,79 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    dispatch({ type: 'onboarding', open: false });
-  }, []);
+    store.dispatch({ type: 'onboarding', open: false });
+  }, [store]);
 
-  const liveTree = useMemo(() => buildLiveTree(state), [state.messages, state.concepts]);
+  const canQuiz = useCallback((id: Id) => (provider.canQuiz ? provider.canQuiz(id) : true), [provider]);
 
-  const value = useMemo(
-    () => ({ state, dispatch, liveTree, send, classifyDraft, jumpTo, toast, finishOnboarding }),
-    [state, liveTree, send, classifyDraft, jumpTo, toast, finishOnboarding],
+  // Projections. They depend only on the domain entities, so streaming text does not recompute them.
+  const { concepts, attempts, trees, edges, conversations } = state.domain;
+  const activeId = state.session.activeConversationId;
+  const graph = useMemo(() => {
+    const membership = treeOfConcept(trees, concepts);
+    const conv = conversations[activeId];
+    const touched = treesOfConversation(activeId, { attempts, membership });
+    // A chat that has not grown anything yet shows its subject's most recent tree.
+    const home = touched.length
+      ? touched
+      : trees
+          .filter((t) => conv?.subjectId && t.groveId === conv.subjectId)
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+          .slice(0, 1)
+          .map((t) => t.id);
+    const forestTrees = projectForest(trees, concepts, attempts, { conversationId: activeId, liveTreeIds: home });
+    const activeTrees = home.map((id) => forestTrees.find((t) => t.id === id)!).filter(Boolean);
+    const groves: Grove[] = Object.values(concepts)
+      .filter((c) => c.kind === 'subject' && !c.deletedAt && trees.some((t) => t.groveId === c.id))
+      .map((c) => ({ id: c.id, label: c.label }));
+    if (trees.some((t) => !t.groveId)) groves.push({ id: 'other', label: 'Other' });
+    const chats = new Map<DayGroup, ChatListItem[]>();
+    for (const c of Object.values(conversations).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) {
+      const g = dayGroup(c.updatedAt);
+      const treeId = treesOfConversation(c.id, { attempts, membership })[0] ?? (c.id === activeId ? (home[0] ?? null) : null);
+      chats.set(g, [...(chats.get(g) ?? []), { id: c.id, title: c.title, updatedAt: c.updatedAt, treeId, active: c.id === activeId }]);
+    }
+    return {
+      forestTrees,
+      activeTrees,
+      roots: crossRoots(forestTrees, edges, trees, attempts, conversations),
+      groves,
+      groveRows: groveRowsOf(groves),
+      chats: [...chats.entries()].map(([label, items]) => ({ label, items })),
+    };
+  }, [concepts, attempts, trees, edges, conversations, activeId]);
+
+  const conversation = activeConversation(state) ?? { id: activeId, title: 'New chat', subjectId: null, studyMode: false, createdAt: '', updatedAt: '' };
+  const messages = activeMessages(state);
+  const paneTreeId = state.ui.paneTreeId;
+  const activeTree = useMemo<TreeData>(
+    () =>
+      graph.activeTrees.find((t) => t.id === paneTreeId) ??
+      graph.activeTrees[0] ?? { id: `new:${conversation.id}`, title: conversation.title, grove: conversation.subjectId ?? 'other', updatedAt: conversation.updatedAt, live: true, branches: [] },
+    [graph.activeTrees, paneTreeId, conversation.id, conversation.title, conversation.subjectId, conversation.updatedAt],
+  );
+
+  const busy = isBusy(state.session.turn);
+  const value = useMemo<Ctx>(
+    () => ({
+      state,
+      dispatch,
+      conversation,
+      messages,
+      busy,
+      activeTree,
+      ...graph,
+      demoPrompts: state.session.demoPrompts,
+      canQuiz,
+      send,
+      stop,
+      retry,
+      classifyDraft,
+      jumpTo,
+      toast,
+      finishOnboarding,
+    }),
+    [state, dispatch, conversation, messages, busy, activeTree, graph, canQuiz, send, stop, retry, classifyDraft, jumpTo, toast, finishOnboarding],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

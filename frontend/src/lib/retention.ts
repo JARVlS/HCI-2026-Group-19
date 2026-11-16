@@ -7,19 +7,13 @@
  * time, so the long-term cost of delegating becomes visible today.
  */
 
-/** "Today" in the scenario (the past chats in data/forest.ts are dated relative to it). */
-const TODAY = { month: 10, day: 7 }; // Nov 7
-const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const DAY_MS = 86_400_000;
 
-/** Days between a label like "Oct 28" and the scenario's today. "Today" → 0. */
-export function daysSince(label: string): number {
-  const m = /^([a-z]{3})\w*\s+(\d{1,2})$/i.exec(label.trim());
-  if (!m) return 0;
-  const month = MONTHS.indexOf(m[1].toLowerCase());
-  if (month < 0) return 0;
-  const then = Date.UTC(2026, month, Number(m[2]));
-  const now = Date.UTC(2026, TODAY.month, TODAY.day);
-  return Math.max(0, Math.round((now - then) / 86_400_000));
+/** Whole days from an ISO timestamp to `now` (ms since epoch or a Date). Future dates and bad input → 0. */
+export function ageDays(iso: string, now: number | Date): number {
+  const then = /^\d{4}-\d{2}-\d{2}/.test(iso) ? Date.parse(iso) : NaN;
+  if (Number.isNaN(then)) return 0;
+  return Math.max(0, Math.round((+now - then) / DAY_MS));
 }
 
 /** Time constant in days (retention falls to ~37%) for a concept with this "you" score (0..1) and number of visits. */

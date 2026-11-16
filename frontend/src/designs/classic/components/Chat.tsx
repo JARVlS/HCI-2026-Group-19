@@ -1,6 +1,5 @@
 import { ArrowUp, FlaskConical, Lightbulb, PenLine, Sparkles, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CONCEPT_BY_ID, DEMO_PROMPTS, LIVE_TREE } from '../../../data/scenario';
 import { useDismiss } from '../../../lib/hooks';
 import { MODES, MODE_META, pct } from '../../../lib/modes';
 import { useStore } from '../../../lib/store';
@@ -9,10 +8,10 @@ import { ArborLogo, Glyph } from './Glyph';
 import { Markdown } from './Markdown';
 
 export function ChatView() {
-  const { state } = useStore();
+  const { state, messages, busy, conversation } = useStore();
   const listRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
-  const { messages, busy, flash } = state;
+  const { flash } = state.ui;
   const last = messages[messages.length - 1];
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
 
@@ -35,7 +34,7 @@ export function ChatView() {
   return (
     <main className="chat" aria-label="Conversation">
       <header className="chat-head">
-        <h1>{LIVE_TREE.chatTitle}</h1>
+        <h1>{conversation.title}</h1>
       </header>
       <div
         className="chat-scroll"
@@ -81,7 +80,7 @@ export function ChatView() {
 function UserMessage({ m }: { m: ChatMessage }) {
   const { state, dispatch } = useStore();
   const { enabled, showTags } = state.settings;
-  const related = enabled && m.conceptIds.some((id) => state.highlight.includes(id));
+  const related = enabled && m.conceptIds.some((id) => state.ui.highlight.includes(id));
   return (
     <div
       id={`msg-${m.id}`}
@@ -161,10 +160,10 @@ function MessageTag({ m, c }: { m: ChatMessage; c: Classification }) {
 }
 
 function AssistantMessage({ m, showReflect }: { m: ChatMessage; showReflect: boolean }) {
-  const { state, dispatch, send } = useStore();
+  const { state, dispatch, send, busy } = useStore();
   const enabled = state.settings.enabled;
-  const concept = m.reflectOn ? CONCEPT_BY_ID[m.reflectOn] : undefined;
-  const related = enabled && m.conceptIds.some((id) => state.highlight.includes(id));
+  const concept = m.reflectOn ? state.domain.concepts[m.reflectOn] : undefined;
+  const related = enabled && m.conceptIds.some((id) => state.ui.highlight.includes(id));
   return (
     <div className={`msg assistant ${related ? 'related' : ''}`}>
       <div className="ai-avatar" aria-hidden="true">
@@ -175,7 +174,7 @@ function AssistantMessage({ m, showReflect }: { m: ChatMessage; showReflect: boo
           <Markdown text={m.text} />
           {m.streaming && <span className="caret" aria-hidden="true" />}
         </div>
-        {enabled && concept && showReflect && !m.streaming && !state.busy && (
+        {enabled && concept && showReflect && !m.streaming && !busy && (
           <div className="reflect" aria-label="Arbor suggestion">
             <span className="reflect-label">
               <ArborLogo size={14} /> Make “{concept.label}” yours
@@ -199,7 +198,7 @@ function AssistantMessage({ m, showReflect }: { m: ChatMessage; showReflect: boo
 /* ───────────────────────── Composer ───────────────────────── */
 
 function Composer() {
-  const { state, dispatch, send, classifyDraft, toast } = useStore();
+  const { state, dispatch, send, classifyDraft, toast, busy, demoPrompts } = useStore();
   const { enabled: arborOn, nudge: nudgeLevel } = state.settings;
   const enabled = arborOn && nudgeLevel !== 'off';
   const [text, setText] = useState('');
@@ -219,15 +218,15 @@ function Composer() {
   useEffect(() => {
     const t = setTimeout(() => setLens(text.trim() ? classifyDraft(text) : null), 200);
     return () => clearTimeout(t);
-  }, [text, classifyDraft, state.pendingQuiz]);
+  }, [text, classifyDraft, state.session.pendingQuiz]);
 
   // Text pushed in from elsewhere ("Explain it back", forest "Quiz me", …)
   useEffect(() => {
-    if (!state.draft.nonce) return;
-    setText(state.draft.text);
+    if (!state.ui.draft.nonce) return;
+    setText(state.ui.draft.text);
     setNudge(null);
     focusEnd();
-  }, [state.draft]);
+  }, [state.ui.draft]);
 
   // Auto-grow
   useLayoutEffect(() => {
@@ -244,7 +243,7 @@ function Composer() {
   };
 
   const submit = () => {
-    if (state.busy || !text.trim()) return;
+    if (busy || !text.trim()) return;
     const c = classifyDraft(text);
     if (nudge && nudge.text === text) return doSend(text, c); // second ↵ = send anyway
     if (enabled && nudgeLevel === 'active' && c.mode === 'ai') {
@@ -321,7 +320,7 @@ function Composer() {
           <span className="demo-label">
             <FlaskConical size={12} /> Demo
           </span>
-          {DEMO_PROMPTS.map((p) => (
+          {demoPrompts.map((p) => (
             <button
               key={p}
               className="demo-chip"
@@ -347,7 +346,7 @@ function Composer() {
           ref={ta}
           value={text}
           rows={1}
-          placeholder={state.pendingQuiz ? 'Type your answer…' : 'Message the assistant…'}
+          placeholder={state.session.pendingQuiz ? 'Type your answer…' : 'Message the assistant…'}
           aria-label="Message"
           onChange={(e) => {
             setText(e.target.value);
@@ -379,7 +378,7 @@ function Composer() {
           ) : (
             <span />
           )}
-          <button type="submit" className="send" disabled={state.busy || !text.trim()} aria-label="Send message">
+          <button type="submit" className="send" disabled={busy || !text.trim()} aria-label="Send message">
             <ArrowUp size={17} />
           </button>
         </div>

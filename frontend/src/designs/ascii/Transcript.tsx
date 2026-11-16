@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { CONCEPT_BY_ID, LIVE_TREE } from '../../data/scenario';
 import { prefersReducedMotion } from '../../lib/hooks';
 import { MODE_META, pct } from '../../lib/modes';
 import { useStore } from '../../lib/store';
@@ -10,10 +9,11 @@ import { G, K, Radios, lower, shortReason, typing, useUi } from './ui';
 /* The conversation as a two-column log: who · what. */
 
 export function Transcript() {
-  const { state } = useStore();
+  const { state, messages, busy, conversation } = useStore();
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
-  const { messages, busy, flash } = state;
+  const { flash } = state.ui;
+  const turn = state.session.turn;
   const last = messages[messages.length - 1];
   const lastAi = [...messages].reverse().find((m) => m.role === 'assistant');
 
@@ -46,7 +46,7 @@ export function Transcript() {
     >
       <div className="a-log" aria-live="polite">
         <header className="a-chat-title">
-          <h1>{lower(LIVE_TREE.chatTitle)}</h1>
+          <h1>{lower(conversation.title)}</h1>
           <span className="a-dim">
             {prompts} prompt{prompts === 1 ? '' : 's'}
           </span>
@@ -63,6 +63,7 @@ export function Transcript() {
           m.role === 'user' ? <UserMsg key={m.id} m={m} /> : <AiMsg key={m.id} m={m} isLast={m.id === lastAi?.id} />,
         )}
         {busy && last?.role === 'user' && <Thinking />}
+        {turn.status === 'error' && turn.conversationId === conversation.id && !turn.assistantMessageId && <TurnError error={turn.error} />}
       </div>
     </div>
   );
@@ -76,7 +77,7 @@ function useBrush(m: ChatMessage) {
   const { setLink } = useUi();
   const on = state.settings.enabled && m.conceptIds.length > 0;
   return {
-    related: state.settings.enabled && m.conceptIds.some((id) => state.highlight.includes(id)),
+    related: state.settings.enabled && m.conceptIds.some((id) => state.ui.highlight.includes(id)),
     onMouseEnter: () => {
       if (!on) return;
       dispatch({ type: 'highlight', ids: m.conceptIds });
@@ -207,8 +208,9 @@ function Why({ m, c, onHot }: { m: ChatMessage; c: Classification; onHot: (i: nu
 /* ───────────── Assistant messages ───────────── */
 
 function AiMsg({ m, isLast }: { m: ChatMessage; isLast: boolean }) {
-  const { state } = useStore();
+  const { state, busy } = useStore();
   const { related, ...brush } = useBrush(m);
+  const turn = state.session.turn;
   const veiled = Boolean(m.veiled) && state.settings.enabled;
   const p = useDecode(Boolean(m.veiled));
   const { total } = parseMd(m.text);
@@ -221,8 +223,8 @@ function AiMsg({ m, isLast }: { m: ChatMessage; isLast: boolean }) {
     return t;
   };
 
-  const concept = m.reflectOn ? CONCEPT_BY_ID[m.reflectOn] : undefined;
-  const reflect = state.settings.enabled && isLast && concept && !m.streaming && !veiled && !state.busy;
+  const concept = m.reflectOn ? state.domain.concepts[m.reflectOn] : undefined;
+  const reflect = state.settings.enabled && isLast && concept && !m.streaming && !veiled && !busy;
 
   return (
     <div id={`a-msg-${m.id}`} className={`a-msg is-ai${related ? ' rel' : ''}`} {...brush}>
@@ -233,6 +235,8 @@ function AiMsg({ m, isLast }: { m: ChatMessage; isLast: boolean }) {
         </div>
         {veiled && <Veil m={m} />}
         {!veiled && m.guess && stems && <GuessResult guess={m.guess} text={m.text} stems={stems} />}
+        {m.stopped && <p className="a-dim a-stopped">■ stopped</p>}
+        {m.error && turn.status === 'error' && turn.assistantMessageId === m.id && <TurnError error={m.error} inline />}
         {reflect && <Reflect id={concept.id} label={concept.label} />}
       </div>
     </div>
@@ -396,6 +400,35 @@ function Reflect({ id, label }: { id: string; label: string }) {
         <u>q</u>uiz me
       </button>
     </p>
+  );
+}
+
+/** The reply failed: say so, and offer to run the turn again (r, or the button). */
+function TurnError({ error, inline = false }: { error?: string; inline?: boolean }) {
+  const { retry } = useStore();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (typing(e) || e.metaKey || e.ctrlKey || e.altKey || e.key !== 'r') return;
+      e.preventDefault();
+      retry();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [retry]);
+  const line = (
+    <p className="a-failed" role="alert">
+      <span className="a-fail-mark">!</span> failed{error ? <span className="a-dim"> · {lower(error)}</span> : null} ·{' '}
+      <button className="a-btn" onClick={retry}>
+        <u>r</u>etry
+      </button>
+    </p>
+  );
+  if (inline) return line;
+  return (
+    <div className="a-msg is-ai">
+      <div className="a-who">ai</div>
+      <div className="a-body">{line}</div>
+    </div>
   );
 }
 
