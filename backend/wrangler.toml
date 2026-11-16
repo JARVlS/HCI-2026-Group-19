@@ -3,8 +3,26 @@ main = "src/main.py"
 compatibility_date = "2026-11-14"
 compatibility_flags = ["python_workers"]
 
-# Plain config values, readable in routes via request.scope["env"].
-# Put secrets (API keys) in the dashboard or `uv run pywrangler secret put NAME`,
-# and locally in .dev.vars (gitignored).
+# D1 database (ADR-5), read in routes as request.scope["env"].DB.
+# The id below is a placeholder: it works for local dev (`pywrangler dev`, `--local`), but a deploy
+# with it fails. Before the first deploy run `npx wrangler d1 create arbor` and paste the real id.
+[[d1_databases]]
+binding = "DB"
+database_name = "arbor"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Plain config values, readable in routes via request.scope["env"]. Locally, .dev.vars overrides
+# them. Secrets (ANTHROPIC_API_KEY, SESSION_SECRET, ADMIN_TOKEN) never go in this file: use
+# `uv run pywrangler secret put NAME` or the dashboard, and locally .dev.vars (gitignored).
 [vars]
 ENVIRONMENT = "production"
+MODEL_CHAT = "claude-sonnet-5-5"
+MODEL_ANALYZE = "claude-haiku-5-5"
+EFFORT_CHAT = "low"
+EFFORT_ANALYZE = "low"
+MAX_TOKENS_CHAT = "4096"
+MAX_TOKENS_JSON = "4096"
+MAX_INPUT_CHARS = "200000"
+DAILY_TOKEN_BUDGET = "200000"
+ANTHROPIC_BASE_URL = "https://api.anthropic.com"
