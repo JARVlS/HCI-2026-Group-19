@@ -5,7 +5,7 @@ import type { ConceptJudgement, TurnAnalysis } from '../ai/schemas/turnAnalysis'
 import { testStore } from '../test/harness';
 import type { ConceptAttempt } from './domain';
 import { AI_UP_TO, OWN_FROM, thinkingMode } from './modes';
-import { scoredAttempt, scoredLabel, scoreView } from './scores';
+import { guessScoreWords, messageScoreWords, scoredAttempt, scoredLabel, scoreView } from './scores';
 
 function deferred<T>() {
   let resolve!: (v: T) => void;
@@ -354,6 +354,24 @@ describe('the rules on their own', () => {
     expect(scoredAttempt(once, s)).toBe(once);
     expect(scoredAttempt(scoredAttempt(attempt, { guess: { p: 0.5 } }), s)).toEqual(once);
     expect(scoredAttempt(attempt, { thinking: 'pending' })).toBe(attempt);
+  });
+
+  it('the words: plain, quiet while on the way or failed, nothing for an unscored message', () => {
+    const texts = (ws: { text: string }[]) => ws.map((w) => w.text);
+    expect(messageScoreWords(scoreView(undefined))).toEqual([]);
+    expect(messageScoreWords(scoreView({ thinking: { p: 0.834 }, correct: { p: 0.91 } }))).toEqual([
+      { text: 'Thought along 83%', quiet: false },
+      { text: 'Right 91%', quiet: false },
+    ]);
+    expect(messageScoreWords(scoreView({ thinking: 'pending' }))).toEqual([{ text: 'Thought along …', quiet: true }]);
+    expect(messageScoreWords(scoreView({ thinking: 'failed' }))).toEqual([{ text: 'Thought along: not checked', quiet: true }]);
+    expect(texts(messageScoreWords(scoreView({ thinking: { p: 0.1 }, guess: { p: 0.8 }, correct: 'pending' })))).toEqual(['Thought along 80% with your guess', 'Your guess: right …']);
+    expect(texts(messageScoreWords(scoreView({ thinking: { p: 0.1 }, correct: { p: 0.5 } }), true))).toEqual(['Right 50%']);
+    expect(guessScoreWords(scoreView({ thinking: { p: 0.1 }, guess: 'pending', correct: 'pending' }))).toEqual([{ text: 'Checking your guess …', quiet: true }]);
+    expect(texts(guessScoreWords(scoreView({ thinking: { p: 0.1 }, guess: { p: 0.8 }, correct: { p: 0.07 } })))).toEqual(['Right 7%', 'Thought along 80%']);
+    expect(texts(guessScoreWords(scoreView({ thinking: { p: 0.1 }, guess: { p: 0.2 } })))).toEqual(['Thought along 20%']);
+    const all = [...messageScoreWords(scoreView({ thinking: { p: 0.5, model: 'zai.glm-4.7-flash' } })), ...guessScoreWords(scoreView({ guess: 'failed', correct: 'failed' }))];
+    for (const w of texts(all)) expect(w).not.toMatch(/probab|logprob|glm|model/i);
   });
 
   it('without a thinking score a guess can only raise the label', () => {

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { prefersReducedMotion } from '../../lib/hooks';
 import { MODE_META, mean, pct } from '../../lib/modes';
+import { guessScoreWords, messageScoreWords, scoreView, type ScoreView, type ScoreWord } from '../../lib/scores';
 import { useStore } from '../../lib/store';
 import type { ChatMessage, Classification, Evidence, Mode } from '../../lib/types';
 import { Md, parseMd } from './Md';
@@ -64,8 +65,12 @@ export function Transcript() {
             </p>
           </div>
         )}
-        {messages.map((m) =>
-          m.role === 'user' ? <UserMsg key={m.id} m={m} /> : <AiMsg key={m.id} m={m} isLast={m.id === lastAi?.id} />,
+        {messages.map((m, i) =>
+          m.role === 'user' ? (
+            <UserMsg key={m.id} m={m} />
+          ) : (
+            <AiMsg key={m.id} m={m} isLast={m.id === lastAi?.id} asked={messages[i - 1]?.role === 'user' ? messages[i - 1] : undefined} />
+          ),
         )}
         {busy && last?.role === 'user' && <Thinking />}
         {turn.status === 'error' && turn.conversationId === conversation.id && !turn.assistantMessageId && <TurnError error={turn.error} />}
@@ -226,16 +231,37 @@ export function Diagnostics({
   );
 }
 
+/** Score words on one line, `·`-separated; the ones on their way or failed are dim. */
+function ScoreLine({ words, className = '' }: { words: ScoreWord[]; className?: string }) {
+  return (
+    <span className={className}>
+      {words.map((w, i) => (
+        <span key={w.text}>
+          {i > 0 && <span className="a-dim"> · </span>}
+          <span className={w.quiet ? 'a-dim' : undefined}>{lower(w.text)}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Why({ m, c, onHot }: { m: ChatMessage; c: Classification; onHot: (i: number | null) => void }) {
   const { dispatch } = useStore();
+  const scores = messageScoreWords(scoreView(m.scores), c.overridden);
   return (
     <div className="a-why" role="region" aria-label="Why this label">
       <p className={`a-why-head m-${c.mode}`}>
         <G mode={c.mode} /> {lower(MODE_META[c.mode].label)} <span className="a-dim">— {lower(MODE_META[c.mode].desc)}</span>
       </p>
+      {scores.length > 0 && (
+        <p className="a-why-scores">
+          <ScoreLine words={scores} />
+        </p>
+      )}
       {c.overridden ? <p className="a-dim">relabelled by you.</p> : <Diagnostics text={m.text} c={c} onHot={onHot} />}
       <div className="a-why-fix">
-        <span className="a-dim">{c.overridden ? 'label' : `${pct(c.confidence)}% sure · not right?`}</span>
+        {/* A scored message's label comes from its score, so the analysis's confidence is not shown. */}
+        <span className="a-dim">{c.overridden ? 'label' : m.scores ? 'not right?' : `${pct(c.confidence)}% sure · not right?`}</span>
         <Radios<Mode>
           label="Who did the thinking"
           value={c.mode}
@@ -253,7 +279,7 @@ function Why({ m, c, onHot }: { m: ChatMessage; c: Classification; onHot: (i: nu
 
 /* ───────────── Assistant messages ───────────── */
 
-function AiMsg({ m, isLast }: { m: ChatMessage; isLast: boolean }) {
+function AiMsg({ m, isLast, asked }: { m: ChatMessage; isLast: boolean; asked?: ChatMessage }) {
   const { state, busy } = useStore();
   const { related, ...brush } = useBrush(m);
   const turn = state.session.turn;
@@ -280,7 +306,7 @@ function AiMsg({ m, isLast }: { m: ChatMessage; isLast: boolean }) {
           <Md text={m.text} seg={seg} tail={m.streaming ? <span className="a-caret">▍</span> : null} />
         </div>
         {veiled && <Veil m={m} />}
-        {!veiled && m.guess && stems && <GuessResult guess={m.guess} text={m.text} stems={stems} />}
+        {!veiled && m.guess && stems && <GuessResult guess={m.guess} text={m.text} stems={stems} scores={asked?.scores && scoreView(asked.scores)} />}
         {m.stopped && <p className="a-dim a-stopped">■ stopped</p>}
         {m.error && turn.status === 'error' && turn.assistantMessageId === m.id && <TurnError error={m.error} inline />}
         {reflect && <Reflect id={concept.id} label={concept.label} />}
@@ -356,21 +382,38 @@ function markHits(t: string, stems: Set<string>): ReactNode {
   );
 }
 
-function GuessResult({ guess, text, stems }: { guess: string; text: string; stems: Set<string> }) {
+/**
+ * The revealed guess, with the words of the answer it already had. Live (scored): how right it
+ * was and how much you thought along in it; otherwise (demo) any guess counts as thinking together.
+ */
+function GuessResult({ guess, text, stems, scores }: { guess: string; text: string; stems: Set<string>; scores?: ScoreView }) {
   const plain = text.replace(/[*_]/g, '');
   const hit = [...new Set(words(plain).filter((w) => w.length >= 4 && stems.has(stem(w))).map((w) => w.toLowerCase()))];
+  const overlap = hit.length
+    ? `${hit.length} word${hit.length === 1 ? '' : 's'} you already had: ${hit.slice(0, 6).join(', ')}${hit.length > 6 ? ', …' : '.'}`
+    : 'no direct overlap. what did you miss?';
+  // Empty while the reply still streams: the guess is scored once it is complete.
+  const said = scores ? guessScoreWords(scores) : [];
   return (
     <div className="a-veil is-done">
       <p>
         <span className="a-dim">your guess ›</span> <span className="a-guess-text">{guess}</span>
       </p>
-      <p>
-        <G mode="together" />{' '}
-        {hit.length
-          ? `${hit.length} word${hit.length === 1 ? '' : 's'} you already had: ${hit.slice(0, 6).join(', ')}${hit.length > 6 ? ', …' : '.'}`
-          : 'no direct overlap. what did you miss?'}{' '}
-        <span className="a-dim">you predicted first, so this one counts as thinking together.</span>
-      </p>
+      {scores ? (
+        <p>
+          <G score={typeof scores.guess === 'number' ? scores.guess : 0.5} />{' '}
+          {said.length > 0 && (
+            <>
+              <ScoreLine words={said} /> <span className="a-dim">·</span>{' '}
+            </>
+          )}
+          {overlap}
+        </p>
+      ) : (
+        <p>
+          <G mode="together" /> {overlap} <span className="a-dim">you predicted first, so this one counts as thinking together.</span>
+        </p>
+      )}
     </div>
   );
 }

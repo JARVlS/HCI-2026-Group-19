@@ -86,3 +86,38 @@ export function scoreView(s: MessageScores | undefined): ScoreView {
   const byGuess = isScore(s.thinking) && isScore(s.guess) && s.guess.p > s.thinking.p;
   return { thought: byGuess ? shown(s.guess) : shown(s.thinking), byGuess, guess: shown(s.guess), right: shown(s.correct) };
 }
+
+/*
+ * The words, in one place for both designs (the ASCII style lower-cases them). Plain language:
+ * no "probability", no model names. On its way: "…"; failed: "not checked", quiet but visible.
+ */
+/** One part of a score line. `quiet`: on its way or failed (the designs dim it). */
+export interface ScoreWord {
+  text: string;
+  quiet: boolean;
+}
+
+const percent = (x: number) => `${Math.round(x * 100)}%`;
+
+function word(what: string, s: ScoreShown, suffix = ''): ScoreWord | null {
+  if (s === null) return null;
+  if (s === 'pending') return { text: `${what} …`, quiet: true };
+  if (s === 'failed') return { text: `${what}: not checked`, quiet: true };
+  return { text: `${what} ${percent(s)}${suffix}`, quiet: false };
+}
+
+const present = (xs: (ScoreWord | null)[]) => xs.filter((x): x is ScoreWord => x !== null);
+
+/** The "why" of a user message: e.g. "Thought along 83%", "Right 91%". Thought along is left out after a relabel (the user's label decides). */
+export function messageScoreWords(v: ScoreView, overridden = false): ScoreWord[] {
+  return present([
+    overridden ? null : word('Thought along', v.thought, v.byGuess ? ' with your guess' : ''),
+    word(v.guess === null ? 'Right' : 'Your guess: right', v.right),
+  ]);
+}
+
+/** Under a revealed answer: how right the guess was, and how much the student thought along in it. */
+export function guessScoreWords(v: ScoreView): ScoreWord[] {
+  if (v.right === 'pending' || v.guess === 'pending') return [{ text: 'Checking your guess …', quiet: true }];
+  return present([word('Right', v.right), word('Thought along', v.guess)]);
+}
