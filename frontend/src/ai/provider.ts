@@ -99,11 +99,27 @@ export interface ScoreResult {
 }
 export type JsonTask = keyof JsonTasks;
 
-/** A provider failure the UI can explain. `aborted` is the user pressing stop, not an error. */
+/**
+ * A provider failure the UI can explain. `aborted` is the user pressing stop, not an error. The
+ * codes after `unknown` come from the user's own endpoint (M7, `ai/own/`): a refused key, an unknown
+ * model, the provider's rate limit, a model that cannot give scores. Their message says what to fix.
+ */
+export type ProviderErrorCode =
+  | 'network'
+  | 'aborted'
+  | 'budget_exceeded'
+  | 'upstream'
+  | 'invalid_output'
+  | 'unknown'
+  | 'auth'
+  | 'model'
+  | 'rate_limited'
+  | 'no_scores';
+
 export class ProviderError extends Error {
   constructor(
     message: string,
-    readonly code: 'network' | 'aborted' | 'budget_exceeded' | 'upstream' | 'invalid_output' | 'unknown' = 'unknown',
+    readonly code: ProviderErrorCode = 'unknown',
   ) {
     super(message);
     this.name = 'ProviderError';

@@ -1,5 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import type { KeySnapshot } from '../ai/own/keys';
+import type { TestReport } from '../ai/own/provider';
+import type { Role } from '../ai/own/setup';
 import type { Provider } from '../ai/provider';
+import { isLiveChoice } from '../ai/providers';
 import { createApp, save, SETTINGS_KEY, type StoreAction } from './app';
 import type { Conversation, Id, ISO, Message } from './domain';
 import { conversationsOfTree, treeOfConcept, treesOfConversation } from './links';
@@ -52,6 +56,14 @@ function groveRowsOf(groves: Grove[]): string[][] {
 function browserStorage() {
   try {
     return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function tabStorage() {
+  try {
+    return globalThis.sessionStorage ?? null;
   } catch {
     return null;
   }
@@ -119,6 +131,15 @@ interface Ctx {
   retryLoad: () => void;
   toast: (text: string) => void;
   finishOnboarding: () => void;
+  /** Settings → model (provider `own`): the keys on this device, test connection, model lists. */
+  own: OwnControls;
+}
+
+export interface OwnControls extends KeySnapshot {
+  setKey: (role: Role, key: string) => void;
+  setRemember: (on: boolean) => void;
+  test: (signal: AbortSignal) => Promise<TestReport>;
+  models: (role: Role, signal?: AbortSignal) => Promise<string[]>;
 }
 
 const StoreContext = createContext<Ctx | null>(null);
@@ -128,6 +149,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
     createApp({
       params: urlParams(),
       storage: browserStorage(),
+      session: tabStorage(),
       backend: remoteBackend(session),
       build: import.meta.env.VITE_DEFAULT_PROVIDER,
       provider: given,
@@ -137,6 +159,17 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
   const { store } = app;
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const sync = useSyncExternalStore(app.queue.subscribe, app.queue.status);
+  const keys = useSyncExternalStore(app.keys.subscribe, app.keys.snapshot);
+  const own = useMemo<OwnControls>(
+    () => ({
+      ...keys,
+      setKey: app.keys.setKey,
+      setRemember: app.keys.setRemember,
+      test: (signal) => app.own.test(signal),
+      models: (role, signal) => app.own.listModels(role, signal),
+    }),
+    [app, keys],
+  );
   const initialSettings = useRef(state.settings);
 
   useEffect(() => app.start(), [app]);
@@ -229,7 +262,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
     () => ({
       state,
       dispatch: app.dispatch,
-      mode: choice === 'arbor' ? 'live' : 'demo',
+      mode: isLiveChoice(choice) ? 'live' : 'demo',
       sync,
       conversation,
       messages,
@@ -250,8 +283,9 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
       retryLoad: app.retryLoad,
       toast: app.toast,
       finishOnboarding: app.finishOnboarding,
+      own,
     }),
-    [app, state, choice, sync, conversation, messages, busy, activeTree, graph, provider, canQuiz],
+    [app, state, choice, sync, conversation, messages, busy, activeTree, graph, provider, canQuiz, own],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

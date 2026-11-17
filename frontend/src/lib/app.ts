@@ -1,5 +1,8 @@
+import { createKeyStore } from '../ai/own/keys';
+import { OwnProvider } from '../ai/own/provider';
+import { parseSetup } from '../ai/own/setup';
 import type { Provider } from '../ai/provider';
-import { chooseProvider, createProvider } from '../ai/providers';
+import { chooseProvider, createProvider, isLiveChoice } from '../ai/providers';
 import { demoFixture } from '../ai/scripted/fixture';
 import { classify } from './classify';
 import { newConversation } from './chats';
@@ -13,8 +16,9 @@ import type { Classification, ProviderChoice, Settings } from './types';
 /**
  * The app without React (IMPLEMENTATION_PLAN.md, M1/M2): initial state from the URL and storage,
  * the synchronous store, and everything that has effects: turns, chats, and the two modes.
- *   demo (provider `scripted`): the scripted fixture, nothing saved, no request to the backend
- *   live (provider `arbor`):    the user's own data, loaded from and saved to the backend (live.ts, sync.ts)
+ *   demo (provider `scripted`):     the scripted fixture, nothing saved, no request to the backend
+ *   live (provider `arbor`, `own`): the user's own data, loaded from and saved to the backend (live.ts, sync.ts);
+ *                                   `own` sends the model calls to the user's own endpoints (ai/own/)
  * `store.tsx` binds it to React.
  */
 
@@ -48,9 +52,9 @@ function loadSettings(storage: KeyValue | null): Omit<Settings, 'provider'> {
   try {
     const raw = stored(storage, SETTINGS_KEY);
     const { provider: _, ...saved } = raw ? JSON.parse(raw) : {};
-    return { ...defaults, ...saved };
+    return { ...defaults, ...saved, own: parseSetup(saved.own) };
   } catch {
-    return defaults;
+    return { ...defaults, own: parseSetup(null) };
   }
 }
 
@@ -65,7 +69,7 @@ function demoWorld(empty: boolean) {
 
 /**
  * URL parameters for demos and user tests, e.g.
- * `?design=ascii&intro=0&view=forest&theme=dark&empty=1&nudge=gentle&arbor=off&mascot=0&provider=arbor&demo=1`.
+ * `?design=ascii&intro=0&view=forest&theme=dark&empty=1&nudge=gentle&arbor=off&mascot=0&provider=arbor|own&demo=1`.
  * `?demo=1` forces the scripted demo for the visit, whatever is saved or in `?provider`.
  */
 export function initialState(p: URLSearchParams, storage: KeyValue | null, build?: string): State {
@@ -138,6 +142,8 @@ export type StoreAction = Action | { type: 'reset'; empty: boolean };
 export interface AppOptions {
   params: URLSearchParams;
   storage: KeyValue | null;
+  /** sessionStorage: where the own-model keys stay unless the user ticks "remember on this device". */
+  session?: KeyValue | null;
   backend: Backend;
   /** The build default for the provider (VITE_DEFAULT_PROVIDER). */
   build?: string;
@@ -163,15 +169,18 @@ export function createApp(opts: AppOptions) {
   const store = createStore(initialState(opts.params, storage, opts.build), (prev, next, a) => live.observe(prev, next, a));
   const live: Live = createLive(store, { backend, queue, newId, now });
 
+  /** The own-model keys: on this device only, never in the store, the settings or saved data. */
+  const keys = createKeyStore({ session: opts.session ?? null, local: storage });
+  const own = new OwnProvider(() => ({ setup: store.getState().settings.own, keys: keys.snapshot().keys }));
   const providers = new Map<ProviderChoice, Provider>();
   /** A turn keeps the provider it started with. */
   const provider = (): Provider => {
     const choice = store.getState().settings.provider;
     if (opts.provider) return opts.provider;
-    if (!providers.has(choice)) providers.set(choice, createProvider(choice));
+    if (!providers.has(choice)) providers.set(choice, createProvider(choice, own));
     return providers.get(choice)!;
   };
-  const isLive = () => store.getState().settings.provider === 'arbor';
+  const isLive = () => isLiveChoice(store.getState().settings.provider);
   const toast = (text: string) => store.dispatch({ type: 'toast', text });
 
   let controller: AbortController | null = null;
@@ -187,10 +196,14 @@ export function createApp(opts: AppOptions) {
 
   const showDemo = (empty: boolean) => store.dispatch({ type: 'hydrate', ...demoWorld(empty) });
 
-  /** Switching the provider switches the world: live loads the user's chats, scripted shows the demo. */
-  const enter = (choice: ProviderChoice) => {
+  /**
+   * Switching between demo and live switches the world: live loads the user's chats, scripted shows
+   * the demo. Between `arbor` and `own` the world stays: the next message goes to the other models.
+   */
+  const enter = (choice: ProviderChoice, before: ProviderChoice) => {
+    if (isLiveChoice(choice) === isLiveChoice(before)) return;
     abort();
-    if (choice === 'arbor') void live.boot();
+    if (isLiveChoice(choice)) void live.boot();
     else {
       live.stop();
       showDemo(false);
@@ -221,6 +234,9 @@ export function createApp(opts: AppOptions) {
     queue,
     live,
     provider,
+    /** Settings → model: the keys, test connection and the endpoints' model lists. */
+    keys,
+    own,
 
     /** Start the visit (live mode: load the user's data). Returns the cleanup. */
     start(): () => void {
@@ -238,7 +254,7 @@ export function createApp(opts: AppOptions) {
         save(storage, PROVIDER_KEY, a.patch.provider);
         const before = store.getState().settings.provider;
         store.dispatch(a);
-        if (a.patch.provider !== before) enter(a.patch.provider);
+        if (a.patch.provider !== before) enter(a.patch.provider, before);
         return;
       }
       // A revealed guess may need scoring (live mode); `revealTurn` dispatches the reveal itself.
