@@ -8,8 +8,9 @@ import { mergeAnalysis } from './graph';
 import { treeOfConcept, treesOfConversation } from './links';
 import { subjectOf } from './planner';
 import { OTHER_BRANCH, projectForest } from './project';
+import { scoredLabel } from './scores';
 import { findMessage, type Action, type State } from './state';
-import type { Classification, ScoreKey } from './types';
+import type { Classification, Score, ScoreKey } from './types';
 
 /**
  * One chat turn, end to end (IMPLEMENTATION_PLAN.md, M1):
@@ -44,12 +45,20 @@ export interface SendInput {
   classification: Classification;
   /** Predict → reveal: hide the reply until the user guesses or reveals it. */
   veil?: boolean;
+  /**
+   * The fast model's thinking score of exactly this text in this chat, rated while it was typed
+   * (`draftScore.ts`): it lands on the message at once and the turn does not ask again.
+   */
+  thinking?: Score;
 }
 
 /** How many earlier turns the analysis sees (ADR-6). */
 const RECENT_TURNS = 6;
 /** How many earlier messages the fast "thought along" score sees as context (a small, fast call). */
 const SCORE_RECENT_MESSAGES = 4;
+
+/** The context of a thinking score: the last messages before the one rated (the composer's live rating uses the same). */
+export const scoreContext = (before: Pick<Message, 'role' | 'text'>[]) => before.slice(-SCORE_RECENT_MESSAGES).map((m) => ({ role: m.role, text: m.text }));
 
 const defaults = (deps: TurnDeps) => ({
   newId: deps.newId ?? (() => crypto.randomUUID()),
@@ -61,11 +70,14 @@ export async function sendTurn(deps: TurnDeps, input: SendInput, signal: AbortSi
   const text = input.text.trim();
   if (!text) return;
   const conversationId = deps.getState().session.activeConversationId;
+  const scores = input.thinking && { thinking: input.thinking };
   const user: Message = {
     id: newId(),
     role: 'user',
     text,
-    classification: input.classification,
+    // A score from the composer labels the message at once, as a score landing later would.
+    classification: scores ? scoredLabel(input.classification, scores) : input.classification,
+    ...(scores && { scores }),
     conceptIds: [],
     conversationId,
     createdAt: now(),
@@ -182,8 +194,7 @@ function score(deps: TurnDeps, userMessageId: Id, key: ScoreKey, input: ScoreInp
 /** How much did the student think along in this message? Earlier turns are context. */
 function scoreThinking(deps: TurnDeps, user: Message, upto: Message[]) {
   if (!deps.provider.score) return null;
-  const recent = upto.slice(0, -1).slice(-SCORE_RECENT_MESSAGES).map((m) => ({ role: m.role, text: m.text }));
-  return score(deps, user.id, 'thinking', { question: 'thinking', text: user.text, recent });
+  return score(deps, user.id, 'thinking', { question: 'thinking', text: user.text, recent: scoreContext(upto.slice(0, -1)) });
 }
 
 /** An own claim the analysis found gradable: is it right, judged against the complete reply? */

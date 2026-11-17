@@ -641,6 +641,13 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* The model's rating of earlier words, while the latest wait for theirs: kept, but dimmed (not the pop-up). */
+.a-gauge > :not(.a-gauge-pop) {
+  transition: opacity 0.2s var(--ease);
+}
+.a-gauge.stale > :not(.a-gauge-pop) {
+  opacity: 0.45;
+}
 /* Every reason, on hover or focus of the score line; floats above, never pushes. */
 .a-gauge-pop {
   position: absolute;

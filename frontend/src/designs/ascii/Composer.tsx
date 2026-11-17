@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { draftShare, MODE_META, pct } from '../../lib/modes';
+import { draftGauge, sendMode, useDraftScore, type DraftGauge, type DraftView } from '../../lib/draftScore';
+import { MODE_META, pct } from '../../lib/modes';
 import { useStore } from '../../lib/store';
 import { useAccount } from '../../Welcome';
 import type { Classification, Evidence, Mode, NudgeLevel, ProviderChoice, Theme } from '../../lib/types';
@@ -22,7 +23,7 @@ const AFTER: Record<Mode, string> = {
 };
 
 export function Composer() {
-  const { state, dispatch, send, stop, classifyDraft, busy, demoPrompts } = useStore();
+  const { state, dispatch, send, stop, classifyDraft, busy, demoPrompts, messages, scoreDraft } = useStore();
   const { focusPrompt } = useUi();
   const { enabled: arborOn, nudge } = state.settings;
   const lint = arborOn && nudge !== 'off';
@@ -36,6 +37,8 @@ export function Composer() {
   const backdropRef = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState(0);
   const commands = useCommands();
+  // The fast model rates the draft once typing pauses (live mode); the word rules decide until it has.
+  const model = useDraftScore(lint ? scoreDraft : null, text, messages);
 
   const isCmd = text.startsWith('/') && !text.includes('\n');
   const [word, ...rest] = isCmd ? text.slice(1).split(' ') : [''];
@@ -59,8 +62,8 @@ export function Composer() {
   // Typing moves the words: the reason under the mouse waits for the next mouse move.
   useEffect(() => setTip(null), [text]);
 
-  // Tell the rest of the UI (modeline, squirrel) what the lens says.
-  const live = lint && lens ? lens.c.mode : null;
+  // Tell the rest of the UI (modeline, squirrel) what the score line says.
+  const live = lint && lens ? draftGauge(lens.c, model).mode : null;
   useEffect(() => {
     dispatch({ type: 'composer', lens: live, nudge: false });
   }, [live, dispatch]);
@@ -79,7 +82,8 @@ export function Composer() {
     }
     if (busy || !text.trim()) return;
     const c = classifyDraft(text);
-    send(text, c, { veil: arborOn && willVeil(c.mode) });
+    // The model's rating of exactly this text decides the veil and goes with the message; else the rules decide, and the turn asks the model.
+    send(text, c, { veil: arborOn && willVeil(sendMode(c, model)), thinking: model.rated ?? undefined });
     setText('');
   };
 
@@ -112,6 +116,7 @@ export function Composer() {
   };
 
   const c = lint && lens && lens.text === text ? lens.c : null;
+  const g = c && draftGauge(c, model);
 
   /** The textarea lies over the underlines, so find the underlined word under the mouse by its boxes. */
   const onHover = (e: MouseEvent<HTMLTextAreaElement>) => {
@@ -162,8 +167,8 @@ export function Composer() {
       )}
 
       <div className="a-gauge-row">
-        {c ? (
-          <Gauge c={c} text={text} after={willVeil(c.mode) ? 'the answer arrives veiled, so you can guess first' : AFTER[c.mode]} />
+        {c && g ? (
+          <Gauge c={c} g={g} model={model} text={text} after={willVeil(g.mode) ? 'the answer arrives veiled, so you can guess first' : AFTER[g.mode]} />
         ) : !text && !busy && next ? (
           <p className="a-try">
             <K>tab</K>{' '}
@@ -174,7 +179,7 @@ export function Composer() {
         ) : null}
       </div>
 
-      <div className={`a-prompt${c ? ` m-${c.mode}` : ''}`}>
+      <div className={`a-prompt${g ? ` m-${g.mode}` : ''}`}>
         <span className="a-ps1" aria-hidden="true">
           ›
         </span>
@@ -211,21 +216,31 @@ export function Composer() {
 
       {/* For screen readers: what the linter says, without a visible block that moves the page. */}
       <p id="a-lint" className="a-sr" aria-live="polite">
-        {c ? `${MODE_META[c.mode].lens}, ${pct(c.confidence)}% sure. ${c.reasons.join('. ')}` : ''}
+        {c && g ? `${MODE_META[g.mode].lens}, ${g.from === 'rules' ? `${pct(c.confidence)}% sure` : 'rated by the fast model'}. ${c.reasons.join('. ')}` : ''}
       </p>
     </div>
   );
 }
 
+/** Where the line's number comes from, in plain words. "% sure" belongs to the word rules only. */
+function source(g: DraftGauge, model: DraftView, c: Classification) {
+  if (g.from === 'model') return 'rated by the fast model';
+  if (g.from === 'earlier') return 'rated by the fast model, on your earlier words';
+  const sure = `${pct(c.confidence)}% sure`;
+  if (!model.canRate) return sure;
+  return `${sure} · from the word rules, ${model.unavailable ? 'the model rating is not available' : 'the model has not answered'}`;
+}
+
 /**
- * The live score: the label, a bar from you to ai, the split, and what sending will do. Hovering
- * it lists every reason the linter found (the old diagnostics, now in a pop-up above).
+ * The live score: the label, a bar from you to ai, the split, and what sending will do. In live
+ * mode the fast model's rating sets them once it has answered (dimmed while newer words wait for
+ * theirs); until then the word rules do. Hovering it lists every reason the linter found.
  */
-function Gauge({ c, text, after }: { c: Classification; text: string; after: string }) {
-  const you = pct(draftShare(c.mode, c.confidence));
+function Gauge({ c, g, model, text, after }: { c: Classification; g: DraftGauge; model: DraftView; text: string; after: string }) {
+  const you = pct(g.you);
   return (
-    <div className={`a-gauge m-${c.mode}`} tabIndex={0} aria-describedby="a-lint">
-      <G mode={c.mode} /> <strong>{lower(MODE_META[c.mode].lens)}</strong>
+    <div className={`a-gauge m-${g.mode}${g.from === 'earlier' ? ' stale' : ''}`} tabIndex={0} aria-describedby="a-lint">
+      <G mode={g.mode} /> <strong>{lower(MODE_META[g.mode].lens)}</strong>
       <span className="a-gauge-bar" aria-hidden="true">
         <span style={{ width: `${you}%` }} />
       </span>
@@ -237,9 +252,14 @@ function Gauge({ c, text, after }: { c: Classification; text: string; after: str
       </span>
       <div className="a-gauge-pop" role="tooltip">
         <p className="a-verdict-head">
-          <G mode={c.mode} /> <strong>{lower(MODE_META[c.mode].lens)}</strong>
-          <span className="a-dim"> · {pct(c.confidence)}% sure</span>
+          <G mode={g.mode} /> <strong>{lower(MODE_META[g.mode].lens)}</strong>
+          <span className="a-dim"> · {source(g, model, c)}</span>
         </p>
+        {g.from !== 'rules' && (
+          <p className="a-dim">
+            underlined by the word rules: {lower(MODE_META[c.mode].lens)}, {pct(c.confidence)}% sure
+          </p>
+        )}
         <Diagnostics text={text} c={c} onHot={() => {}} />
       </div>
     </div>
