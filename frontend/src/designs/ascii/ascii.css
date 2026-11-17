@@ -1357,8 +1357,15 @@ body {
 .a-model-role {
   margin-top: 12px;
 }
+/* "analysis" is 8 characters: one more column for the role names than in the settings pop-up */
+.a-model .a-set {
+  grid-template-columns: 10ch minmax(0, 1fr);
+}
+.a-model .a-set-desc {
+  margin-left: 10ch;
+}
 .a-fields {
-  margin: 2px 0 0 8ch;
+  margin: 2px 0 0 10ch;
 }
 .a-field {
   display: grid;

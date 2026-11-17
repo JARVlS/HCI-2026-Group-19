@@ -136,15 +136,22 @@ function Fields({ role, conn, onChange }: { role: Role; conn: Connection; onChan
     }
   };
 
+  const id = (field: string) => `a-${role}-${field}`;
   return (
-    <div className="a-fields">
-      <label className="a-field">
-        <span className="a-set-k">base url</span>
-        <input value={conn.baseUrl} onChange={(e) => onChange({ ...conn, baseUrl: e.target.value })} spellCheck={false} placeholder="https://…/v1" />
-      </label>
-      <label className="a-field">
-        <span className="a-set-k">key</span>
+    // A form so the browser knows the key field belongs to this endpoint; nothing is submitted.
+    <form className="a-fields" onSubmit={(e) => e.preventDefault()}>
+      <div className="a-field">
+        <label className="a-set-k" htmlFor={id('url')}>
+          base url
+        </label>
+        <input id={id('url')} value={conn.baseUrl} onChange={(e) => onChange({ ...conn, baseUrl: e.target.value })} spellCheck={false} placeholder="https://…/v1" />
+      </div>
+      <div className="a-field">
+        <label className="a-set-k" htmlFor={id('key')}>
+          key
+        </label>
         <input
+          id={id('key')}
           type="password"
           autoComplete="off"
           spellCheck={false}
@@ -155,14 +162,16 @@ function Fields({ role, conn, onChange }: { role: Role; conn: Connection; onChan
         <span className="a-dim a-hint" title={KEY_HINT}>
           ?
         </span>
-      </label>
-      <label className="a-field">
-        <span className="a-set-k">model</span>
-        <input list={listId} value={conn.model} onChange={(e) => onChange({ ...conn, model: e.target.value })} spellCheck={false} placeholder="model id" />
-        <button className="a-btn" onClick={list} disabled={listing === 'busy'} title="ask the endpoint for its models (GET /models)">
+      </div>
+      <div className="a-field">
+        <label className="a-set-k" htmlFor={id('model')}>
+          model
+        </label>
+        <input id={id('model')} list={listId} value={conn.model} onChange={(e) => onChange({ ...conn, model: e.target.value })} spellCheck={false} placeholder="model id" />
+        <button type="button" className="a-btn" onClick={list} disabled={listing === 'busy'} title="ask the endpoint for its models (GET /models)">
           list
         </button>
-      </label>
+      </div>
       {models && (
         <datalist id={listId}>
           {models.map((m) => (
@@ -181,7 +190,7 @@ function Fields({ role, conn, onChange }: { role: Role; conn: Connection; onChan
           <span className="a-fail-mark">!</span> <span className="a-dim">{lowerProse(listing.error)}</span>
         </p>
       )}
-    </div>
+    </form>
   );
 }
 
