@@ -547,10 +547,25 @@ body {
   padding: 4px 3ch 12px;
   border-top: 1px dashed var(--rule);
 }
+/* A drawn box, so the place to type is obvious; it takes the linter's colour while you type. */
 .a-prompt {
   --mode: var(--text);
   display: grid;
   grid-template-columns: 2ch minmax(0, 1fr);
+  padding: 9px 1ch;
+  border: 1px solid var(--text-3);
+  background: var(--surface);
+  cursor: text;
+  transition:
+    border-color 0.3s,
+    box-shadow 0.15s;
+}
+.a-prompt:hover {
+  border-color: var(--text-2);
+}
+.a-prompt:focus-within {
+  border-color: var(--mode);
+  box-shadow: var(--shadow-2);
 }
 .a-prompt.m-own,
 .a-prompt.m-together {
@@ -601,7 +616,8 @@ body {
 /* The live score: one line of fixed height above the prompt (ADR-14), so nothing moves while typing. */
 .a-gauge-row {
   height: 20px;
-  margin: 0 0 4px 2ch;
+  /* Lines up with the text inside the prompt box (border + padding + ›). */
+  margin: 0 0 6px calc(3ch + 1px);
   white-space: nowrap;
 }
 .a-gauge {
@@ -701,10 +717,38 @@ body {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* The demo-prompt hint: faint, and only while the prompt has focus, so nobody clicks it for the prompt. */
 .a-try {
+  display: flex;
+  gap: 1ch;
+  margin: 0;
+  color: var(--text-3);
+  opacity: 0.8;
+}
+.a-composer:not(:focus-within) .a-try {
+  visibility: hidden;
+}
+.a-try-label {
+  flex: none;
+}
+.a-try .a-k {
+  flex: none;
+  padding: 0 0.35ch;
+  color: inherit;
+  background: none;
+  outline: 1px solid var(--rule);
+  outline-offset: -1px;
+}
+.a-try-fill {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text-3);
+  color: inherit;
+  cursor: pointer;
+}
+.a-try-fill:hover {
+  color: var(--text-2);
+  text-decoration: underline;
 }
 .a-try-btn {
   color: var(--text-3);
