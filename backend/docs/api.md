@@ -27,10 +27,10 @@ Every error has an HTTP status and this body:
 | 429 | `total_budget_exceeded` | the project's total token budget is used up (all users together; it does not reset) |
 | 500 | `server_misconfigured` | a var or secret is missing; the message names it (never its value) |
 | 500 | `internal_error` | a bug; details are only in the Worker logs |
-| 502 | `upstream_error` | the Claude API failed (its HTTP status and error type are in the message) |
+| 502 | `upstream_error` | the model API failed: Claude, or the fast model for `/ai/score` (its HTTP status and error type are in the message) |
 | 502 | `upstream_refusal` | Claude declined to answer (`stop_reason: refusal`) |
 | 502 | `output_truncated` | a structured answer hit `max_tokens` |
-| 502 | `invalid_model_output` | a structured answer was not valid JSON |
+| 502 | `invalid_model_output` | a structured answer was not valid JSON; a score answer had no logprobs or was not one of the options |
 
 `internal_error` responses come without CORS headers (Starlette's outermost error handler sits
 outside the CORS middleware), so in the browser they show up as a network error. Check the Worker
@@ -91,8 +91,8 @@ What the server decides per task (from `[vars]` in `wrangler.toml`):
 
 | task | model | max_tokens | effort |
 |---|---|---|---|
-| `chat` | `MODEL_CHAT` (`claude-sonnet-5-5`) | `MAX_TOKENS_CHAT` (4096) | `EFFORT_CHAT` (`low`) |
-| `analyze`, `tree`, `quiz` | `MODEL_ANALYZE` (`claude-haiku-5-5`) | `MAX_TOKENS_JSON` (4096) | `EFFORT_ANALYZE` (`low`) |
+| `chat` | `MODEL_CHAT` (`claude-sonnet-5-5`) | `MAX_TOKENS_CHAT` (4096) | `EFFORT_CHAT` (`low`, or `none`) |
+| `analyze`, `tree`, `quiz` | `MODEL_ANALYZE` (`claude-haiku-5-5`) | `MAX_TOKENS_JSON` (4096) | `EFFORT_ANALYZE` (`low`, or `none`) |
 
 The client cannot choose the model or `max_tokens`: unknown fields such as `model` are a 422.
 Both models think before answering (adaptive thinking is on by default); thinking tokens count
@@ -211,6 +211,83 @@ export async function streamChat(
 
 Errors: 401, 413 `input_too_large`, 422 `invalid_request`, 429 `budget_exceeded` / `total_budget_exceeded`,
 500 `server_misconfigured`, 502 `upstream_error` / `upstream_refusal` / `output_truncated` /
+`invalid_model_output`.
+
+## `POST /api/ai/score`
+
+A fast judgement as a probability, G-Eval style: the frontend's prompt asks a question and tells
+the model to answer with exactly one of a few short `options` (for example `"1"` = the student
+thought along, `"2"` = they did not). The server lets the **fast model** generate one token and
+returns how likely each option was as that token. Claude's API returns no token probabilities, so
+this route uses the third model slot: any OpenAI-compatible chat completions API that returns
+`logprobs` (`FAST_BASE_URL`, `MODEL_FAST`, secret `FAST_API_KEY`; today `zai.glm-4.7-flash` in
+Amazon Bedrock, eu-north-1). The frontend owns the prompts, as for `/ai/complete`.
+
+Request (unknown fields are a 422):
+
+```ts
+{
+  system: string,                                   // may be ""
+  messages: { role: 'user' | 'assistant', content: string }[],  // non-empty, last one is 'user'
+  options: string[],    // 2 to 5 distinct strings, each 1 to 8 characters, no whitespace
+}
+```
+
+What the server sends to `{FAST_BASE_URL}/chat/completions` (`Authorization: Bearer <FAST_API_KEY>`):
+
+```jsonc
+{ "model": "<MODEL_FAST>",
+  "messages": [{ "role": "system", "content": "<system>" } /* then the request's messages */],
+  "max_tokens": 1, "temperature": 0, "logprobs": true, "top_logprobs": 20 }
+```
+
+The system message is left out when `system` is `""`.
+
+**Scoring rule.** The server takes the top 20 logprobs of the first generated token
+(`choices[0].logprobs.content[0].top_logprobs`):
+
+- A token counts for an option when it equals the option after stripping whitespace, so `"1"`
+  and `" 1"` both count for `"1"`. Matching is case-sensitive (`"Yes"` is not `"yes"`).
+- `mass` = the summed probability of all options: how much of the model's answer was one of the
+  options at all.
+- `probabilities` = each option's share of `mass`, so they sum to 1. An option the model did not
+  list among its top 20 gets 0.
+- `mass` below 0.5 is a 502 `invalid_model_output`: the model did not answer with one of the
+  options, and the message names its likeliest token (fix the prompt). An answer without logprobs
+  is the same error with its own message (the model in `MODEL_FAST` does not return logprobs).
+
+Response:
+
+```json
+{ "probabilities": { "1": 0.83, "2": 0.17 }, "mass": 0.99,
+  "usage": { "inputTokens": 212, "outputTokens": 1 }, "model": "zai.glm-4.7-flash" }
+```
+
+One number from 0 to 1 ("how much did the student think along") is the probability of the "yes"
+option, here `probabilities["1"]`. With more than two graded options, G-Eval's expected value
+works: the sum of each option's probability times its value.
+
+```bash
+curl -s http://localhost:8787/api/ai/score -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{
+  "system": "You judge one message that a student wrote to an AI tutor. Did the student think along (own reasoning, claim, attempt or idea to check)? Answer with a single digit and nothing else: 1 = the student thought along, 2 = the student did not.",
+  "messages": [{"role": "user", "content": "Student message:\nI think dropout works because it forces the network to not rely on single neurons, is that right?\n\nAnswer (1 or 2):"}],
+  "options": ["1", "2"]}'
+```
+
+Prompt tips from the live check on 17 Nov 2026 (`docs/testing.md`, T-35): say in the system prompt
+what each option means and "Answer with a single digit and nothing else", and end the user
+message with "Answer (1 or 2):". With that, `mass` was 0.99 to 1.00 on every test message. Scores
+are graded, but not finely: several clear "no" messages all got exactly 0.119.
+
+Tokens are recorded under task `score` and count against both budgets like every other task,
+also when the answer cannot be scored (they were billed). A call the API rejected with an error
+status records nothing. A score call is about 110 to 150 input tokens and 1 output token with
+prompts like the one above.
+
+Errors: 401, 413 `input_too_large` (system + messages, as for `/ai/complete`), 422 `invalid_request`
+(the message names the field), 429 `budget_exceeded` / `total_budget_exceeded`, 500
+`server_misconfigured` (`FAST_API_KEY`, `MODEL_FAST` or `FAST_BASE_URL` missing; only this route
+reads `FAST_API_KEY`, so a Worker without it serves everything else), 502 `upstream_error` /
 `invalid_model_output`.
 
 ## `POST /api/events`
@@ -433,8 +510,9 @@ Errors: 403 `forbidden` (checked first, so a wrong token never learns which tabl
 ## Budget and cost
 
 - Every user has a daily budget of `DAILY_TOKEN_BUDGET` tokens (default 200 000), counted per UTC
-  day over all tasks: billable input tokens (plain + cache write + cache read) plus output tokens
-  (including thinking).
+  day over all tasks, `score` included: billable input tokens (plain + cache write + cache read;
+  for the fast model `prompt_tokens`) plus output tokens (including thinking). A fast-model token
+  counts the same as a Claude token, although it costs far less, so the caps stay on the safe side.
 - Before each call: if the user's tokens for today are already at or above the budget, the answer
   is 429 `budget_exceeded`, and the message says when it resets (next midnight UTC, 01:00 in Zurich
   in winter). Because the check runs before the call, one call can overshoot the budget by its own size.
@@ -452,7 +530,9 @@ Errors: 403 `forbidden` (checked first, so a wrong token never learns which tabl
 deployed Worker calls Claude in Amazon Bedrock. It is the same Messages API, so only three vars
 differ: `ANTHROPIC_BASE_URL`, and both model vars set to `anthropic.claude-sonnet-5` (that account
 has no Sonnet 5.5 and no Haiku 5.5). The `model` field in responses shows what answered. The
-tables below describe the planned setup with an Anthropic key.
+tables below describe the planned setup with an Anthropic key. The fast slot (`/ai/score`) uses
+Bedrock's OpenAI-compatible endpoint in eu-north-1 (`FAST_BASE_URL`) and does not depend on the
+Anthropic key.
 
 Rough cost of one full daily budget (200 000 tokens), list prices per million tokens:
 
@@ -481,8 +561,9 @@ use up their budget on chat.
   tool use: forced `tool_choice` returns a 400 on `claude-sonnet-5-5`, and JSON outputs work the
   same on both models.
 - `temperature` cannot be set: API version `2026-10-21` rejects `temperature`, `top_p` and `top_k`
-  with a 400. The plan's "temperature 0 for analysis" (M6) is not possible; fixed models, fixed
-  effort and logging the model per message are what we can do.
+  with a 400. The plan's "temperature 0 for analysis" (M6) is not possible on Claude; fixed
+  models, fixed effort and logging the model per message are what we can do. The fast slot
+  (`/ai/score`) does run at temperature 0.
 - Export tables: all nine tables, not only the plan's `events|attempts|messages`.
 - The schema comes in two migrations instead of `0001_init.sql`: `0001_users_usage_events.sql`
   (users, usage, events) and `0002_graph_and_chats.sql` (the other six tables), both with the
