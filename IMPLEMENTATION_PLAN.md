@@ -501,11 +501,19 @@ Errors: `{ error: { code, message } }` with an HTTP status.
 | `POST /events` | `{ events: StudyEvent[] }` → `{ ok }` | batched, fire-and-forget |
 | `GET /admin/export?table=events\|attempts\|messages` | → CSV | header `X-Admin-Token` |
 
-*Built 16 Nov* (`backend/docs/api.md`): `health`, `session`, `ai/complete`, `events`, `admin/export`.
+*Built 16 Nov* (`backend/docs/api.md`): `health`, `session`, `ai/complete`, `events`, `admin/export`;
+*17 Nov:* `state`, `conversations/:id/messages`, `sync`. All routes of this table exist now.
 Where it differs: structured calls use JSON outputs (`output_config.format`), not forced tool use
-(400 on Sonnet 5.5); `temperature` cannot be set on API version 2026-10-21; export tables are
-`events|usage|users` for now; the token is `<userId>.<hex HMAC-SHA256(userId, SESSION_SECRET)>`;
-the first migration is `0001_users_usage_events.sql` with only these three tables.
+(400 on Sonnet 5.5); `temperature` cannot be set on API version 2026-10-21; export tables are all
+nine tables; the token is `<userId>.<hex HMAC-SHA256(userId, SESSION_SECRET)>`; the schema comes
+as `0001_users_usage_events.sql` (users, usage, events) and `0002_graph_and_chats.sql` (the other
+six tables, columns unchanged, plus indexes `trees_user` and `conversations_user`); the Pydantic
+models live in `backend/src/schemas.py`. Sync details: at most 500 rows per request (413
+`too_many_rows`); optional (`?`) fields are left out of responses when empty; messages store every
+field beyond the core (`id`, `conversationId`, `role`, `text`, `classification`, `createdAt`) in
+`meta_json`, so new frontend fields need no backend change, and `streaming` is dropped; trees take
+an optional `deletedAt`; edges are insert or ignore; another user's row with the same id is
+skipped, never replaced.
 
 ### D1 schema (`backend/migrations/0001_init.sql`)
 ```sql
@@ -568,19 +576,22 @@ Legend: **FE** = frontend, **BE** = backend, **⇢** = depends on. Each mileston
 **Decide ADR-12 first** (TS Worker vs. keep Python). If TS: port `/health` to Hono, set up D1, done.
 The spikes below then shrink to the D1 check. **If Python stays, these spikes are mandatory,
 each time-boxed to half a day, results noted in this file:**
-- [ ] D1 binding from the Python Worker (`wrangler d1 create arbor`, read and write one row locally and deployed).
-      *Result 16 Nov:* works locally under `pywrangler dev` (`run`, `first`, `all`, `batch`, upserts); deployed not checked yet.
-- [ ] **SSE passthrough:** stream a Claude response through the Python Worker to the browser
+- [x] D1 binding from the Python Worker (`wrangler d1 create arbor`, read and write one row locally and deployed).
+      *Result 16 Nov:* works locally under `pywrangler dev` (`run`, `first`, `all`, `batch`, upserts) and on
+      the deployed Worker (database `hci-grp19`: session, events stored and exported as CSV).
+- [x] **SSE passthrough:** stream a Claude response through the Python Worker to the browser
       (try returning the upstream `fetch` body stream directly; avoid buffering in FastAPI).
       *Decision rule:* if it doesn't stream cleanly within the time box, use fallback A:
       non-streaming relay plus the existing client-side chunked reveal (the UX already does this).
       Fallback B, a small TypeScript Worker just for `/ai/*`, is only worth it if A feels too slow
       in the pilot.
       *Result 16 Nov:* streams chunk by chunk locally under `pywrangler dev`, also with CORS
-      (`backend/tests/smoke.sh`); deployed not checked yet.
-- [ ] Anthropic call via raw `httpx`/`fetch` (don't depend on the SDK working in Pyodide).
-      *Result 16 Nov:* built on the Workers `fetch`, not the SDK; tested against a fake API only,
-      the live call has not run yet (no key on the dev machine).
+      (`backend/tests/smoke.sh`), and on the deployed Worker: 59 deltas over 2.4 s with the CORS
+      header for the Pages origin, no fallback needed.
+- [x] Anthropic call via raw `httpx`/`fetch` (don't depend on the SDK working in Pyodide).
+      *Result 16 Nov:* built on the Workers `fetch`, not the SDK; live on the deployed Worker: chat
+      and structured JSON (flat and nested schemas) on Claude Sonnet 5 through Amazon Bedrock (the
+      stopgap until the group's Anthropic key). Results in `backend/docs/testing.md`.
 
 **FE housekeeping:**
 - [x] Add `vitest`; tests for `classify.ts` (snapshot of the demo prompts), `retention.ts`.
@@ -640,10 +651,14 @@ animated tree). Decisions taken on the way (change them here if the team disagre
 
 ### M2 Persistence and multi-conversation (BE + FE, Nov 19–24) ⇢ M1 types, M0 D1 spike
 **BE**
-- [ ] Migration `0001_init.sql`, Pydantic models (camelCase aliases), `POST /session`,
+- [x] Migration `0001_init.sql`, Pydantic models (camelCase aliases), `POST /session`,
       `GET /state`, `GET /conversations/:id/messages`, `PUT /sync` (batched, idempotent, user-scoped).
       *16 Nov:* migration 0001 (users, usage, events), camelCase models and `POST /session` built;
       `/state`, `/conversations`, `/sync` not yet.
+      *17 Nov:* migration `0002_graph_and_chats.sql` and the three routes built: one `db.batch()` per
+      sync, last write wins on `updatedAt`, rows of other users never touched, 500 rows per request;
+      the export covers the new tables. Tested with pytest and under `pywrangler dev` (local D1);
+      the migration still has to be applied to `hci-grp19` after the merge (`backend/README.md`).
 - [x] Auth dependency (HMAC token), CORS allows `Authorization`.
 
 **FE**

@@ -17,7 +17,7 @@ router = APIRouter(tags=["admin"])
     responses={200: {"content": {"text/csv": {}}, "description": "CSV with a header row"}},
     dependencies=[Depends(require_admin)],
 )
-async def export(table: Literal["events", "usage", "users"], env: Env) -> Response:
+async def export(table: Literal[*db.EXPORTS], env: Env) -> Response:
     """One table as CSV, all users, ordered by time. Header `X-Admin-Token`."""
     columns, rows = await db.export_rows(env.DB, table)
     out = io.StringIO()

@@ -3,6 +3,8 @@ import io
 
 import pytest
 
+import db
+
 ADMIN = {"X-Admin-Token": "test-admin-token"}
 
 
@@ -41,8 +43,29 @@ def test_empty_table_has_header_only(client):
         ["id", "user_id", "condition", "type", "payload_json", "client_ts", "server_ts"]]
 
 
+def test_export_synced_tables(client, session):
+    body = {"conversations": [{"id": "conv1", "title": "Recursion", "subjectId": None, "studyMode": True,
+                               "createdAt": "2026-11-16T10:00:00Z", "updatedAt": "2026-11-16T10:00:00Z"}],
+            "messages": [{"id": f"m{i}", "conversationId": "conv1", "role": "user", "text": f"line one\nline {i}",
+                          "createdAt": f"2026-11-16T10:00:0{i}Z", "conceptIds": ["c1"]} for i in (2, 1)]}
+    assert client.put("/api/sync", json=body, headers=session["headers"]).status_code == 200
+    messages = read_csv(client.get("/api/admin/export?table=messages", headers=ADMIN))
+    assert messages[0] == ["id", "user_id", "conversation_id", "role", "text", "classification_json", "meta_json",
+                           "created_at"]
+    assert [row[0] for row in messages[1:]] == ["m1", "m2"]  # ordered by time
+    assert messages[1][1:] == [session["userId"], "conv1", "user", "line one\nline 1", "", '{"conceptIds":["c1"]}',
+                               "2026-11-16T10:00:01.000Z"]
+    conversations = read_csv(client.get("/api/admin/export?table=conversations", headers=ADMIN))
+    assert conversations[1][:5] == ["conv1", session["userId"], "", "Recursion", "1"]
+
+
+def test_every_export_has_every_column_of_its_table(env):
+    for table, (columns, _) in db.EXPORTS.items():
+        assert list(columns) == [row["name"] for row in env.DB.rows(f"PRAGMA table_info({table})")], table
+
+
 @pytest.mark.parametrize("headers", [{}, {"X-Admin-Token": "wrong"}, {"X-Admin-Token": "ünïcode".encode("latin-1")}])
-@pytest.mark.parametrize("table", ["events", "messages"])
+@pytest.mark.parametrize("table", ["events", "secrets"])
 def test_bad_admin_token_is_403_before_anything_else(client, headers, table):
     response = client.get(f"/api/admin/export?table={table}", headers=headers)
     assert response.status_code == 403
@@ -50,6 +73,6 @@ def test_bad_admin_token_is_403_before_anything_else(client, headers, table):
 
 
 def test_unknown_table_with_good_token_is_422(client):
-    response = client.get("/api/admin/export?table=messages", headers=ADMIN)
+    response = client.get("/api/admin/export?table=secrets", headers=ADMIN)
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_request"
