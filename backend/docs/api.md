@@ -98,6 +98,10 @@ The client cannot choose the model or `max_tokens`: unknown fields such as `mode
 Both models think before answering (adaptive thinking is on by default); thinking tokens count
 against `max_tokens` and are billed as output tokens. Thinking text is never sent to the client.
 
+`EFFORT_CHAT` or `EFFORT_ANALYZE` set to `none` sends no `effort` at all (no `output_config` for
+chat, only the format for the structured tasks). Use it for models that reject the parameter:
+Claude Haiku 4.5 answers HTTP 400 "This model does not support the effort parameter" to any value.
+
 **Structured output** (`analyze`, `tree`, `quiz`): the schema goes to Claude as a JSON output
 format (`output_config.format`), and `output` in the response is the parsed JSON. Every object in
 the schema needs `"additionalProperties": false` and a `required` list, for example:

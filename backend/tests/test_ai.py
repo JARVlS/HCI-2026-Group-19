@@ -62,6 +62,19 @@ def test_json_tasks_return_parsed_object(client, upstream, session, task):
     assert body["output_config"]["format"] == {"type": "json_schema", "schema": SCHEMA}
 
 
+def test_effort_none_sends_no_effort(upstream):
+    # Claude Haiku 4.5 answers 400 "This model does not support the effort parameter".
+    with build_client(make_env(EFFORT_CHAT="none", EFFORT_ANALYZE="none"), upstream) as client:
+        headers = {"Authorization": f"Bearer {client.post('/api/session', json={}).json()['token']}"}
+        upstream.reply_message("Hello")
+        assert client.post("/api/ai/complete", json=chat(), headers=headers).status_code == 200
+        upstream.reply_message('{"label": "x"}')
+        response = client.post("/api/ai/complete", json=chat(task="analyze", schema=SCHEMA), headers=headers)
+    assert response.json()["output"] == {"label": "x"}
+    assert "output_config" not in upstream.requests[0]["body"]
+    assert upstream.requests[1]["body"]["output_config"] == {"format": {"type": "json_schema", "schema": SCHEMA}}
+
+
 def test_usage_adds_up_per_task(client, env, upstream, session):
     for _ in range(2):
         upstream.reply_message("x", input_tokens=10, cache_read=0, output_tokens=5)

@@ -82,7 +82,7 @@ the Worker bundle (pywrangler bundles only `[project.dependencies]`, see `pylock
 | `ADMIN_TOKEN` | secret | for `/api/admin/export` |
 | `ENVIRONMENT` | var | shown by `/api/health` |
 | `MODEL_CHAT`, `MODEL_ANALYZE` | var | planned: `claude-sonnet-5-5` for chat, `claude-haiku-5-5` for analyze/tree/quiz; today both `anthropic.claude-sonnet-5` (Bedrock stopgap) |
-| `EFFORT_CHAT`, `EFFORT_ANALYZE` | var | how much Claude thinks: `low` (also `medium`, `high`) |
+| `EFFORT_CHAT`, `EFFORT_ANALYZE` | var | how much Claude thinks: `low` (also `medium`, `high`), or `none` to send no effort at all (needed for models without the parameter, e.g. Claude Haiku 4.5, which answers 400 "This model does not support the effort parameter") |
 | `MAX_TOKENS_CHAT`, `MAX_TOKENS_JSON` | var | output cap per call (4096); thinking counts against it |
 | `MAX_INPUT_CHARS` | var | max characters of system + messages per call (200000) |
 | `DAILY_TOKEN_BUDGET` | var | tokens per user per UTC day (200000), see docs/api.md "Budget and cost" |

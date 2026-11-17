@@ -24,6 +24,7 @@ ENVIRONMENT = "production"
 #   ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 MODEL_CHAT = "anthropic.claude-sonnet-5"
 MODEL_ANALYZE = "anthropic.claude-sonnet-5"
+# low, medium or high; "none" sends no effort (Claude Haiku 4.5 rejects the parameter with a 400).
 EFFORT_CHAT = "low"
 EFFORT_ANALYZE = "low"
 MAX_TOKENS_CHAT = "4096"

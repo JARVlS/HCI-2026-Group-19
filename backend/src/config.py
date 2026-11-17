@@ -39,6 +39,13 @@ def _positive_int(env: Any, name: str) -> int:
     return int(text)
 
 
+def _effort(env: Any, name: str) -> str | None:
+    """`none` means: send no effort at all. Some models (Claude Haiku 4.5) answer HTTP 400
+    "This model does not support the effort parameter" to any value."""
+    text = _text(env, name)
+    return None if text == "none" else text
+
+
 def secret(env: Any, name: str) -> str:
     """A required secret (ANTHROPIC_API_KEY, SESSION_SECRET, ADMIN_TOKEN). Never log the value."""
     return _text(env, name)
@@ -48,8 +55,8 @@ def secret(env: Any, name: str) -> str:
 class Settings:
     model_chat: str
     model_analyze: str
-    effort_chat: str
-    effort_analyze: str
+    effort_chat: str | None  # None: no effort is sent
+    effort_analyze: str | None
     max_tokens_chat: int
     max_tokens_json: int
     max_input_chars: int
@@ -62,8 +69,8 @@ class Settings:
         return cls(
             model_chat=_text(env, "MODEL_CHAT"),
             model_analyze=_text(env, "MODEL_ANALYZE"),
-            effort_chat=_text(env, "EFFORT_CHAT"),
-            effort_analyze=_text(env, "EFFORT_ANALYZE"),
+            effort_chat=_effort(env, "EFFORT_CHAT"),
+            effort_analyze=_effort(env, "EFFORT_ANALYZE"),
             max_tokens_chat=_positive_int(env, "MAX_TOKENS_CHAT"),
             max_tokens_json=_positive_int(env, "MAX_TOKENS_JSON"),
             max_input_chars=_positive_int(env, "MAX_INPUT_CHARS"),
