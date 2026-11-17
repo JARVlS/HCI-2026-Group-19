@@ -143,6 +143,16 @@ export function modelIds(raw: unknown): string[] {
   return data.flatMap((m) => (typeof m?.id === 'string' && m.id ? [m.id as string] : [])).sort();
 }
 
+/** `GET {base}{path}`: the endpoint's model ids. A 404 here means the endpoint has no list, not an unknown model. */
+export async function listModels(t: Target, path: string, headers: Record<string, string>, signal?: AbortSignal): Promise<string[]> {
+  try {
+    return modelIds(await readJson(t, await send(t, path, { headers, signal })));
+  } catch (e) {
+    if (e instanceof EndpointError && e.status === 404) throw new ProviderError(`${nameOf(t)} has no model list at ${path} (HTTP 404). Type the model name.`, 'unknown');
+    throw toProviderError(e, signal);
+  }
+}
+
 /** Ask a model-not-found error to list what the endpoint has instead (one GET; no list: the error as it was). */
 export async function withModelList(e: unknown, list: () => Promise<string[]>): Promise<unknown> {
   if (!(e instanceof EndpointError) || e.code !== 'model') return e;

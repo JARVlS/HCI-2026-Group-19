@@ -1,7 +1,7 @@
 import { sseEvents } from '../../lib/api';
 import { scaleScore, type ScorePrompt } from '../prompts/score';
 import { ProviderError, type ScoreResult } from '../provider';
-import { EndpointError, modelIds, nameOf, readJson, send, toProviderError, type Target } from './http';
+import { EndpointError, listModels, nameOf, readJson, send, toProviderError, type Target } from './http';
 import type { ChatCall, JsonCall, JsonMode, ModelApi } from './types';
 
 /**
@@ -226,11 +226,7 @@ export class OpenAICompatible implements ModelApi {
     }
   }
 
-  async models(signal?: AbortSignal) {
-    try {
-      return modelIds(await readJson(this.t, await send(this.t, '/models', { headers: this.headers(), signal })));
-    } catch (e) {
-      throw toProviderError(e, signal);
-    }
+  models(signal?: AbortSignal) {
+    return listModels(this.t, '/models', this.headers(), signal);
   }
 }

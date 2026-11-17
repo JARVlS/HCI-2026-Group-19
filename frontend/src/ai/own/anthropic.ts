@@ -1,6 +1,6 @@
 import { sseEvents } from '../../lib/api';
 import { ProviderError } from '../provider';
-import { modelIds, nameOf, readJson, send, toProviderError, type Target } from './http';
+import { listModels, nameOf, readJson, send, toProviderError, type Target } from './http';
 import type { ChatCall, JsonCall, ModelApi } from './types';
 
 /**
@@ -96,11 +96,7 @@ export class Anthropic implements ModelApi {
     }
   }
 
-  async models(signal?: AbortSignal) {
-    try {
-      return modelIds(await readJson(this.t, await send(this.t, '/v1/models', { headers: this.headers(), signal })));
-    } catch (e) {
-      throw toProviderError(e, signal);
-    }
+  models(signal?: AbortSignal) {
+    return listModels(this.t, '/v1/models', this.headers(), signal);
   }
 }

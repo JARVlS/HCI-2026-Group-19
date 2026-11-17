@@ -223,6 +223,13 @@ describe('openai-compatible: models and errors', () => {
     expect(calls[0]).toMatchObject({ path: '/models', method: 'GET', body: null });
   });
 
+  it('an endpoint without a model list says so (a 404 there is not an unknown model)', async () => {
+    fakeEndpoint(() => json({ message: 'Not Found' }, 404));
+    const e = await failure(api().models());
+    expect(e.code).toBe('unknown');
+    expect(e.message).toBe('openai has no model list at /models (HTTP 404). Type the model name.');
+  });
+
   it.each([
     ['ollama', 'http://localhost:11434/v1', 'OLLAMA_ORIGINS='],
     ['lmstudio', 'http://localhost:1234/v1', 'switch on CORS'],
