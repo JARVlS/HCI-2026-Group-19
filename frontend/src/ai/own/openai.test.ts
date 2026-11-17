@@ -183,10 +183,12 @@ describe('openai-compatible: scores from logprobs', () => {
 
   it('asks for one token with its top 20 logprobs and weighs each option share (whitespace-prefixed tokens count)', async () => {
     const calls = fakeEndpoint(() => json(logprobs({ '4': 0.5, ' 4': 0.2, '5': 0.2, '3': 0.05, hello: 0.05 })));
-    const { p, model } = await api().score(thinking, signal());
+    const { p, model, distribution } = await api().score(thinking, signal());
     // Options hold 0.95 of the mass: 4 → 0.7/0.95, 5 → 0.2/0.95, 3 → 0.05/0.95.
     const expected = (0.7 * THINKING_SCALE['4'] + 0.2 * THINKING_SCALE['5'] + 0.05 * THINKING_SCALE['3']) / 0.95;
     expect(p).toBeCloseTo(expected, 6);
+    expect(Object.keys(distribution!)).toEqual(['1', '2', '3', '4', '5']);
+    expect(distribution!['4']).toBeCloseTo(0.7 / 0.95, 6);
     expect(model).toBe('test-model');
     expect(calls[0].body).toMatchObject({ model: 'gpt-test', max_tokens: 1, temperature: 0, logprobs: true, top_logprobs: 20 });
     expect((calls[0].body!.messages as { role: string }[])[0].role).toBe('system');

@@ -182,6 +182,8 @@ describe('arbor provider: score', () => {
     const r = await provider().score(think, new AbortController().signal);
     expect(r.p).toBeCloseTo(0.2 * 0.5 + 0.6 * 0.75 + 0.2 * 1);
     expect(r.model).toBe('zai.glm-4.7');
+    // The options' probabilities as the backend sent them, for the word filter to learn from.
+    expect(r.distribution).toEqual({ '1': 0, '2': 0, '3': 0.2, '4': 0.6, '5': 0.2 });
     expect(calls[0]).toMatchObject({ path: '/api/ai/score', method: 'POST', auth: 'Bearer token-1' });
     expect(calls[0].body).toEqual({
       system: expect.stringContaining("how much of the thinking in this message is the student's own?"),

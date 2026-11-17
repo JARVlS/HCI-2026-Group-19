@@ -92,9 +92,12 @@ export class ArborProvider implements Provider {
     } catch (e) {
       throw toProviderError(e, signal);
     }
-    const p = scaleScore(answer.probabilities ?? {}, scale);
+    const probabilities = answer.probabilities ?? {};
+    const p = scaleScore(probabilities, scale);
     if (p === null) throw new ProviderError('The score answer lacks a probability for an option of the scale.', 'invalid_output');
-    return { p, ...(typeof answer.model === 'string' && { model: answer.model }) };
+    // scaleScore checked that every option has a number in 0..1.
+    const distribution = Object.fromEntries(Object.keys(scale).map((o) => [o, probabilities[o] as number]));
+    return { p, ...(typeof answer.model === 'string' && { model: answer.model }), distribution };
   }
 
   /**
