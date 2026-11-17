@@ -606,6 +606,50 @@ rules by at least 10 points of agreement on the team-rated set and its median la
 1 s; otherwise keep the rules and gate tier 1 to unsure drafts. Train a local model only once a
 labelled set of 500 or more prompts exists (study data needs consent first).
 
+### ADR-16 A revealed guess is judged by meaning, not by shared words (17 Nov 2026, **PROPOSED**)
+At predict → reveal the student types a guess, then sees the answer. Today two things judge it,
+and neither says *which* idea of the guess was right:
+- **What the student sees** is word-stem overlap (`guessStems` / `markHits` in
+  `designs/ascii/Transcript.tsx`): the first 5 letters of every longer word of the guess are
+  matched against the answer. A right guess in other words gets "no direct overlap. what did you
+  miss?"; a wrong guess that reuses the answer's words ("the vaccine kills the germ" against an
+  answer about germs) lights up as if it had been right.
+- **The number** comes from the fast model (`scoreGuess`: the 1–5 thinking scale and the 1–3
+  "is it right" scale against the reply). That does judge meaning, but it is a single number,
+  and on the live site it fails on every call while `FAST_API_KEY` is missing (M9).
+
+**Decision:** after the reveal, once the reply is complete, one structured LLM call grades the
+guess against the answer (new task `grade` on `POST /api/ai/complete`, `MODEL_ANALYZE`, JSON
+output like `analyze`):
+```ts
+interface GuessGrade {                     // schema in frontend/src/ai/schemas/guessGrade.ts
+  verdict: 'right' | 'partly' | 'wrong' | 'no_guess';
+  matches: { guessQuote: string; answerQuote: string; relation: 'same' | 'partly' | 'contradicts' }[];
+  missed?: string;        // the key idea of the answer the guess did not have, in one short sentence
+  misconception?: string; // only when the guess states something the answer contradicts
+}
+```
+- Quotes, never offsets (ADR-6): `lib/evidence.ts` resolves `answerQuote` and `guessQuote` to
+  spans. The answer highlights the matched ideas by relation (same: the "you" colour; contradicts:
+  marked as such), and "what you missed" replaces "no direct overlap".
+- **Numbers stay with the fast model** (G-Eval scales, calibrated, cheap): `correct` and the
+  thinking raise as today. When the fast score is missing or failed, the grade's verdict sets
+  `correctness` (right 1, partly .5, wrong / no_guess 0) and a non-empty guess still counts as
+  thinking together. If the two disagree, the fast score wins for the number and the grade's
+  quotes stay as the explanation.
+- **While the grade is on its way** the lexical overlap shows, labelled honestly as "words in
+  common", then the semantic result replaces it (like the linter label before the analysis).
+  Demo mode and providers without `json` keep the lexical version.
+- **Cost:** one call per revealed guess, only with nudges on *active* and a delegating prompt, so a
+  few per session; input = question + guess + answer (capped like the analysis), output about 200
+  tokens.
+- **Rejected:** embeddings alone. A paraphrase of a misconception is as close to the answer as a
+  right guess ("vaccines kill germs" vs. an answer about vaccines), so similarity cannot say right
+  or wrong. They could still pre-select which answer sentence to compare, if the call gets too big.
+- The grade feeds the attempt of every concept of that turn (`source: 'reveal'`, `correctness`),
+  which is the open M4 item "predict → reveal and quiz answers feed the analysis"; the same call
+  shape can later grade quiz answers.
+
 ---
 
 ## 4. API contract (backend ↔ frontend)
@@ -623,7 +667,7 @@ Errors: `{ error: { code, message } }` with an HTTP status.
 | `GET /state` | → `{ concepts, edges, trees, conversations, attempts }` | bootstrap; messages excluded |
 | `GET /conversations/:id/messages` | → `{ messages }` | lazy per conversation |
 | `PUT /sync` | `{ concepts?, edges?, trees?, conversations?, messages?, attempts? }` → `{ ok, serverTime }` | idempotent upsert by client id, one `db.batch()`; last-write-wins on `updatedAt` |
-| `POST /ai/complete` | `{ task: 'chat'\|'analyze'\|'tree'\|'quiz', system, messages, schema?, stream? }` | `chat` + `stream:true` → **SSE**: `event: delta {text}` … `event: done {usage}` / `event: error {code,message}`. Others → `{ output, usage }` (JSON outputs, see note below). 429 `budget_exceeded` when over budget. |
+| `POST /ai/complete` | `{ task: 'chat'\|'analyze'\|'tree'\|'quiz', system, messages, schema?, stream? }` (task `grade` proposed, ADR-16) | `chat` + `stream:true` → **SSE**: `event: delta {text}` … `event: done {usage}` / `event: error {code,message}`. Others → `{ output, usage }` (JSON outputs, see note below). 429 `budget_exceeded` when over budget. |
 | `POST /events` | `{ events: StudyEvent[] }` → `{ ok }` | batched, fire-and-forget |
 | `GET /admin/export?table=events\|attempts\|messages` | → CSV | header `X-Admin-Token` |
 
@@ -881,7 +925,7 @@ network error with retry, and the budget limit shows a friendly message.
       concept skeleton (≈3–6 topics, 3–6 concepts each) as unvisited, hollow-outline leaves. Leaves
       only grow in once attempted. The forest and graph show what's ahead.
 - [ ] Predict → reveal and quiz answers feed the analysis (`source:'reveal'|'quiz'`, with
-      `correctness`).
+      `correctness`). *17 Nov:* the semantic guess grade that provides it is ADR-16 / M10.
 - [ ] `OrganizationPolicy` (ADR-9): `split-chats` moves the triggering turn into a new chat
       with markers + carry-over summary; `split-trees` only creates the tree. Switchable with
       `/policy` in `?debug=1`, so both are demoable before M6.
@@ -1052,6 +1096,28 @@ never moves anything but the prompt itself.
 
 *Acceptance:* a team-rated set with inter-rater κ reported, the three judges compared on it, and
 ADR-15 decided with those numbers. The same numbers feed R4.
+
+### M10 Semantic guess feedback at predict → reveal (BE + FE) ⇢ M3, ADR-16
+- [ ] Backend: task `grade` in the task allowlist (`schemas.py` `Task`), mapped to
+      `MODEL_ANALYZE` / `EFFORT_ANALYZE` / `MAX_TOKENS_JSON`; tests; `docs/api.md`.
+- [ ] `ai/schemas/guessGrade.ts` + `ai/prompts/grade.ts`; `Provider.json('grade')` for `arbor`
+      and `own` (scripted: none, keeps the lexical overlap).
+- [ ] `turn.ts`: run the grade once the reply is complete and a guess was revealed (next to
+      `scoreGuess`; never fails the turn); store it on the reply; `correctness` from the verdict
+      when the fast score is missing.
+- [ ] Transcript (ASCII): highlights from the resolved `answerQuote`s by relation, "what you
+      missed", a misconception line; "words in common" while the grade is pending; same in the
+      classic design only if the team wants it (§8).
+- [ ] Eval: `npm run eval:grade` with about 30 question / answer / guess triples (right in other
+      words, partly right, wrong with shared words, misconception, "idk"), expected verdict and the
+      idea that should match; report verdict agreement and how often the expected idea is quoted.
+      Run the lexical overlap on the same triples as the baseline.
+- [ ] Set `FAST_API_KEY` on the Worker (M9), so the guess's numbers work on the live site too.
+
+*Acceptance:* on the eval triples the verdict agrees with the expected one at least 85 % of the
+time, every "right in other words" case highlights the matching idea, and no "wrong with shared
+words" case is shown as right; in the browser the semantic result replaces the overlap within
+about 3 s of the reveal.
 
 ### Stretch (post-study)
 - **S2 Desktop shell (ADR-11):** Electron wrapper around the same build; providers in the main
