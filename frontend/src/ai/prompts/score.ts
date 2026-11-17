@@ -21,7 +21,7 @@ export const THINKING_SYSTEM = [
 
 export const CORRECT_SYSTEM = [
   "You compare a student's statement with the tutor's answer to the same question. Question: is the student's statement right?",
-  "Judge only against the tutor's answer; wording may differ.",
+  "Judge only against the tutor's answer; wording may differ, and a statement that is right but leaves out details still counts as right.",
   "A statement that contradicts the tutor's answer is wrong.",
   'A statement that is no answer at all, such as "idk", "I don\'t know", "no idea" or a question back, is wrong too.',
   `Answer with a single digit and nothing else: ${YES} = right, ${NO} = wrong.`,
@@ -37,7 +37,9 @@ const ANSWER = `Answer (${YES} or ${NO}):`;
 /** The request of one score call: a system prompt and one user message (context first, the answer cue last). */
 export function scorePrompt(input: ScoreInput): { system: string; messages: { role: 'user'; content: string }[] } {
   if (input.question === 'correct') {
-    const content = ["Student's statement:", cut(input.statement), '', "Tutor's answer:", cut(input.reference), '', ANSWER].join('\n');
+    // The tutor's answer first: it often ends with a question to the student, which the model
+    // would answer instead if it came right before the cue (live check: 0.88 → 0.002 for a wrong claim).
+    const content = ["Tutor's answer:", cut(input.reference), '', "Student's statement:", cut(input.statement), '', `Is the student's statement right? ${ANSWER}`].join('\n');
     return { system: CORRECT_SYSTEM, messages: [{ role: 'user', content }] };
   }
   const context = input.recent.length

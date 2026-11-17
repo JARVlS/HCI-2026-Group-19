@@ -34,10 +34,13 @@ describe('score prompts', () => {
     expect(messages[0].content.length).toBeLessThan(600); // context turns are cut short
   });
 
-  it('correct: the statement, then the tutor answer it is judged against', () => {
-    expect(scorePrompt({ question: 'correct', statement: 'idk', reference: 'Memory cells react faster.' })).toEqual({
+  it('correct: the tutor answer, then the statement and the question right before the cue', () => {
+    // The tutor's answer often ends with a question to the student: it must not be the last thing the model reads.
+    expect(scorePrompt({ question: 'correct', statement: 'idk', reference: 'Memory cells react faster. What is boosted?' })).toEqual({
       system: CORRECT_SYSTEM,
-      messages: [{ role: 'user', content: "Student's statement:\nidk\n\nTutor's answer:\nMemory cells react faster.\n\nAnswer (1 or 2):" }],
+      messages: [
+        { role: 'user', content: "Tutor's answer:\nMemory cells react faster. What is boosted?\n\nStudent's statement:\nidk\n\nIs the student's statement right? Answer (1 or 2):" },
+      ],
     });
   });
 });

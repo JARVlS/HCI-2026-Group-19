@@ -192,7 +192,7 @@ describe('arbor provider: score', () => {
     const r = await provider().score({ question: 'correct', statement: 'it reflects the ocean', reference: 'Rayleigh scattering.' }, new AbortController().signal);
     expect(r.p).toBe(0.1);
     expect(calls[0].body!.system).toContain("is the student's statement right?");
-    expect((calls[0].body!.messages as { content: string }[])[0].content).toContain("Student's statement:\nit reflects the ocean\n\nTutor's answer:\nRayleigh scattering.");
+    expect((calls[0].body!.messages as { content: string }[])[0].content).toContain("Tutor's answer:\nRayleigh scattering.\n\nStudent's statement:\nit reflects the ocean");
   });
 
   it.each(['budget_exceeded', 'total_budget_exceeded'])('429 %s is budget_exceeded', async (code) => {
