@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval:score": "vitest run --config eval/vitest.config.ts"
+    "eval:score": "vitest run --config eval/vitest.config.ts score",
+    "eval:linter": "vitest run --config eval/vitest.config.ts linter"
   },
   "dependencies": {
     "lucide-react": "^1.70.0",
