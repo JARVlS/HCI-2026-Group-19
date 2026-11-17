@@ -5,7 +5,7 @@ Arbor is a web app for learning with LLM chats. It looks like an overlay on a ch
 1. **Awareness: who is doing the thinking?** Every prompt is labelled as *your thinking* ●, *thinking together* ◑ or *delegated to AI* ○. Before you delegate, Arbor can offer a gentle speed bump: add your own take first.
 2. **Organisation: a knowledge tree, zoomable to a forest.** Each concept you touch becomes a leaf on the conversation's tree. Filled leaves are ideas you reasoned through yourself; hollow leaves are still the AI's. Zoom out to see all your conversations as a forest, grouped into groves and connected by roots (shared concepts).
 
-The prototype shows Arbor on top of a generic chat app inside a mock browser window. For now the assistant's answers are scripted ("Wizard of Oz"), so the prototype runs offline and behaves the same way for every test participant. The plan for making it live (real LLM, persistence, study setup) is in [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md).
+The prototype shows Arbor on top of a generic chat app inside a mock browser window. The answers come from one of two providers: the **scripted** assistant ("Wizard of Oz"), which runs offline and behaves the same way for every test participant, or **live** Claude through the group's backend (see [Live answers](#live-answers-provider-arbor)). The plan for the rest (persistence, full turn analysis, study setup) is in [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md).
 
 ## Design styles
 
@@ -52,7 +52,36 @@ Tests sit next to the code they test (`src/lib/*.test.ts`). `classify.test.ts` s
 
 The app is the Cloudflare Pages project `hci-2026-group-19` (see `wrangler.toml`), connected to this GitHub repo: every push to `main` builds and deploys it, and other branches get preview URLs. The live prototype is at https://hci-2026-group-19.pages.dev; append the URL parameters below to set up test conditions.
 
-Pages project settings: root directory `frontend`, build command `npm run build`, output directory `dist`. The environment variable `VITE_API_URL` points at the backend Worker (locally it comes from `.env.development`).
+Pages project settings: root directory `frontend`, build command `npm run build`, output directory `dist`. Two build-time variables. Production builds take their defaults from `vite.config.ts` (a variable set in the Pages project settings wins); `npm run dev` uses `.env.development`:
+
+| Variable | Meaning |
+|---|---|
+| `VITE_API_URL` | Base URL of the backend Worker (`https://hci-backend.leon-grass.workers.dev`; locally `http://localhost:8787`) |
+| `VITE_DEFAULT_PROVIDER` | `scripted` or `arbor`: where answers come from until a visitor picks in settings. Stays `scripted` for now, see the comment in `vite.config.ts` |
+
+## Live answers (provider `arbor`)
+
+Where answers come from is a setting: **answers: scripted | live** in the settings of both designs, `/provider scripted|arbor` in the ASCII style, or `?provider=arbor` / `?provider=scripted` for one visit. The URL parameter beats the saved choice, which beats the build default (`VITE_DEFAULT_PROVIDER`). Only a choice made in settings is saved (localStorage `arbor.provider.v1`). A new choice applies from the next message; a reply that is already streaming finishes with the provider it started with.
+
+With `arbor`, the answers are Claude through the backend relay (`../backend/docs/api.md`). The frontend writes the prompts and schemas; the backend picks the model, caps the tokens and keeps the budgets.
+
+- **Session:** the first call creates an anonymous session (`POST /api/session`). The token stays in localStorage (`arbor.session.v1`); after a 401 (database reset) a new one is made once and the call repeats.
+- **Chat:** streamed over SSE. The tutor prompt (`src/ai/prompts/chat.ts`) follows the linter's label for your message (your own reasoning: it reacts to it first; exploring: it explains and hands a question back; delegating: it answers fully; a hint request: a hint only), the nudge level (off or Arbor paused: a plain assistant) and study mode. `esc` (or `/stop`) cancels the request itself.
+- **Analysis:** after each message one structured call (`src/ai/prompts/analyze.ts`, schema in `src/ai/schemas/turnAnalysis.ts`) labels who did the thinking, with reasons and quoted evidence, and names up to three concepts, each an existing node of your graph or a new one. That is what grows the leaves; the first message of a chat also picks its subject (the grove). An answer that does not fit the schema counts as a failed analysis, and the linter's label stays.
+- **Start:** a new, empty chat without a subject, next to the demo forest. The `tab` prompts are three generic ones instead of the script's.
+- **Errors:** a failed reply shows `! failed · <why> · r retry` (classic: the reason and *Retry*). A used-up budget says whether it is your daily budget (resets at midnight UTC) or the project's total budget.
+- **Predict → reveal** works on the stream: the answer keeps arriving under the veil, and a reveal shows what is there so far while the rest streams in.
+
+Not in live mode yet: quizzes on a leaf (`q`, the squirrel's *quiz me*, the forest), which need a `quiz` task that keeps the question pending so the answer is graded (M4/M5); `/quiz` still works as a plain chat message. Also not yet: "make it yours" after an answer, saving chats (a reload starts a new chat, M2), a chat title from the first message, and sending study events. Trees are still shallow: most live leaves sit on the *side questions* branch until the M4 tree work.
+
+To try it locally against the deployed backend (its CORS allows exactly `http://localhost:5173`):
+
+```bash
+VITE_API_URL=https://hci-backend.leon-grass.workers.dev npm run dev -- --port 5173 --strictPort
+# then open http://localhost:5173/?provider=arbor&intro=0
+```
+
+Every live message costs tokens from the group's budget: one chat call and one analysis call. Measured on 17 Nov at the start of a chat: about 540 tokens for the reply and 2,560 for the analysis. Both grow as the chat and the graph grow, because the transcript is sent again each time.
 
 ## Demo script, ASCII style (≈ 3 minutes)
 
@@ -81,7 +110,8 @@ Pages project settings: root directory `frontend`, build command `npm run build`
 | Parameter | Effect |
 |---|---|
 | `?intro=0` / `?intro=1` | skip / force the onboarding |
-| `?empty=1` | start from an empty chat (the tree grows from a seed) |
+| `?provider=arbor\|scripted` | live Claude through the backend, or the scripted demo, for this visit (not saved) |
+| `?empty=1` | start from an empty chat (the tree grows from a seed); scripted only, live always starts empty |
 | `?nudge=off\|gentle\|active` | nudge level |
 | `?arbor=off` | extension paused (baseline condition for A/B tests) |
 | `?view=forest&tree=sql` | open the forest, optionally focused on a tree |
@@ -103,6 +133,9 @@ Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=activ
 | Classification rules ("who's thinking"), their explanations and the words they point at | `src/lib/classify.ts` |
 | Scripted assistant behaviour (hint / quiz / feedback / full answer) | `src/ai/scripted/engine.ts` |
 | What a turn does (send, stream, stop, retry, analysis) | `src/lib/turn.ts` |
+| Live tutor prompt, analysis prompt and its schema | `src/ai/prompts/chat.ts`, `src/ai/prompts/analyze.ts`, `src/ai/schemas/turnAnalysis.ts` |
+| Calls to the backend (base URL, errors, SSE) and the anonymous session | `src/lib/api.ts`, `src/lib/session.ts` |
+| Which provider answers | `src/ai/providers.ts`, the `provider` setting in `src/lib/store.tsx` |
 | How leaves are scored and trees are drawn from the data | `src/lib/project.ts` |
 | When a tree splits | `src/lib/planner.ts` (`MAX_LEAVES`, `MAX_BRANCH_LEAVES`) |
 | Forgetting model (fading, fallen leaves) | `src/lib/retention.ts` |
@@ -115,7 +148,7 @@ Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=activ
 | Classic style: squirrel | `src/designs/classic/components/Squirrel.tsx`, `Mascot` in `.../Panel.tsx` |
 | Tree and forest geometry (classic) | `src/lib/layout.ts` |
 
-To make it live, add a `Provider` (`src/ai/provider.ts`) that calls a model and returns the same shapes (a streamed reply, and a `TurnAnalysis` for each prompt), then pass it to `StoreProvider`. The designs never talk to a provider or to `src/data/` directly. See `IMPLEMENTATION_PLAN.md` (M3) for the backend relay.
+Every model backend is a `Provider` (`src/ai/provider.ts`) that returns the same shapes: a streamed reply, and a `TurnAnalysis` for each prompt. `ScriptedProvider` and `ArborProvider` (live, through the backend) exist; bring-your-own-key providers follow in M7. The designs never talk to a provider or to `src/data/` directly.
 
 ### How the data flows
 
@@ -157,7 +190,7 @@ Learning-science background for the interventions: the *generation effect* (a fi
 src/
   App.tsx                 one store, then the chosen design (lazy-loaded, so only its CSS is on the page)
   lib/                    shared by every design; pure modules have a *.test.ts next to them
-    store.tsx             React side of the store: context, send/stop/retry, memoized projections
+    store.tsx             React side of the store: context, send/stop/retry, provider choice, memoized projections
     state.ts              state slices (domain / session / ui) and the pure reducer
     turn.ts               one chat turn: linter label → streamed reply → analysis → merge
     domain.ts             canonical data model (concepts, attempts, trees, chats; ADR-2)
@@ -170,16 +203,20 @@ src/
     classify.ts           rule-based "who's thinking" linter with explanations and evidence spans
     retention.ts          illustrative forgetting model
     time.ts               ISO date helpers
+    api.ts, session.ts    calls to the backend Worker (typed errors, SSE) and the anonymous session
     asciiTree.ts          the tree on a character grid: botanical layout and outline
     layout.ts, camera.ts  SVG tree + forest layout and camera (classic)
   ai/
     provider.ts           the Provider interface every model backend implements
-    schemas/              structured outputs (TurnAnalysis)
+    providers.ts          which provider answers (URL parameter, setting, build default)
+    schemas/              structured outputs (TurnAnalysis, its wire schema for LLMs)
+    prompts/              the live tutor prompt and the turn analysis prompt
+    arbor/                the live provider: Claude through the backend relay
     scripted/             the offline "Wizard of Oz" provider: engine, demo fixture, parity test
   data/
     scenario.ts           live conversation script (demo fixture)
     forest.ts             past trees (demo fixture)
-  test/                   test helpers: a store without React, graph builders
+  test/                   test helpers: a store without React, graph builders, a fake backend
   shared/
     AsciiTreeView.tsx     the animated ASCII tree (ASCII style; kept here so other styles can reuse it)
   designs/

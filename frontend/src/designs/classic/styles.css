@@ -884,6 +884,17 @@ kbd {
   opacity: 0.25;
   cursor: not-allowed;
 }
+.turn-error {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.ai-note {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
 .fineprint {
   margin: 8px 0 0;
   text-align: center;

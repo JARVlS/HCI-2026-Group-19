@@ -8,8 +8,8 @@ import { activeMessages, reducer, type Action, type State } from '../lib/state';
 import { isQuizAnswer, sendTurn, type TurnDeps } from '../lib/turn';
 
 /** A store without React: the reducer plus a synchronous getState, as `turn.ts` expects. */
-export function testStore(opts: { empty?: boolean; provider?: Provider; now?: number } = {}) {
-  const f = demoFixture({ empty: opts.empty, now: opts.now ?? Date.parse('2026-11-07T12:00:00Z') });
+export function testStore(opts: { empty?: boolean; fresh?: boolean; provider?: Provider; now?: number } = {}) {
+  const f = demoFixture({ empty: opts.empty, fresh: opts.fresh, now: opts.now ?? Date.parse('2026-11-07T12:00:00Z') });
   let state: State = {
     domain: { conversations: f.conversations, messagesByConv: f.messagesByConv, concepts: f.concepts, edges: f.edges, trees: f.trees, attempts: f.attempts },
     session: { activeConversationId: f.activeConversationId, pendingQuiz: null, turn: { status: 'idle' }, demoPrompts: f.demoPrompts },
@@ -24,7 +24,7 @@ export function testStore(opts: { empty?: boolean; provider?: Provider; now?: nu
       toast: null,
       paneTreeId: null,
     },
-    settings: { enabled: true, nudge: 'active', showTags: true, theme: 'system', mascot: true, design: 'ascii' },
+    settings: { enabled: true, nudge: 'active', showTags: true, theme: 'system', mascot: true, design: 'ascii', provider: 'scripted' },
   };
   const actions: Action[] = [];
   const provider = opts.provider ?? new ScriptedProvider({ think: [0, 0], tick: 0, tokensPerTick: 4 });

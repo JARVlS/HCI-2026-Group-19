@@ -1,5 +1,5 @@
 import type { AnalyzeInput, ChatRequest, Provider, TurnContext } from '../ai/provider';
-import { isAbort } from '../ai/provider';
+import { isAbort, ProviderError } from '../ai/provider';
 import type { TurnAnalysis } from '../ai/schemas/turnAnalysis';
 import { looksLikeQuizAnswer } from './classify';
 import type { Id, ISO, Message } from './domain';
@@ -154,7 +154,15 @@ async function runAnalysis(provider: Provider, input: AnalyzeInput): Promise<{ o
 export const isQuizAnswer = (provider: Provider, text: string, quizId: Id | null) =>
   Boolean(quizId) && (provider.isQuizAnswer ? provider.isQuizAnswer(text, quizId!) : looksLikeQuizAnswer(text, quizId));
 
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e)) || 'something went wrong';
+export const DAILY_BUDGET = 'Your daily budget for live answers is used up. It resets at midnight UTC. Until then, switch to the scripted demo in settings.';
+export const PROJECT_BUDGET =
+  'The project’s budget for live answers is used up (all users together). It does not reset by itself. Switch to the scripted demo in settings.';
+
+/** What the error line under a failed turn says. A used-up budget gets a sentence, not the raw error. */
+export function errorText(e: unknown): string {
+  if (e instanceof ProviderError && e.code === 'budget_exceeded') return /\b(project|total)\b/i.test(e.message) ? PROJECT_BUDGET : DAILY_BUDGET;
+  return (e instanceof Error ? e.message : String(e)) || 'something went wrong';
+}
 
 /** What the assistant should know about this turn. */
 export function turnContext(s: State, conversationId: Id, user: Message): TurnContext {
@@ -165,14 +173,21 @@ export function turnContext(s: State, conversationId: Id, user: Message): TurnCo
   const known = projectForest(trees.filter((t) => mine.has(t.id)), concepts, attempts)
     .flatMap((t) => t.branches.filter((b) => b.id !== OTHER_BRANCH.id).flatMap((b) => b.leaves))
     .map((l) => ({ id: l.id, label: l.label, score: l.score }));
-  return { mode: user.classification?.mode ?? 'together', pendingQuiz, known };
+  return {
+    mode: user.classification?.mode ?? 'together',
+    pendingQuiz,
+    known,
+    nudge: s.settings.enabled ? s.settings.nudge : 'off',
+    studyMode: s.domain.conversations[conversationId]?.studyMode ?? false,
+  };
 }
 
 function analyzeInput(s: State, user: Message, context: TurnContext, upto: Message[]): AnalyzeInput {
   const conv = s.domain.conversations[user.conversationId];
   const subjectId = conv?.subjectId ?? null;
+  // The subject's part of the graph; a chat without a subject yet sees the subjects to pick from.
   const graph = Object.values(s.domain.concepts)
-    .filter((c) => !c.deletedAt && subjectId && subjectOf(c.id, s.domain.concepts) === subjectId)
+    .filter((c) => !c.deletedAt && (subjectId ? subjectOf(c.id, s.domain.concepts) === subjectId : c.kind === 'subject'))
     .map(({ id, label, kind, parentId }) => ({ id, label, kind, parentId }));
   return {
     conversationId: user.conversationId,

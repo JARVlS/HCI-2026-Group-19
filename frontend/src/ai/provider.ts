@@ -1,5 +1,5 @@
 import type { Id, Mode, ProviderKind } from '../lib/domain';
-import type { Classification } from '../lib/types';
+import type { Classification, NudgeLevel } from '../lib/types';
 import type { TurnAnalysis } from './schemas/turnAnalysis';
 
 /**
@@ -22,6 +22,8 @@ export interface Provider {
   canQuiz?(conceptId: Id): boolean;
   /** Is `text` an answer to the pending quiz question rather than a new question? Default: `looksLikeQuizAnswer`. */
   isQuizAnswer?(text: string, quizConceptId: Id): boolean;
+  /** Prompts `tab` cycles through. Default: the ones of the loaded fixture (the scripted demo's). */
+  demoPrompts?: string[];
 }
 
 /** What the assistant knows about the turn besides the transcript. */
@@ -32,6 +34,10 @@ export interface TurnContext {
   pendingQuiz: Id | null;
   /** Concepts this chat has touched so far, with how much of the thinking was the user's (0..1). */
   known: { id: Id; label: string; score: number }[];
+  /** How much Arbor steps in: the settings' nudge level, `off` while Arbor is paused. */
+  nudge: NudgeLevel;
+  /** The conversation is a study session (M5). */
+  studyMode: boolean;
 }
 
 export interface ChatRequest {

@@ -1,11 +1,12 @@
 import { Info, Pause, Play, RotateCcw, Settings as SettingsIcon, Trees, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { apiUrl } from '../../../lib/api';
 import { useDismiss, useSize } from '../../../lib/hooks';
 import { layoutTree, type PlacedBranch, type PlacedLeaf } from '../../../lib/layout';
 import { MODE_META, MODE_SCORE, mean, pct, scoreToMode } from '../../../lib/modes';
 import type { Concept, Id, Message } from '../../../lib/domain';
 import { useStore } from '../../../lib/store';
-import type { Design, Mode, NudgeLevel, Theme } from '../../../lib/types';
+import type { Design, Mode, NudgeLevel, ProviderChoice, Theme } from '../../../lib/types';
 import { ArborLogo, Glyph } from './Glyph';
 import { Squirrel, type SquirrelPose } from './Squirrel';
 import { TreeSvg, type LeafEvent } from './TreeSvg';
@@ -178,7 +179,7 @@ function useSquirrelTips(): SquirrelTip[] {
       text: `“${weakest.label}” is ${weakest.score === 0 ? 'still all the AI’s' : 'only half yours'}. Want me to quiz you on it?`,
       action: busy ? undefined : { label: 'Quiz me', run: () => send(`Quiz me on ${weakest.label.toLowerCase()}`) },
     });
-  } else if (leaves.length) {
+  } else if (leaves.length && leaves.every((l) => l.score >= 1)) {
     tips.push({ text: 'Every leaf on this tree is yours. I’m impressed.' });
   }
   tips.push({
@@ -386,6 +387,10 @@ const NUDGE_OPTS: { v: NudgeLevel; label: string; desc: string }[] = [
   { v: 'gentle', label: 'Gentle', desc: 'A live label while you type. Never interrupts.' },
   { v: 'active', label: 'Active', desc: 'Before you delegate, Arbor offers to add your own take first.' },
 ];
+const PROVIDER_OPTS: { v: ProviderChoice; label: string; desc: string }[] = [
+  { v: 'scripted', label: 'Scripted', desc: 'The demo script: offline, the same answers for everyone.' },
+  { v: 'arbor', label: 'Live', desc: 'Claude through the Arbor backend. Uses the group’s token budget; new chats start empty.' },
+];
 const DESIGN_OPTS: { v: Design; label: string }[] = [
   { v: 'classic', label: 'Classic' },
   { v: 'ascii', label: 'ASCII' },
@@ -410,6 +415,19 @@ function SettingsMenu({ open, setOpen }: { open: boolean; setOpen: (o: boolean) 
       </button>
       {open && (
         <div className="popover settings-pop" role="dialog" aria-label="Arbor settings">
+          <p className="pop-sub">Answers</p>
+          <div className="segmented" role="radiogroup" aria-label="Where answers come from">
+            {PROVIDER_OPTS.map((o) => (
+              <button key={o.v} role="radio" aria-checked={s.provider === o.v} className={s.provider === o.v ? 'on' : ''} onClick={() => set({ provider: o.v })}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <p className="pop-desc">
+            {PROVIDER_OPTS.find((o) => o.v === s.provider)?.desc}
+            {s.provider === 'arbor' && !apiUrl() && ' This build has no backend URL (VITE_API_URL), so live answers fail.'} Applies from your next message.
+          </p>
+
           <p className="pop-sub">Nudges</p>
           <div className="segmented" role="radiogroup" aria-label="Nudges">
             {NUDGE_OPTS.map((o) => (

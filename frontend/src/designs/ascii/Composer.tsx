@@ -252,6 +252,12 @@ function useCommands(): Cmd[] {
       },
       { name: 'theme', args: 'system|light|dark', desc: 'colour theme', run: (a) => pick<Theme>(a, ['system', 'light', 'dark'], (v) => set({ theme: v }), 'theme') },
       {
+        name: 'provider',
+        args: 'scripted|arbor',
+        desc: 'where answers come from (arbor: live claude)',
+        run: (a) => pick(a, ['scripted', 'arbor'] as const, (v) => (set({ provider: v }), toast(`answers: ${v === 'arbor' ? 'live claude, from your next message' : 'scripted demo'}`)), 'provider'),
+      },
+      {
         name: 'design',
         args: 'ascii|classic',
         desc: 'switch the design style',

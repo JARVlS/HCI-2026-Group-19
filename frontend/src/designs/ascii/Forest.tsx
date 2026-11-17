@@ -615,7 +615,8 @@ function TreeDetail({ info }: { info: TreeInfo }) {
     if (info.live && canQuiz(l.id)) {
       dispatch({ type: 'forest', open: false });
       send(`Quiz me on ${l.label.toLowerCase()}`);
-    } else toast('prototype: past chats are read-only. this would reopen that chat with a quiz.');
+    } else if (info.live) toast('no quiz for this leaf yet. ask for one in the chat.');
+    else toast('prototype: past chats are read-only. this would reopen that chat with a quiz.');
   };
 
   return (
