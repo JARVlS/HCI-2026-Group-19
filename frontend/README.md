@@ -52,12 +52,12 @@ Tests sit next to the code they test (`src/lib/*.test.ts`). `classify.test.ts` s
 
 The app is the Cloudflare Pages project `hci-2026-group-19` (see `wrangler.toml`), connected to this GitHub repo: every push to `main` builds and deploys it, and other branches get preview URLs. The live prototype is at https://hci-2026-group-19.pages.dev; append the URL parameters below to set up test conditions.
 
-Pages project settings: root directory `frontend`, build command `npm run build`, output directory `dist`. Two build-time variables, set in `.env.production` (variables in the Pages project settings override them) and `.env.development` for `npm run dev`:
+Pages project settings: root directory `frontend`, build command `npm run build`, output directory `dist`. Two build-time variables. Production builds take their defaults from `vite.config.ts` (a variable set in the Pages project settings wins); `npm run dev` uses `.env.development`:
 
 | Variable | Meaning |
 |---|---|
 | `VITE_API_URL` | Base URL of the backend Worker (`https://hci-backend.leon-grass.workers.dev`; locally `http://localhost:8787`) |
-| `VITE_DEFAULT_PROVIDER` | `scripted` or `arbor`: where answers come from until a visitor picks in settings. Stays `scripted` for now, see the comment in `.env.production` |
+| `VITE_DEFAULT_PROVIDER` | `scripted` or `arbor`: where answers come from until a visitor picks in settings. Stays `scripted` for now, see the comment in `vite.config.ts` |
 
 ## Live answers (provider `arbor`)
 

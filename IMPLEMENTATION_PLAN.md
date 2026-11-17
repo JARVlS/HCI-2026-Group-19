@@ -693,7 +693,7 @@ from with the browser back button.
 - [x] `ArborProvider` (chat + json); provider picker in settings (scripted | arbor); default
       `arbor` outside demo mode.
       *17 Nov:* the default is the build variable `VITE_DEFAULT_PROVIDER`, `scripted` in
-      `.env.production` until the group has its own API key and a higher token cap (with `arbor`
+      `vite.config.ts` until the group has its own API key and a higher token cap (with `arbor`
       every visitor spends tokens). `?provider=arbor|scripted` for one visit.
 - [x] `ai/prompts/chat.ts`: tutor system prompt parameterized by the linter mode, nudge level
       and study mode. This replaces `engine.ts`'s variants: `own` → react to their reasoning

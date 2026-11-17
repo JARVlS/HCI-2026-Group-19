@@ -2,8 +2,8 @@
  * The HTTP side of the backend Worker (backend/docs/api.md): base URL, JSON calls, typed errors and
  * server-sent events. It knows nothing about sessions; `session.ts` adds the token.
  *
- * The base URL comes from VITE_API_URL: `.env.development` locally, `.env.production` for builds
- * (the Cloudflare Pages project settings can override it).
+ * The base URL comes from VITE_API_URL: `.env.development` locally, the default in
+ * `vite.config.ts` for production builds (the Cloudflare Pages project settings can override it).
  */
 export const apiUrl = (): string => (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
