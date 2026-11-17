@@ -1,4 +1,4 @@
-import type { AnalyzeInput, ChatRequest, Provider, TurnContext } from '../ai/provider';
+import type { AnalyzeInput, ChatRequest, Provider, ScoreInput, TurnContext } from '../ai/provider';
 import { isAbort, ProviderError } from '../ai/provider';
 import type { TurnAnalysis } from '../ai/schemas/turnAnalysis';
 import { looksLikeQuizAnswer } from './classify';
@@ -8,8 +8,8 @@ import { mergeAnalysis } from './graph';
 import { treeOfConcept, treesOfConversation } from './links';
 import { subjectOf } from './planner';
 import { OTHER_BRANCH, projectForest } from './project';
-import type { Action, State } from './state';
-import type { Classification } from './types';
+import { findMessage, type Action, type State } from './state';
+import type { Classification, ScoreKey } from './types';
 
 /**
  * One chat turn, end to end (IMPLEMENTATION_PLAN.md, M1):
@@ -18,6 +18,13 @@ import type { Classification } from './types';
  * The analysis is applied once the reply has started (or ended), so leaves grow when the answer
  * appears, as in the prototype. Saving is not done here: in live mode `sync.ts` sees every state
  * change and queues what changed (M2).
+ *
+ * Fast and slow (ADR-6): a provider with `score` also asks a fast model, in parallel, whether the
+ * student thought along (`thinking`), and once the reply is complete whether an own claim that the
+ * analysis found gradable is right (`correct`). A guess revealed at predict → reveal gets both
+ * questions once the reply is complete (`scoreGuess`). Scores land on the user message as they
+ * arrive; `scores.ts` turns them into the label and the attempts' numbers. Like the analysis, they
+ * are not stopped by the stop key, and a failed score never fails the turn.
  *
  * All effects go through `deps`, so tests run it with a fake provider and a plain reducer.
  */
@@ -41,6 +48,8 @@ export interface SendInput {
 
 /** How many earlier turns the analysis sees (ADR-6). */
 const RECENT_TURNS = 6;
+/** How many earlier messages the fast "thought along" score sees as context (a small, fast call). */
+const SCORE_RECENT_MESSAGES = 4;
 
 const defaults = (deps: TurnDeps) => ({
   newId: deps.newId ?? (() => crypto.randomUUID()),
@@ -88,6 +97,8 @@ async function reply(deps: TurnDeps, user: Message, veil: boolean, signal: Abort
 
   // The analysis is not stopped by the stop key: the user's message stands, and so does its label.
   const analysis = user.analysis === 'done' ? null : runAnalysis(provider, analyzeInput(before, user, context, upto));
+  // The fast score runs beside it (again on a retry, if it failed the first time).
+  const thinking = user.scores?.thinking === undefined || user.scores.thinking === 'failed' ? scoreThinking(deps, user, upto) : null;
   let applied = false;
   const apply = async () => {
     if (applied || !analysis) return;
@@ -120,6 +131,8 @@ async function reply(deps: TurnDeps, user: Message, veil: boolean, signal: Abort
     void apply();
   };
 
+  let complete = false;
+  let guessed: Promise<unknown> | null = null;
   try {
     const result = await provider.chat(
       req,
@@ -132,6 +145,7 @@ async function reply(deps: TurnDeps, user: Message, veil: boolean, signal: Abort
     );
     if (!assistantId) start(result.text);
     dispatch({ type: 'assistantDone', conversationId, id: assistantId!, text: result.text || text, pendingQuiz: result.pendingQuiz, reflectOn: result.reflectOn, model: result.model });
+    complete = true;
   } catch (e) {
     if (signal.aborted || isAbort(e)) {
       if (assistantId) dispatch({ type: 'assistantDone', conversationId, id: assistantId, text, stopped: true });
@@ -140,8 +154,74 @@ async function reply(deps: TurnDeps, user: Message, veil: boolean, signal: Abort
       dispatch({ type: 'turnError', conversationId, userMessageId: user.id, assistantMessageId: assistantId ?? undefined, error: errorText(e) });
     }
   } finally {
+    // A guess revealed while the reply streamed is scored as soon as the reply is over.
+    const replyId: Id | null = assistantId;
+    if (replyId) guessed = scoreGuess(deps, replyId);
     await apply();
   }
+  // With the analysis applied, an own claim it found gradable is graded against the complete
+  // reply. A veiled reply is graded through its guess instead.
+  const replyId: Id | null = assistantId;
+  const graded = complete && !veil && replyId ? gradeClaim(deps, user.id, replyId) : null;
+  await Promise.all([thinking, guessed, graded]);
+}
+
+/**
+ * One fast score call. 'pending' is set at once (synchronously, so a second caller sees it), and
+ * the score or the failure lands on the user message. Never rejects: a failed score is shown on
+ * the message and leaves the analysis's numbers in place.
+ */
+function score(deps: TurnDeps, userMessageId: Id, key: ScoreKey, input: ScoreInput): Promise<void> {
+  const { provider, dispatch } = deps;
+  dispatch({ type: 'score', userMessageId, key, value: 'pending' });
+  return provider.score!(input, new AbortController().signal).then(
+    ({ p, model }) => dispatch({ type: 'score', userMessageId, key, value: model ? { p, model } : { p } }),
+    () => dispatch({ type: 'score', userMessageId, key, value: 'failed' }),
+  );
+}
+
+/** Did the student think along in this message? Earlier turns are context. */
+function scoreThinking(deps: TurnDeps, user: Message, upto: Message[]) {
+  if (!deps.provider.score) return null;
+  const recent = upto.slice(0, -1).slice(-SCORE_RECENT_MESSAGES).map((m) => ({ role: m.role, text: m.text }));
+  return score(deps, user.id, 'thinking', { question: 'thinking', text: user.text, recent });
+}
+
+/** An own claim the analysis found gradable: is it right, judged against the complete reply? */
+function gradeClaim(deps: TurnDeps, userMessageId: Id, replyId: Id) {
+  const { domain } = deps.getState();
+  const user = findMessage(domain, userMessageId)?.msg;
+  const reply = findMessage(domain, replyId)?.msg;
+  const gradable = domain.attempts.some((a) => a.messageId === userMessageId && !a.supersededBy && a.correctness !== null);
+  if (!user?.scores || !reply || !gradable || user.scores.correct !== undefined) return null;
+  return score(deps, userMessageId, 'correct', { question: 'correct', statement: user.text, reference: reply.text });
+}
+
+/**
+ * Predict → reveal with a scoring provider: once the reply is complete, a revealed guess gets two
+ * questions: did the student think along in it (with their prompt as context; "no idea" scores
+ * low), and is it right, judged against the reply. A stopped or failed reply is not the full
+ * answer, so then there is no "right". Runs once per guess, from whichever comes last: the end of
+ * the reply or the reveal.
+ */
+export function scoreGuess(deps: TurnDeps, replyId: Id): Promise<unknown> | null {
+  if (!deps.provider.score) return null;
+  const { domain } = deps.getState();
+  const found = findMessage(domain, replyId);
+  if (!found) return null;
+  const reply = found.msg;
+  const user = domain.messagesByConv[found.conversationId].slice(0, found.index).filter((m) => m.role === 'user').at(-1);
+  if (!reply.guess || reply.streaming || !user?.scores || user.scores.guess !== undefined) return null;
+  return Promise.all([
+    score(deps, user.id, 'guess', { question: 'thinking', text: reply.guess, recent: [{ role: 'user', text: user.text }] }),
+    reply.stopped || reply.error ? null : score(deps, user.id, 'correct', { question: 'correct', statement: reply.guess, reference: reply.text }),
+  ]);
+}
+
+/** Reveal a veiled reply, with or without a guess. With a scoring provider the guess is scored (see `scoreGuess`). */
+export async function revealTurn(deps: TurnDeps, replyId: Id, guess: string): Promise<void> {
+  deps.dispatch({ type: 'reveal', id: replyId, guess });
+  await scoreGuess(deps, replyId);
 }
 
 async function runAnalysis(provider: Provider, input: AnalyzeInput): Promise<{ ok: true; value: TurnAnalysis } | { ok: false; error: unknown }> {

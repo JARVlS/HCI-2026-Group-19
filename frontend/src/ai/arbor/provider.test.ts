@@ -171,12 +171,73 @@ describe('arbor provider: analyze', () => {
   });
 });
 
+describe('arbor provider: score', () => {
+  const scored = (p: Partial<{ probabilities: Record<string, number>; model: string }> = {}) =>
+    json({ probabilities: { '1': 0.83, '2': 0.17 }, mass: 0.99, usage: { inputTokens: 212, outputTokens: 1 }, model: 'zai.glm-4.7-flash', ...p });
+  const think = { question: 'thinking' as const, text: 'I think it scatters blue light more', recent: [] };
+
+  it('asks the question with the options 1 and 2 and returns P(1)', async () => {
+    const calls = fakeBackend(() => scored());
+    expect(await provider().score(think, new AbortController().signal)).toEqual({ p: 0.83, model: 'zai.glm-4.7-flash' });
+    expect(calls[0]).toMatchObject({ path: '/api/ai/score', method: 'POST', auth: 'Bearer token-1' });
+    expect(calls[0].body).toEqual({
+      system: expect.stringContaining('did the student think along?'),
+      messages: [{ role: 'user', content: 'Student message:\nI think it scatters blue light more\n\nAnswer (1 or 2):' }],
+      options: ['1', '2'],
+    });
+  });
+
+  it('the correct question sends the statement and the tutor answer', async () => {
+    const calls = fakeBackend(() => scored({ probabilities: { '1': 0.1, '2': 0.9 } }));
+    const r = await provider().score({ question: 'correct', statement: 'it reflects the ocean', reference: 'Rayleigh scattering.' }, new AbortController().signal);
+    expect(r.p).toBe(0.1);
+    expect(calls[0].body!.system).toContain("is the student's statement right?");
+    expect((calls[0].body!.messages as { content: string }[])[0].content).toContain("Student's statement:\nit reflects the ocean\n\nTutor's answer:\nRayleigh scattering.");
+  });
+
+  it.each(['budget_exceeded', 'total_budget_exceeded'])('429 %s is budget_exceeded', async (code) => {
+    fakeBackend(() => apiError(429, code, 'used up'));
+    expect((await failure(provider().score(think, new AbortController().signal))).code).toBe('budget_exceeded');
+  });
+
+  it('the model not answering with an option, or an answer without P(1), is invalid_output', async () => {
+    fakeBackend(() => apiError(502, 'invalid_model_output', 'The model answered "maybe".'));
+    expect((await failure(provider().score(think, new AbortController().signal))).code).toBe('invalid_output');
+    fakeBackend(() => scored({ probabilities: { yes: 1 } }));
+    expect((await failure(provider().score(think, new AbortController().signal))).code).toBe('invalid_output');
+  });
+
+  it('a server without the fast model key is an upstream failure', async () => {
+    fakeBackend(() => apiError(500, 'server_misconfigured', 'The fast model key is not set.'));
+    expect((await failure(provider().score(think, new AbortController().signal))).code).toBe('upstream');
+  });
+
+  it('abort cancels the request', async () => {
+    const c = new AbortController();
+    let seen: Call | undefined;
+    fakeBackend(
+      (call) =>
+        new Promise<Response>((_, reject) => {
+          seen = call;
+          call.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+    );
+    const pending = provider().score(think, c.signal);
+    await vi.waitFor(() => expect(seen).toBeDefined());
+    c.abort();
+    expect((await failure(pending)).code).toBe('aborted');
+    expect(seen!.signal!.aborted).toBe(true);
+  });
+});
+
 describe('arbor provider in a turn', () => {
   it('a live turn on a fresh chat streams, picks a subject and grows a leaf in that grove', async () => {
-    fakeBackend(({ body }) =>
-      body!.task === 'chat'
-        ? sse([event('delta', { text: 'Short ' }), event('delta', { text: 'answer.' }), done])
-        : json({ output: { ...answer, subject: { existingId: null, newLabel: 'Physics of light' } }, usage: {}, model: 'claude-test', truncated: false }),
+    const calls = fakeBackend(({ path, body }) =>
+      path === '/api/ai/score'
+        ? json({ probabilities: { '1': 0.6, '2': 0.4 }, mass: 0.98, usage: {}, model: 'fast-test' })
+        : body!.task === 'chat'
+          ? sse([event('delta', { text: 'Short ' }), event('delta', { text: 'answer.' }), done])
+          : json({ output: { ...answer, subject: { existingId: null, newLabel: 'Physics of light' } }, usage: {}, model: 'claude-test', truncated: false }),
     );
     const s = testStore({ fresh: true, provider: provider() });
     expect(s.messages()).toEqual([]);
@@ -185,6 +246,10 @@ describe('arbor provider in a turn', () => {
     const [user, reply] = s.messages();
     expect(reply).toMatchObject({ text: 'Short answer.', model: 'claude-test', provider: 'arbor', streaming: false });
     expect(user).toMatchObject({ analysis: 'done', classification: { mode: 'together', reasons: ['Asks why something happens'] } });
+    // Three calls per ungraded turn: the reply, the analysis and the fast "thought along" score.
+    expect(calls.map((c) => c.path).sort()).toEqual(['/api/ai/complete', '/api/ai/complete', '/api/ai/score']);
+    expect(user.scores).toEqual({ thinking: { p: 0.6, model: 'fast-test' } });
+    expect(s.state.domain.attempts.map((a) => [a.mode, a.independence])).toEqual([['together', 0.6]]);
 
     const { concepts, conversations } = s.state.domain;
     const subject = Object.values(concepts).find((c) => c.label === 'Physics of light')!;

@@ -6,7 +6,7 @@ import { classify } from '../lib/classify';
 import { treeOfConcept, treesOfConversation } from '../lib/links';
 import { projectForest } from '../lib/project';
 import { activeMessages, reducer, type Action, type State } from '../lib/state';
-import { isQuizAnswer, sendTurn, type TurnDeps } from '../lib/turn';
+import { isQuizAnswer, revealTurn, sendTurn, type TurnDeps } from '../lib/turn';
 
 /**
  * A store without React: the reducer plus a synchronous getState, as `turn.ts` expects.
@@ -59,6 +59,8 @@ export function testStore(opts: { empty?: boolean; fresh?: boolean; provider?: P
     },
     send: (text: string, opts: { veil?: boolean; signal?: AbortSignal } = {}) =>
       sendTurn(deps, { text, classification: classifyDraft(text), veil: opts.veil }, opts.signal ?? new AbortController().signal),
+    /** Reveal a veiled reply the way the app does (a scoring provider scores the guess). */
+    reveal: (id: string, guess: string) => revealTurn(deps, id, guess),
     messages: () => activeMessages(state),
     /** The trees the active chat grew, projected. */
     activeTrees: () => {

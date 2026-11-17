@@ -2,6 +2,20 @@ import type { Mode } from './types';
 
 export const MODE_SCORE: Record<Mode, number> = { own: 1, together: 0.5, ai: 0 };
 
+/**
+ * Where the fast model's "thought along" score (0..1) turns into a label: own from OWN_FROM,
+ * ai up to AI_UP_TO, together in between. Fixed thirds: a clear yes or no from the model decides,
+ * and whatever it is unsure about is "together".
+ */
+export const OWN_FROM = 0.67;
+export const AI_UP_TO = 0.33;
+
+export function thinkingMode(p: number): Mode {
+  if (p >= OWN_FROM) return 'own';
+  if (p <= AI_UP_TO) return 'ai';
+  return 'together';
+}
+
 /** One vocabulary, used everywhere (tags, legend, tree, forest) for consistency. */
 export const MODE_META: Record<Mode, { label: string; short: string; lens: string; desc: string }> = {
   own: {

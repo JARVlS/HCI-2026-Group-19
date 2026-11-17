@@ -17,6 +17,13 @@ export interface Provider {
   chat(req: ChatRequest, onDelta: (text: string) => void, signal: AbortSignal): Promise<ChatResult>;
   /** Structured output for one task (M1: `analyze`; M3/M4 add `tree` and `quiz`). */
   json<K extends JsonTask>(task: K, input: JsonTasks[K]['input'], signal: AbortSignal): Promise<JsonTasks[K]['output']>;
+  /**
+   * A yes/no question to a fast model, answered as a probability: P(yes) from the model's token
+   * probabilities, G-Eval style (prompts in `ai/prompts/score.ts`). Optional: a provider whose
+   * models return no token probabilities (Claude, the scripted demo) has none, and then the turn
+   * analysis's own numbers stay.
+   */
+  score?(input: ScoreInput, signal: AbortSignal): Promise<ScoreResult>;
   models?(): Promise<string[]>;
   /** Can this provider quiz the user on that concept? (The scripted one only knows its script.) Default: yes. */
   canQuiz?(conceptId: Id): boolean;
@@ -74,6 +81,19 @@ export interface AnalyzeInput {
 
 export interface JsonTasks {
   analyze: { input: AnalyzeInput; output: TurnAnalysis };
+}
+
+/** The questions `score` answers. */
+export type ScoreInput =
+  /** Did the student think along in `text`? `recent`: earlier turns, oldest first, as context. */
+  | { question: 'thinking'; text: string; recent: { role: 'user' | 'assistant'; text: string }[] }
+  /** Is the student's `statement` right, judged against `reference` (the tutor's answer)? */
+  | { question: 'correct'; statement: string; reference: string };
+
+export interface ScoreResult {
+  /** Probability (0..1) of the positive answer: thought along, or right. */
+  p: number;
+  model?: string;
 }
 export type JsonTask = keyof JsonTasks;
 

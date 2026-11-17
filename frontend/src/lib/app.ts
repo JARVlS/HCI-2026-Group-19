@@ -7,7 +7,7 @@ import type { Id, ISO } from './domain';
 import { createLive, type Backend, type Live } from './live';
 import { isBusy, reducer, type Action, type DomainState, type State } from './state';
 import { SyncQueue, watchPage, type KeyValue } from './sync';
-import { isQuizAnswer, retryTurn, sendTurn } from './turn';
+import { isQuizAnswer, retryTurn, revealTurn, sendTurn } from './turn';
 import type { Classification, ProviderChoice, Settings } from './types';
 
 /**
@@ -241,6 +241,8 @@ export function createApp(opts: AppOptions) {
         if (a.patch.provider !== before) enter(a.patch.provider);
         return;
       }
+      // A revealed guess may need scoring (live mode); `revealTurn` dispatches the reveal itself.
+      if (a.type === 'reveal') return void revealTurn(deps(), a.id, a.guess);
       if (a.type !== 'reset') return store.dispatch(a);
       abort();
       if (!isLive()) return showDemo(a.empty);

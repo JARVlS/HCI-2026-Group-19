@@ -3,7 +3,8 @@ import type { Concept, ConceptAttempt, ConceptEdge, Conversation, Id, ISO, Knowl
 import { slugify } from './graph';
 import { MODE_SCORE } from './modes';
 import { HeuristicPlanner, runPlanner } from './planner';
-import type { Classification, Settings } from './types';
+import { scoredAttempt, scoredAttempts, scoredLabel } from './scores';
+import type { Classification, ScoreKey, ScoreState, Settings } from './types';
 
 /**
  * Store state and the pure reducer (IMPLEMENTATION_PLAN.md, M1). Three slices:
@@ -102,6 +103,8 @@ export type Action =
   | { type: 'turnStopped'; conversationId: Id; userMessageId: Id }
   | { type: 'analysisDone'; patch: AnalysisPatch }
   | { type: 'analysisFailed'; conversationId: Id; userMessageId: Id }
+  /** A fast score of a user message started, failed or landed (live mode). */
+  | { type: 'score'; userMessageId: Id; key: ScoreKey; value: ScoreState }
   | { type: 'reclassify'; id: Id; mode: Mode }
   | { type: 'reveal'; id: Id; guess: string }
   | { type: 'settings'; patch: Partial<Settings> }
@@ -128,7 +131,7 @@ function mapMessages(d: DomainState, conversationId: Id, f: (m: Message, i: numb
   return { ...d, messagesByConv: { ...d.messagesByConv, [conversationId]: list.map(f) } };
 }
 
-function findMessage(d: DomainState, id: Id): { conversationId: Id; index: number; msg: Message } | null {
+export function findMessage(d: DomainState, id: Id): { conversationId: Id; index: number; msg: Message } | null {
   for (const [conversationId, list] of Object.entries(d.messagesByConv)) {
     const index = list.findIndex((m) => m.id === id);
     if (index >= 0) return { conversationId, index, msg: list[index] };
@@ -184,20 +187,24 @@ function applyAnalysis(d: DomainState, p: AnalysisPatch): DomainState {
     else concepts[c.id] = c;
   }
 
-  // What the user did while the analysis was on its way wins over it.
+  // What the user did while the analysis was on its way wins over it. A scored message (live)
+  // takes its numbers from the fast scores, which may have landed first (`scores.ts`).
   let classification = p.classification;
   let adjust: ((a: ConceptAttempt) => ConceptAttempt) | null = null;
   if (user.classification?.overridden) {
     const mode = user.classification.mode;
     classification = { ...p.classification, mode, overridden: true };
     adjust = (a) => ({ ...a, mode, independence: MODE_SCORE[mode], source: 'override' });
-  } else if (reply?.guess && p.classification.mode === 'ai') {
+  } else if (!user.scores && reply?.guess && p.classification.mode === 'ai') {
     classification = { ...p.classification, mode: 'together', reasons: [...p.classification.reasons, REVEAL_REASON] };
     adjust = (a) => (a.mode === 'ai' ? { ...a, mode: 'together', independence: MODE_SCORE.together, source: 'reveal', reasons: [...a.reasons, REVEAL_REASON] } : a);
   }
+  const scores = user.scores;
+  if (scores) classification = scoredLabel(classification, scores);
   const fresh = p.attempts.map((a) => {
     const b = { ...a, conceptId: remap.get(a.conceptId) ?? a.conceptId };
-    return adjust ? adjust(b) : b;
+    const c = adjust ? adjust(b) : b;
+    return scores ? scoredAttempt(c, scores) : c;
   });
   const conceptIds = [...new Set(fresh.map((a) => a.conceptId))];
 
@@ -271,6 +278,15 @@ function domainReducer(d: DomainState, a: Action): DomainState {
       return applyAnalysis(d, a.patch);
     case 'analysisFailed':
       return mapMessages(d, a.conversationId, (m) => (m.id === a.userMessageId ? { ...m, analysis: 'failed' } : m));
+    case 'score': {
+      const found = findMessage(d, a.userMessageId);
+      if (!found) return d;
+      const scores = { ...found.msg.scores, [a.key]: a.value };
+      const next = mapMessages(d, found.conversationId, (m) =>
+        m.id === a.userMessageId ? { ...m, scores, classification: m.classification && scoredLabel(m.classification, scores) } : m,
+      );
+      return { ...next, attempts: scoredAttempts(next.attempts, a.userMessageId, scores) };
+    }
     case 'reclassify': {
       const found = findMessage(d, a.id);
       if (!found?.msg.classification) return d;
@@ -280,14 +296,15 @@ function domainReducer(d: DomainState, a: Action): DomainState {
       return { ...next, attempts: supersede(next.attempts, a.id, a.mode, 'override') };
     }
     case 'reveal': {
-      // A guess before reading turns a delegated prompt into thinking together.
+      // A guess before reading turns a delegated prompt into thinking together. A scored message
+      // (live) is not flipped: its guess is scored once the reply is complete (`turn.ts`, `scores.ts`).
       const found = findMessage(d, a.id);
       if (!found) return d;
       const list = d.messagesByConv[found.conversationId];
       const guess = a.guess.trim();
       const userIdx = guess ? list.slice(0, found.index).map((m) => m.role).lastIndexOf('user') : -1;
       const user = userIdx >= 0 ? list[userIdx] : undefined;
-      const flips = Boolean(user?.classification && user.classification.mode === 'ai');
+      const flips = Boolean(user?.classification && user.classification.mode === 'ai' && !user.scores);
       const next = mapMessages(d, found.conversationId, (m, j) => {
         if (j === found.index) return { ...m, veiled: false, guess: guess || undefined };
         if (flips && j === userIdx) return { ...m, classification: { ...m.classification!, mode: 'together', reasons: [...m.classification!.reasons, REVEAL_REASON] } };
