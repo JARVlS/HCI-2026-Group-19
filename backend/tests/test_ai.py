@@ -4,7 +4,7 @@ import asyncio
 import json
 
 import pytest
-from fake_anthropic import stream_events
+from fake_anthropic import OFF_TOPIC_TOP, SCORE_TOP, openai_error, stream_events
 from fakes import FakeResponse, build_client, make_env
 
 from db import now
@@ -279,3 +279,165 @@ def test_stream_with_cors_origin(client, upstream, session):
                            headers={**session["headers"], "Origin": "http://localhost:5173"})
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
     assert parse_sse(response.text)[-1][0] == "done"
+
+
+# --- /ai/score (the fast slot) --------------------------------------------------------------
+
+def score_body(**fields):
+    return {"system": "Did the student think along? Answer 1 (yes) or 2 (no).",
+            "messages": [{"role": "user", "content": "I think it calls itself, right?"}], "options": ["1", "2"], **fields}
+
+
+def test_score_happy_path(client, env, upstream, session):
+    upstream.reply_completion(SCORE_TOP, prompt_tokens=212, completion_tokens=1)
+    response = client.post("/api/ai/score", json=score_body(), headers=session["headers"])
+    assert response.status_code == 200
+    data = response.json()
+    assert data["probabilities"] == pytest.approx({"1": 0.8 / 0.95, "2": 0.15 / 0.95})  # " 1" counts for "1"
+    assert data["mass"] == pytest.approx(0.95)
+    assert data["usage"] == {"inputTokens": 212, "outputTokens": 1}
+    assert data["model"] == "fast-model"
+    sent = upstream.requests[0]
+    assert sent["url"] == "https://fast.test/v1/chat/completions"
+    assert sent["headers"]["authorization"] == "Bearer test-fast-key"
+    assert "x-api-key" not in sent["headers"]
+    assert sent["body"] == {
+        "model": "fast-model",
+        "messages": [{"role": "system", "content": score_body()["system"]},
+                     {"role": "user", "content": "I think it calls itself, right?"}],
+        "max_tokens": 1, "temperature": 0, "logprobs": True, "top_logprobs": 20,
+    }
+    assert usage_rows(env) == [{"task": "score", "input_tokens": 212, "output_tokens": 1}]
+
+
+def test_score_option_not_listed_gets_zero(client, upstream, session):
+    upstream.reply_completion({"A": 0.9, "B": 0.08})
+    response = client.post("/api/ai/score", json=score_body(options=["A", "B", "C"]), headers=session["headers"])
+    assert response.status_code == 200
+    assert response.json()["probabilities"]["C"] == 0
+
+
+def test_score_low_mass_is_502_and_still_recorded(client, env, upstream, session):
+    upstream.reply_completion(OFF_TOPIC_TOP, prompt_tokens=50, completion_tokens=1)
+    response = client.post("/api/ai/score", json=score_body(), headers=session["headers"])
+    assert response.status_code == 502
+    error = response.json()["error"]
+    assert error["code"] == "invalid_model_output"
+    assert "did not answer with one of the options" in error["message"] and "'Sure'" in error["message"]
+    assert usage_rows(env) == [{"task": "score", "input_tokens": 50, "output_tokens": 1}]
+
+
+def test_score_without_logprobs_is_502(client, upstream, session):
+    upstream.reply_completion(None)
+    response = client.post("/api/ai/score", json=score_body(), headers=session["headers"])
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "invalid_model_output"
+    assert "no logprobs" in response.json()["error"]["message"]
+
+
+def test_score_upstream_error_is_502_redacted_and_records_nothing(client, env, upstream, session):
+    upstream.reply_json(openai_error("invalid_request_error", "Incorrect API key provided: test-fast-key"), status=401)
+    response = client.post("/api/ai/score", json=score_body(), headers=session["headers"])
+    assert response.status_code == 502
+    error = response.json()["error"]
+    assert error["code"] == "upstream_error"
+    assert "401" in error["message"] and "invalid_request_error" in error["message"]
+    assert "Incorrect API key provided: [redacted]" in error["message"]
+    assert "test-fast-key" not in response.text
+    assert usage_rows(env) == []
+
+
+def test_missing_fast_key_breaks_only_the_score_route(upstream):
+    with build_client(make_env(FAST_API_KEY=None), upstream) as client:
+        headers = {"Authorization": f"Bearer {client.post('/api/session', json={}).json()['token']}"}
+        response = client.post("/api/ai/score", json=score_body(), headers=headers)
+        assert response.status_code == 500
+        assert response.json()["error"]["code"] == "server_misconfigured"
+        assert "FAST_API_KEY" in response.json()["error"]["message"]
+        assert upstream.requests == []
+        upstream.reply_message("still here")
+        assert client.post("/api/ai/complete", json=chat(), headers=headers).json()["output"] == "still here"
+
+
+@pytest.mark.parametrize("name", ["MODEL_FAST", "FAST_BASE_URL"])
+def test_missing_fast_var_is_server_misconfigured(upstream, name):
+    with build_client(make_env(**{name: None}), upstream) as client:
+        headers = {"Authorization": f"Bearer {client.post('/api/session', json={}).json()['token']}"}
+        response = client.post("/api/ai/score", json=score_body(), headers=headers)
+    assert response.status_code == 500
+    assert name in response.json()["error"]["message"]
+
+
+@pytest.mark.parametrize("body", [
+    score_body(options=[]),
+    score_body(options=["1"]),
+    score_body(options=["1", "2", "3", "4", "5", "6"]),
+    score_body(options=["1", "1"]),
+    score_body(options=["1", ""]),
+    score_body(options=["1", "a b"]),
+    score_body(options=["1", " 2"]),
+    score_body(options=["1", "123456789"]),
+    score_body(options=["1", 2]),
+    {k: v for k, v in score_body().items() if k != "options"},
+    score_body(messages=[]),
+    score_body(messages=[{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]),
+    score_body(model="gpt-5"),
+    score_body(task="chat"),
+])
+def test_score_validation_errors(client, upstream, session, body):
+    response = client.post("/api/ai/score", json=body, headers=session["headers"])
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert upstream.requests == []
+
+
+def test_score_accepts_five_options_of_eight_characters(client, upstream, session):
+    options = ["aaaaaaaa", "b", "c", "d", "e"]
+    upstream.reply_completion({"aaaaaaaa": 1.0})
+    response = client.post("/api/ai/score", json=score_body(options=options), headers=session["headers"])
+    assert response.status_code == 200
+    assert response.json()["probabilities"] == {"aaaaaaaa": 1.0, "b": 0, "c": 0, "d": 0, "e": 0}
+
+
+def test_score_needs_a_token(client, upstream):
+    assert client.post("/api/ai/score", json=score_body()).status_code == 401
+    assert upstream.requests == []
+
+
+def test_score_input_too_large(upstream):
+    with build_client(make_env(MAX_INPUT_CHARS="20"), upstream) as client:
+        headers = {"Authorization": f"Bearer {client.post('/api/session', json={}).json()['token']}"}
+        response = client.post("/api/ai/score", json=score_body(system="x" * 19), headers=headers)
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "input_too_large"
+    assert upstream.requests == []
+
+
+def test_score_daily_budget_counts_all_tasks(client, env, upstream, session):
+    env.DB.conn.execute("INSERT INTO usage VALUES (?, ?, 'chat', 150000, 50000)", (session["userId"], now().date().isoformat()))
+    response = client.post("/api/ai/score", json=score_body(), headers=session["headers"])
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "budget_exceeded"
+    assert upstream.requests == []
+
+
+def test_score_total_budget(upstream):
+    env = make_env(TOTAL_TOKEN_BUDGET="1000")
+    env.DB.conn.execute("INSERT INTO usage VALUES ('someone-else', '2000-01-01', 'chat', 999, 1)")
+    with build_client(env, upstream) as client:
+        headers = {"Authorization": f"Bearer {client.post('/api/session', json={}).json()['token']}"}
+        response = client.post("/api/ai/score", json=score_body(), headers=headers)
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "total_budget_exceeded"
+    assert upstream.requests == []
+
+
+def test_score_tokens_count_against_the_budget(upstream):
+    env = make_env(DAILY_TOKEN_BUDGET="300")
+    with build_client(env, upstream) as client:
+        headers = {"Authorization": f"Bearer {client.post('/api/session', json={}).json()['token']}"}
+        upstream.reply_completion(SCORE_TOP, prompt_tokens=299, completion_tokens=1)
+        assert client.post("/api/ai/score", json=score_body(), headers=headers).status_code == 200
+        response = client.post("/api/ai/complete", json=chat(), headers=headers)
+    assert response.status_code == 429 and response.json()["error"]["code"] == "budget_exceeded"
+    assert len(upstream.requests) == 1

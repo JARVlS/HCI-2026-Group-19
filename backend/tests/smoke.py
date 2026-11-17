@@ -126,6 +126,24 @@ def run(base_url: str, admin_token: str) -> None:
               and data["output"] == {"concepts": [{"label": "example", "mode": "own"}]}, r.text[:160])
     guarded("analyze with schema", analyze)
 
+    def score() -> None:
+        body = {"system": "Did the student think along? Answer 1 (yes) or 2 (no).", "options": ["1", "2"],
+                "messages": [{"role": "user", "content": "I think recursion is a function calling itself."}]}
+        r = client.post("/api/ai/score", json=body, headers=auth)
+        data = r.json()
+        # The fake answers "1" 0.6, " 1" 0.2, "2" 0.15, "Sure" 0.05 (SCORE_TOP in fake_anthropic.py).
+        check("score: probabilities from the first token's logprobs", r.status_code == 200
+              and abs(data["probabilities"]["1"] - 0.8 / 0.95) < 1e-6 and abs(data["mass"] - 0.95) < 1e-6
+              and data["model"] == "fast-model-for-smoke" and data["usage"] == {"inputTokens": 40, "outputTokens": 1},
+              r.text[:160])
+        for marker, code in (("[off-topic]", "invalid_model_output"), ("[no-logprobs]", "invalid_model_output"),
+                             ("[upstream-500]", "upstream_error")):
+            r = client.post("/api/ai/score", headers=auth,
+                            json={**body, "messages": [{"role": "user", "content": f"Hm {marker}"}]})
+            check(f"score: {marker} -> 502 {code}", r.status_code == 502 and r.json()["error"]["code"] == code,
+                  r.text[:160])
+    guarded("score", score)
+
     def upstream_failures() -> None:
         r = client.post("/api/ai/complete", json=chat_body("[upstream-500]"), headers=auth)
         check("upstream HTTP 500 -> 502 upstream_error", r.status_code == 502
@@ -166,6 +184,9 @@ def run(base_url: str, admin_token: str) -> None:
         usage = client.get("/api/admin/export", params={"table": "usage"}, headers={"X-Admin-Token": admin_token})
         check("admin export usage CSV", usage.status_code == 200
               and usage.text.startswith("user_id,day,task,input_tokens,output_tokens"))
+        tasks = {row["task"] for row in csv.DictReader(io.StringIO(usage.text)) if row["user_id"] == session.get("userId")}
+        check("admin export usage CSV: score tokens under task score", {"chat", "analyze", "score"} <= tasks,
+              ", ".join(sorted(tasks)))
         bad = client.get("/api/admin/export", params={"table": "events"}, headers={"X-Admin-Token": "wrong"})
         check("admin export with wrong token is 403", bad.status_code == 403)
     guarded("admin export", export)

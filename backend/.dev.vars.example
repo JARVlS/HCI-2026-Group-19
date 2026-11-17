@@ -4,5 +4,8 @@ ENVIRONMENT=development
 ANTHROPIC_API_KEY=
 SESSION_SECRET=
 ADMIN_TOKEN=
-# Optional, when you have no key: the fake model API (uv run python tests/fake_anthropic.py), e.g.
+# Bearer key for the fast slot (FAST_BASE_URL in wrangler.toml); only POST /api/ai/score reads it.
+FAST_API_KEY=
+# Optional, when you have no keys: the fake model API (uv run python tests/fake_anthropic.py), e.g.
 # ANTHROPIC_BASE_URL=http://127.0.0.1:8790
+# FAST_BASE_URL=http://127.0.0.1:8790/v1

@@ -13,8 +13,8 @@ database_id = "9e621484-9234-4802-9028-0edb484b9cca"
 migrations_dir = "migrations"
 
 # Plain config values, readable in routes via request.scope["env"]. Locally, .dev.vars overrides
-# them. Secrets (ANTHROPIC_API_KEY, SESSION_SECRET, ADMIN_TOKEN) never go in this file: use
-# `uv run pywrangler secret put NAME` or the dashboard, and locally .dev.vars (gitignored).
+# them. Secrets (ANTHROPIC_API_KEY, SESSION_SECRET, ADMIN_TOKEN, FAST_API_KEY) never go in this
+# file: use `uv run pywrangler secret put NAME` or the dashboard, and locally .dev.vars (gitignored).
 [vars]
 ENVIRONMENT = "production"
 # Stopgap since 16 Nov 2026, until the group's own Anthropic key exists: the model API is Claude in
@@ -35,3 +35,10 @@ DAILY_TOKEN_BUDGET = "200000"
 # (worst case: every token billed as output at 11 USD per million). Raise it when the money is there.
 TOTAL_TOKEN_BUDGET = "900000"
 ANTHROPIC_BASE_URL = "https://bedrock-mantle.us-east-1.api.aws/anthropic"
+# The fast slot (POST /api/ai/score, G-Eval-style scores from token probabilities; key in the
+# secret FAST_API_KEY). Any OpenAI-compatible chat completions endpoint that returns `logprobs`
+# works (OpenAI, Groq, a self-hosted vLLM or Ollama). This model was picked on 17 Nov 2026 from a
+# small comparison: 16 of 18 test cases in the expected band, about 0.4 s per call, the most graded
+# probabilities; qwen.qwen3-32b and deepseek.v3.2 answer too but saturate at 0 or 1.
+FAST_BASE_URL = "https://bedrock-mantle.eu-north-1.api.aws/v1"
+MODEL_FAST = "zai.glm-4.7-flash"

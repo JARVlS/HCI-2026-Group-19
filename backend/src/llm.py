@@ -70,7 +70,8 @@ def refusal_error() -> ApiError:
 
 
 def upstream_error(status: int, body_text: str, api_key: str) -> ApiError:
-    """Error for a non-200 upstream response: status plus Anthropic's error.type and message."""
+    """Error for a non-200 upstream response: status plus the error.type and message. Anthropic
+    and OpenAI-style APIs (the fast slot) both answer {"error": {"type", "message"}}."""
     try:
         error = json.loads(body_text).get("error") or {}
         detail = f"{error.get('type', 'unknown')}: {error.get('message', '')}"

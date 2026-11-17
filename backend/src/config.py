@@ -47,7 +47,9 @@ def _effort(env: Any, name: str) -> str | None:
 
 
 def secret(env: Any, name: str) -> str:
-    """A required secret (ANTHROPIC_API_KEY, SESSION_SECRET, ADMIN_TOKEN). Never log the value."""
+    """A required secret (ANTHROPIC_API_KEY, SESSION_SECRET, ADMIN_TOKEN, FAST_API_KEY). Never log
+    the value. Routes read only the secrets they use, so a Worker without FAST_API_KEY keeps
+    serving everything except the score route."""
     return _text(env, name)
 
 
@@ -63,6 +65,9 @@ class Settings:
     daily_token_budget: int
     total_token_budget: int
     anthropic_base_url: str
+    # The fast slot (POST /api/ai/score): an OpenAI-compatible chat completions API with logprobs.
+    model_fast: str
+    fast_base_url: str
 
     @classmethod
     def from_env(cls, env: Any) -> "Settings":
@@ -77,6 +82,8 @@ class Settings:
             daily_token_budget=_positive_int(env, "DAILY_TOKEN_BUDGET"),
             total_token_budget=_positive_int(env, "TOTAL_TOKEN_BUDGET"),
             anthropic_base_url=_text(env, "ANTHROPIC_BASE_URL").rstrip("/"),
+            model_fast=_text(env, "MODEL_FAST"),
+            fast_base_url=_text(env, "FAST_BASE_URL").rstrip("/"),
         )
 
 

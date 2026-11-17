@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from fake_anthropic import message_json
+from fake_anthropic import completion_json, message_json
 from fastapi.testclient import TestClient
 
 from app import create_app
@@ -19,7 +19,7 @@ from upstream import get_upstream
 MIGRATIONS = sorted((Path(__file__).parent.parent / "migrations").glob("*.sql"))
 
 SECRETS = {"ANTHROPIC_API_KEY": "test-anthropic-key", "SESSION_SECRET": "test-session-secret",
-           "ADMIN_TOKEN": "test-admin-token"}
+           "ADMIN_TOKEN": "test-admin-token", "FAST_API_KEY": "test-fast-key"}
 
 
 class FakeStatement:
@@ -83,6 +83,8 @@ def make_env(**overrides: str) -> SimpleNamespace:
         "DAILY_TOKEN_BUDGET": "200000",
         "TOTAL_TOKEN_BUDGET": "100000000",
         "ANTHROPIC_BASE_URL": "https://api.anthropic.test",
+        "MODEL_FAST": "fast-model",
+        "FAST_BASE_URL": "https://fast.test/v1/",
         **SECRETS,
         **overrides,
     }
@@ -117,6 +119,10 @@ class FakeUpstream:
 
     def reply_message(self, text: str, **kwargs: Any) -> None:
         self.reply_json(message_json(text, **kwargs))
+
+    def reply_completion(self, top: dict[str, float] | None, **kwargs: Any) -> None:
+        """The fast slot's OpenAI-style answer: one token with these top probabilities."""
+        self.reply_json(completion_json(top, **kwargs))
 
     def reply_stream(self, events: list[str], *, fail_after_chunks: bool = False) -> None:
         self.responses.append(FakeResponse(chunks=[e.encode() for e in events], fail_after_chunks=fail_after_chunks))
