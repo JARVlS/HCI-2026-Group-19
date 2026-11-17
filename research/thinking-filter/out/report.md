@@ -1,6 +1,139 @@
 # A word filter for "thought along" while typing: findings (17 Nov 2026)
 
-Research package for the live label in Arbor's composer. All numbers come from `out/results.json` and `out/selection.json` (rerun: see `../README.md`). Synthetic data only: no real student wrote any of these messages.
+Research package for the live label in Arbor's composer. Round 2's numbers come from `out/results.json` and `out/selection.json` (rerun: see `../README.md`); round 1's from the same files at commit d2ae027. Synthetic data only: no real student wrote any of these messages.
+
+## Round 2 (17 Nov, evening): more data, the word rules as evidence
+
+### Verdict
+- **The filter now beats the word rules on Leon's 136 prompts.**
+  - Filter 83.8 % (κ 0.76, weighted 0.79); rules 67.6 % (κ 0.52, weighted 0.58).
+  - English (124 prompts): 84.7 % vs 70.2 %. German (12): 9 vs 5 right.
+  - It finds every class at least 79 % of the time (rules: own only 46 %).
+  - It kept its synthetic gains: 86.4 % on the held-out messages of the enlarged set (rules 66.3 %).
+  - The judge stays far ahead (97.1 %). Leon's labels are still Claude's draft, not rated by the team.
+- **What changed:**
+  - 347 new synthetic messages aimed at the gaps found in round 1.
+  - The word rules' verdict on the same draft as features.
+  - α and β tuned for the label, the instant tier's output.
+- **Recommendation: ship the filter alone as the instant tier** (`out/weights.json`, version 2026-11-17.2), with the label smoothed while typing.
+  - It changes its label 1.04 times per prompt on Leon's set; the rules change 0.68 times.
+  - The two simple combinations do not do better: "rules when the linter is ≥ 70 % sure, else the filter" is 83.1 % on Leon's set and 83.3 % held out; the mean of filter and `draftShare` is 72.1 % / 71.0 %.
+- **Two costs.**
+  - Tuned for the label, the belief is overconfident: its top level holds 0.90 and is right 0.81 of the time. Its certainty still ranks well: the error is 0.16, 0.055 and 0.017 in the least, middle and most certain third.
+  - Learning online still helps on the general stream (0.088 → 0.081 with weight 1). For the student with a habit it now slightly hurts (0.056 → 0.061), because the filter already gets that student right.
+- **Leon's set was used for one decision** (keep the rule features), so it is no longer fully independent for that choice. α, β, the vocabulary and the other features come from cross-validation on synthetic data only.
+
+### Before and after
+
+| | round 1 | round 2 |
+|---|---|---|
+| training messages | 989 | 1,336 (347 new) |
+| features | words, word pairs, start words, `?$`, length band, tutor asked | the same + `rule:<label>`, `rule:<label>:sure`, one `rule:<reason>` per linter reason |
+| α / β | 0.35 / 1.0 (calibrated) | 0.45 / 0.1 (tuned for labels) |
+| `weights.json` | 105 KB, 2,244 features | 130 KB, 2,741 features |
+| held out, synthetic: labels (κ), error | 83.6 % (0.75), 0.083 on 989 | 86.4 % (0.80), 0.078 on 1,336 |
+| held out, round-1 items only | 83.6 % | 88.4 %, error 0.068 |
+| round-2 items (new kinds, German) | 44.4 %, error 0.286 (round-1 weights, never saw them) | 80.7 %, error 0.105 (held out) |
+| Leon's 136: accuracy / κ / weighted κ | 66.2 % / 0.50 / 0.57 | **83.8 % / 0.76 / 0.79** |
+| recall own / together / ai on Leon's 136 | 83 / 79 / 40 % | 87 / 86 / 79 % |
+| Leon's English (124) | 68.5 % (κ 0.53) | 84.7 % (κ 0.77) |
+| Leon's German (12) | 5 of 12 | 9 of 12 |
+| half-typed drafts, error at 1/3, 2/3, full | 0.148 / 0.093 / 0.087 | 0.148 / 0.088 / 0.082 |
+| half-typed drafts, labels = judge | 65 / 80 / 85 % | 70 / 83 / 85 % |
+| same direction as the judge when the judge moves | 87 % | 90 % |
+| online stream, static → weight 1 / 3 / 10 | 0.094 → 0.087 / 0.086 / 0.091 | 0.088 → 0.081 / 0.084 / 0.090 |
+| student with a habit, static → weight 1 | 0.089 → 0.070 | 0.056 → 0.061 |
+| label changes while typing (synthetic sample; rules 0.96) | 1.00 | 1.05 |
+| label changes while typing, Leon's set (rules 0.68) | 0.74 | 1.04 (10 % more than twice; rules 0 %) |
+
+Word rules on Leon's set, unchanged: 67.6 % / 0.52 / 0.58, recall 46 / 81 / 77 %.
+
+Accuracy per tag on Leon's set:
+
+| tag | n | rules | filter, round 1 | filter, round 2 | judge |
+|---|---|---|---|---|---|
+| (no tag) | 73 | 73 % | 73 % | 89 % | 100 % |
+| boundary | 15 | 67 % | 47 % | 80 % | 80 % |
+| code | 5 | 100 % | 80 % | 100 % | 100 % |
+| de | 12 | 42 % | 42 % | 75 % | 100 % |
+| hedge | 13 | 31 % | 69 % | 62 % | 100 % |
+| hint | 6 | 83 % | 100 % | 83 % | 100 % |
+| negation | 9 | 67 % | 78 % | 78 % | 100 % |
+| polite | 4 | 75 % | 75 % | 100 % | 100 % |
+| quiz | 6 | 83 % | 67 % | 100 % | 100 % |
+| short | 7 | 71 % | 57 % | 71 % | 86 % |
+
+### The new data
+Generated from kind descriptions only, never from Leon's prompts:
+- 70 bare commands, 50 short fact questions, 60 solve or calculate requests without an own attempt, 40 quiz requests phrased as commands, 50 messages of 1 to 4 words across the levels, and 80 German messages (16 per level).
+- 347 kept. 3 were dropped as duplicates; none was equal to one of Leon's prompts.
+- `tests/test_no_leak.py` checks that no generated text equals one of Leon's 136 after lower-casing and stripping punctuation.
+- 23 synthetic messages share at least 75 % of the content words of one of his prompts. These are common textbook topics, such as "heavier objects fall faster". Refitting without them gives 84.6 % (κ 0.77) on his set, so they do not inflate the result.
+
+What the judge made of the new kinds (mean percent):
+- bare commands 0.02, short fact questions 0.10, solve requests 0.03
+- quiz commands 0.49, very short messages 0.47
+- German by target level 1 to 5: 0.10 / 0.30 / 0.47 / 0.77 / 0.96
+
+### The word rules as evidence
+- `classify()` runs on the same draft. Its label, its sureness (confidence ≥ 0.7) and each reason it gives (quoted words removed, so one rule gives one feature) become features.
+- The exact recipe is in `featureSpec`. The vectors carry the linter's output, and a test fails if `classify.ts` changes.
+- Kept only if they help both in cross-validation and on Leon's set:
+
+| features (each at its best vocabulary, Brier-optimal α) | CV Brier | CV labels | Leon's 136 | κ |
+|---|---|---|---|---|
+| words only (round-1 groups) | 0.198 | 80.8 % | 77.2 % | 0.66 |
+| + rule label | 0.192 | 80.8 % | 72.1 % | 0.59 |
+| + rule label + reasons | 0.188 | 82.3 % | 77.9 % | 0.67 |
+| **+ rule label + sure + reasons** | **0.188** | 81.4 % | **80.1 %** | **0.70** |
+
+The same comparison at the shipped tuning (α and β tuned for labels):
+
+| | CV labels | Leon's set |
+|---|---|---|
+| without rule features (α 0.95) | 85.6 % | 77.9 % (κ 0.67) |
+| with rule features (shipped) | 86.4 % | 83.8 % (κ 0.76) |
+
+**While typing:**
+- The rule features change with every word and can disappear again, as can `?$` and the length band.
+- So the belief is recomputed from the features of the current draft at every space (a few dozen additions), never multiplied in step by step.
+
+### Tuning for the label
+- Round 1 tuned α and β for a calibrated belief (Brier score). Doing the same on the enlarged set gives α 0.25, β 0.5: 82.4 % held out, 78.7 % on Leon's set.
+- Round 2 ships the best cross-validated label agreement instead (best by CV labels; among settings within 0.5 points of it, the lowest Brier score): α 0.45, β 0.1. That gives 86.4 % held out and 83.8 % on Leon's set.
+- The Leon's-set number is a consequence, not a selection: α and β were chosen on synthetic data only.
+- The price is the overconfidence above. Show the certainty as "sure / unsure", not as a probability.
+
+### Combinations (reference points)
+
+| | held out: labels (κ) | Leon's 136: accuracy (κ, weighted κ) |
+|---|---|---|
+| **filter (shipped)** | **86.4 % (0.80)** | **83.8 % (0.76, 0.79)** |
+| rules if the linter is ≥ 70 % sure, else the filter | 83.3 % (0.75) | 83.1 % (0.75, 0.77) |
+| mean of the filter's estimate and `draftShare()` | 71.0 % (0.57) | 72.1 % (0.59, 0.64) |
+| filter, calibrated α 0.25 / β 0.5 | 82.4 % | 78.7 % (0.68, 0.74) |
+| word rules alone | 66.3 % (0.50) | 67.6 % (0.52, 0.58) |
+
+The linter is ≥ 70 % sure on 43 % of the synthetic messages and on 51 % of Leon's prompts.
+
+### What still fails on Leon's set (22 of 136)
+- **Delegation dressed as own thinking:** "I believe it would be fastest if you solved it." 0.82; "I tried but I can't, so please just do it." 0.94.
+- **Short or negated give-ups:** "just give me the answer" 0.22; "skip the questions and tell me the solution" 0.24.
+- **Questions about the approach:** "What is the first step for solving a recurrence like this?" goes to ai.
+- **Two German delegations.**
+- **"Prove that the square root of 2 is irrational."** is still read as own work (0.77).
+
+### Cost of round 2
+- **Claude Sonnet 5:** 43,178 tokens in 6 calls (budget 70,000).
+- **Judge:** 438 calls (425 requests, 13 retried; budget 900).
+- Totals over both rounds: 286,265 Claude tokens and 2,040 judge calls.
+
+---
+
+# Round 1
+
+The numbers of this part are round 1's (`out/results.json` and `out/selection.json` as of commit
+d2ae027, 989 training messages, weights version 2026-11-17). The current files hold round 2.
 
 ## Verdict
 - **The filter works on data like its training data, and it is cheap.**

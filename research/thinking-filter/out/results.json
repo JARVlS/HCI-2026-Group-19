@@ -1,30 +1,30 @@
 {
  "history": {
-  "n": 287,
-  "mean_abs_diff": 0.059,
-  "mean_diff_with_minus_without": 0.04,
+  "n": 365,
+  "mean_abs_diff": 0.058,
+  "mean_diff_with_minus_without": 0.039,
   "share_abs_diff_over_0.1": 0.192,
-  "share_abs_diff_over_0.25": 0.049,
-  "label_flips": 28,
-  "label_flip_share": 0.098,
+  "share_abs_diff_over_0.25": 0.047,
+  "label_flips": 36,
+  "label_flip_share": 0.099,
   "flip_matrix_without_to_with": {
    "ai": {
-    "ai": 67,
-    "together": 7,
+    "ai": 98,
+    "together": 11,
     "own": 3
    },
    "together": {
     "ai": 0,
-    "together": 34,
-    "own": 14
+    "together": 54,
+    "own": 17
    },
    "own": {
     "ai": 0,
-    "together": 4,
-    "own": 158
+    "together": 5,
+    "own": 177
    }
   },
-  "tutor_asked_share": 0.958,
+  "tutor_asked_share": 0.962,
   "by_kind": {
    "answer": {
     "n": 50,
@@ -33,16 +33,22 @@
     "flips": 6
    },
    "attempt": {
-    "n": 13,
-    "without": 0.933,
-    "with": 0.948,
+    "n": 16,
+    "without": 0.942,
+    "with": 0.956,
+    "flips": 0
+   },
+   "bare_command": {
+    "n": 11,
+    "without": 0.116,
+    "with": 0.108,
     "flips": 0
    },
    "claim": {
-    "n": 18,
-    "without": 0.787,
-    "with": 0.849,
-    "flips": 0
+    "n": 19,
+    "without": 0.774,
+    "with": 0.844,
+    "flips": 1
    },
    "claim_question": {
     "n": 17,
@@ -51,15 +57,15 @@
     "flips": 2
    },
    "delegate": {
-    "n": 24,
+    "n": 25,
     "without": 0.002,
     "with": 0.0,
     "flips": 0
    },
    "fact": {
-    "n": 13,
-    "without": 0.411,
-    "with": 0.511,
+    "n": 15,
+    "without": 0.439,
+    "with": 0.526,
     "flips": 2
    },
    "hint_quiz": {
@@ -81,44 +87,68 @@
     "flips": 2
    },
    "polite_delegation": {
-    "n": 17,
-    "without": 0.068,
-    "with": 0.053,
+    "n": 19,
+    "without": 0.061,
+    "with": 0.047,
     "flips": 2
    },
+   "quiz_command": {
+    "n": 12,
+    "without": 0.416,
+    "with": 0.461,
+    "flips": 1
+   },
    "reasoning": {
-    "n": 20,
-    "without": 0.976,
+    "n": 21,
+    "without": 0.975,
     "with": 0.991,
     "flips": 0
    },
+   "short_fact": {
+    "n": 8,
+    "without": 0.406,
+    "with": 0.442,
+    "flips": 0
+   },
+   "solve_request": {
+    "n": 10,
+    "without": 0.108,
+    "with": 0.128,
+    "flips": 1
+   },
    "vague": {
-    "n": 13,
-    "without": 0.621,
-    "with": 0.693,
+    "n": 14,
+    "without": 0.605,
+    "with": 0.68,
     "flips": 5
    },
+   "very_short": {
+    "n": 23,
+    "without": 0.368,
+    "with": 0.425,
+    "flips": 4
+   },
    "why_how": {
-    "n": 25,
-    "without": 0.437,
-    "with": 0.495,
+    "n": 26,
+    "without": 0.449,
+    "with": 0.505,
     "flips": 3
    },
    "wrong_claim": {
-    "n": 18,
-    "without": 0.795,
-    "with": 0.772,
-    "flips": 2
+    "n": 20,
+    "without": 0.793,
+    "with": 0.765,
+    "flips": 3
    }
   },
   "vs_generator_target": {
    "without": {
-    "mae": 0.098,
-    "label_agree": 0.84
+    "mae": 0.117,
+    "label_agree": 0.814
    },
    "with": {
-    "mae": 0.11,
-    "label_agree": 0.805
+    "mae": 0.13,
+    "label_agree": 0.778
    }
   },
   "biggest": [
@@ -173,6 +203,16 @@
     "with": 0.585
    },
    {
+    "id": "s1053",
+    "kind": "very_short",
+    "target": 1,
+    "tutor": "Combustion reactions release energy and typically produce carbon dioxide and water. Would you like a quick quiz on this?",
+    "text": "Yes, that would be wonderful, thank you very much.",
+    "asked": true,
+    "without": 0.001,
+    "with": 0.476
+   },
+   {
     "id": "s0263",
     "kind": "fact",
     "target": 1,
@@ -191,6 +231,16 @@
     "asked": true,
     "without": 0.199,
     "with": 0.598
+   },
+   {
+    "id": "s1067",
+    "kind": "quiz_command",
+    "target": 3,
+    "tutor": "wollt ihr noch mehr über die zellatmung wissen oder reicht das erstmal?",
+    "text": "frag mich noch was dazu bitte",
+    "asked": true,
+    "without": 0.113,
+    "with": 0.477
    },
    {
     "id": "s0950",
@@ -221,85 +271,71 @@
     "asked": true,
     "without": 0.459,
     "with": 0.75
-   },
-   {
-    "id": "s0739",
-    "kind": "claim_question",
-    "target": 4,
-    "tutor": "are you asking if dropout only works during training?",
-    "text": "yeah exactly, it turns off during test time right?",
-    "asked": true,
-    "without": 0.492,
-    "with": 0.781
-   },
-   {
-    "id": "s0138",
-    "kind": "mixed",
-    "target": 3,
-    "tutor": "You mentioned the assassination of Archduke Franz Ferdinand. How do you think that connects to the alliance system?",
-    "text": "I think since Austria-Hungary was allied with Germany, and Serbia had ties to Russia, the assassination triggered a chain reaction. Could you write up the full explanation of how all the alliances pulled everyone into the war?",
-    "asked": true,
-    "without": 0.187,
-    "with": 0.466
    }
   ]
  },
  "judge": {
-  "label_rows": 1572,
+  "label_rows": 1997,
   "rejected": 0,
   "rejected_examples": [],
-  "training_items": 989,
+  "training_items": 1336,
   "mass_mean": 0.9999,
   "mass_min": 0.9983,
   "top_level_counts": {
-   "1": 271,
-   "2": 126,
-   "3": 126,
-   "4": 292,
-   "5": 174
+   "1": 461,
+   "2": 160,
+   "3": 187,
+   "4": 339,
+   "5": 189
   },
   "label_counts": {
-   "together": 272,
-   "ai": 269,
-   "own": 448
+   "together": 371,
+   "ai": 459,
+   "own": 506
   },
-  "mean_top_probability": 0.896,
+  "mean_top_probability": 0.908,
   "by_kind": {
    "answer": {
-    "n": 50,
+    "n": 53,
     "mean": 0.801,
     "min": 0.585,
     "max": 1.0
    },
    "attempt": {
-    "n": 55,
-    "mean": 0.953,
+    "n": 65,
+    "mean": 0.955,
     "min": 0.766,
     "max": 1.0
    },
+   "bare_command": {
+    "n": 74,
+    "mean": 0.026,
+    "min": 0.0,
+    "max": 0.758
+   },
    "claim": {
-    "n": 75,
-    "mean": 0.783,
+    "n": 79,
+    "mean": 0.782,
     "min": 0.003,
     "max": 0.998
    },
    "claim_question": {
-    "n": 70,
-    "mean": 0.695,
+    "n": 71,
+    "mean": 0.696,
     "min": 0.211,
     "max": 0.998
    },
    "delegate": {
-    "n": 100,
+    "n": 101,
     "mean": 0.005,
     "min": 0.0,
     "max": 0.248
    },
    "fact": {
-    "n": 54,
-    "mean": 0.126,
+    "n": 57,
+    "mean": 0.141,
     "min": 0.0,
-    "max": 0.956
+    "max": 0.992
    },
    "hint_quiz": {
     "n": 85,
@@ -314,43 +350,67 @@
     "max": 0.134
    },
    "mixed": {
-    "n": 60,
-    "mean": 0.529,
+    "n": 62,
+    "mean": 0.524,
     "min": 0.0,
     "max": 0.999
    },
    "polite_delegation": {
-    "n": 75,
-    "mean": 0.023,
+    "n": 81,
+    "mean": 0.021,
     "min": 0.0,
     "max": 0.341
    },
+   "quiz_command": {
+    "n": 47,
+    "mean": 0.49,
+    "min": 0.025,
+    "max": 0.534
+   },
    "reasoning": {
-    "n": 85,
-    "mean": 0.974,
+    "n": 91,
+    "mean": 0.972,
     "min": 0.76,
     "max": 1.0
    },
+   "short_fact": {
+    "n": 50,
+    "mean": 0.096,
+    "min": 0.0,
+    "max": 0.776
+   },
+   "solve_request": {
+    "n": 62,
+    "mean": 0.035,
+    "min": 0.0,
+    "max": 0.76
+   },
    "vague": {
-    "n": 55,
-    "mean": 0.568,
-    "min": 0.415,
+    "n": 62,
+    "mean": 0.557,
+    "min": 0.017,
     "max": 0.765
    },
+   "very_short": {
+    "n": 47,
+    "mean": 0.47,
+    "min": 0.0,
+    "max": 0.8
+   },
    "why_how": {
-    "n": 105,
-    "mean": 0.32,
+    "n": 121,
+    "mean": 0.318,
     "min": 0.046,
     "max": 1.0
    },
    "wrong_claim": {
-    "n": 75,
-    "mean": 0.778,
+    "n": 83,
+    "mean": 0.776,
     "min": 0.561,
     "max": 0.949
    }
   },
-  "target_label_agree": 0.884
+  "target_label_agree": 0.88
  },
  "sonnet": {
   "n": 200,
@@ -674,408 +734,541 @@
   ]
  },
  "params": {
-  "alpha": 0.35,
-  "beta": 1.0,
+  "alpha": 0.45,
+  "beta": 0.1,
   "min_docs": 3,
   "top_k": null
  },
  "filter": {
-  "n": 989,
-  "cross_entropy": 0.7434,
+  "n": 1336,
+  "cross_entropy": 1.0011,
   "filter": {
-   "agree": 0.836,
-   "kappa": 0.748,
+   "agree": 0.864,
+   "kappa": 0.795,
    "confusion": {
     "ai": {
-     "ai": 228,
-     "together": 39,
-     "own": 2
+     "ai": 408,
+     "together": 40,
+     "own": 11
     },
     "together": {
-     "ai": 16,
-     "together": 219,
-     "own": 37
+     "ai": 22,
+     "together": 305,
+     "own": 44
     },
     "own": {
-     "ai": 1,
-     "together": 67,
-     "own": 380
+     "ai": 4,
+     "together": 61,
+     "own": 441
     }
    },
-   "mae": 0.083,
-   "rmse": 0.138
+   "mae": 0.078,
+   "rmse": 0.154
   },
   "rules_share": {
-   "agree": 0.632,
-   "kappa": 0.443,
+   "agree": 0.624,
+   "kappa": 0.447,
    "confusion": {
     "ai": {
-     "ai": 124,
-     "together": 103,
-     "own": 42
+     "ai": 230,
+     "together": 186,
+     "own": 43
     },
     "together": {
-     "ai": 16,
-     "together": 219,
-     "own": 37
+     "ai": 21,
+     "together": 310,
+     "own": 40
     },
     "own": {
      "ai": 1,
-     "together": 165,
-     "own": 282
+     "together": 212,
+     "own": 293
     }
    },
    "mae": 0.223,
-   "rmse": 0.293
+   "rmse": 0.29
   },
   "rules_linter_label": {
-   "agree": 0.664,
-   "kappa": 0.492,
+   "agree": 0.663,
+   "kappa": 0.501,
    "confusion": {
     "ai": {
-     "ai": 173,
-     "together": 54,
-     "own": 42
+     "ai": 308,
+     "together": 108,
+     "own": 43
     },
     "together": {
-     "ai": 33,
-     "together": 202,
-     "own": 37
+     "ai": 46,
+     "together": 285,
+     "own": 40
     },
     "own": {
-     "ai": 15,
-     "together": 151,
-     "own": 282
+     "ai": 27,
+     "together": 186,
+     "own": 293
     }
    }
   },
   "prior": {
-   "agree": 0.275,
+   "agree": 0.278,
    "kappa": 0.0,
    "confusion": {
     "ai": {
      "ai": 0,
-     "together": 269,
+     "together": 459,
      "own": 0
     },
     "together": {
      "ai": 0,
-     "together": 272,
+     "together": 371,
      "own": 0
     },
     "own": {
      "ai": 0,
-     "together": 448,
+     "together": 506,
      "own": 0
     }
    },
-   "mae": 0.325,
-   "rmse": 0.365
+   "mae": 0.333,
+   "rmse": 0.368
   },
   "prior_estimate_range": [
-   0.496,
-   0.5
+   0.434,
+   0.439
   ],
   "by_kind": {
    "answer": {
-    "n": 50,
+    "n": 53,
     "judge": 0.801,
-    "filter_mae": 0.117,
-    "rules_mae": 0.222,
-    "prior_mae": 0.303,
-    "filter_label_agree": 0.68,
-    "rules_label_agree": 0.56
+    "filter_mae": 0.126,
+    "rules_mae": 0.231,
+    "prior_mae": 0.364,
+    "filter_label_agree": 0.792,
+    "rules_label_agree": 0.528
    },
    "attempt": {
-    "n": 55,
-    "judge": 0.953,
+    "n": 65,
+    "judge": 0.955,
     "filter_mae": 0.043,
-    "rules_mae": 0.162,
-    "prior_mae": 0.456,
+    "rules_mae": 0.198,
+    "prior_mae": 0.518,
     "filter_label_agree": 1.0,
-    "rules_label_agree": 0.836
+    "rules_label_agree": 0.738
+   },
+   "bare_command": {
+    "n": 74,
+    "judge": 0.026,
+    "filter_mae": 0.089,
+    "rules_mae": 0.226,
+    "prior_mae": 0.419,
+    "filter_label_agree": 0.797,
+    "rules_label_agree": 0.784
    },
    "claim": {
-    "n": 75,
-    "judge": 0.783,
-    "filter_mae": 0.092,
-    "rules_mae": 0.161,
-    "prior_mae": 0.308,
-    "filter_label_agree": 0.84,
-    "rules_label_agree": 0.68
+    "n": 79,
+    "judge": 0.782,
+    "filter_mae": 0.101,
+    "rules_mae": 0.17,
+    "prior_mae": 0.363,
+    "filter_label_agree": 0.835,
+    "rules_label_agree": 0.646
    },
    "claim_question": {
-    "n": 70,
-    "judge": 0.695,
-    "filter_mae": 0.143,
-    "rules_mae": 0.207,
-    "prior_mae": 0.252,
-    "filter_label_agree": 0.643,
-    "rules_label_agree": 0.471
+    "n": 71,
+    "judge": 0.696,
+    "filter_mae": 0.127,
+    "rules_mae": 0.208,
+    "prior_mae": 0.294,
+    "filter_label_agree": 0.732,
+    "rules_label_agree": 0.465
    },
    "delegate": {
-    "n": 100,
+    "n": 101,
     "judge": 0.005,
-    "filter_mae": 0.028,
-    "rules_mae": 0.28,
-    "prior_mae": 0.492,
-    "filter_label_agree": 0.96,
-    "rules_label_agree": 0.68
+    "filter_mae": 0.013,
+    "rules_mae": 0.282,
+    "prior_mae": 0.432,
+    "filter_label_agree": 0.97,
+    "rules_label_agree": 0.673
    },
    "fact": {
-    "n": 54,
-    "judge": 0.126,
-    "filter_mae": 0.181,
-    "rules_mae": 0.231,
-    "prior_mae": 0.448,
-    "filter_label_agree": 0.648,
-    "rules_label_agree": 0.759
+    "n": 57,
+    "judge": 0.141,
+    "filter_mae": 0.086,
+    "rules_mae": 0.236,
+    "prior_mae": 0.403,
+    "filter_label_agree": 0.877,
+    "rules_label_agree": 0.754
    },
    "hint_quiz": {
     "n": 85,
     "judge": 0.523,
-    "filter_mae": 0.051,
+    "filter_mae": 0.043,
     "rules_mae": 0.069,
-    "prior_mae": 0.053,
-    "filter_label_agree": 0.918,
+    "prior_mae": 0.1,
+    "filter_label_agree": 0.953,
     "rules_label_agree": 0.847
    },
    "meta": {
     "n": 45,
     "judge": 0.023,
-    "filter_mae": 0.141,
+    "filter_mae": 0.043,
     "rules_mae": 0.266,
-    "prior_mae": 0.475,
-    "filter_label_agree": 0.667,
+    "prior_mae": 0.414,
+    "filter_label_agree": 0.978,
     "rules_label_agree": 0.844
    },
    "mixed": {
-    "n": 60,
-    "judge": 0.529,
-    "filter_mae": 0.172,
-    "rules_mae": 0.312,
-    "prior_mae": 0.245,
-    "filter_label_agree": 0.6,
-    "rules_label_agree": 0.45
+    "n": 62,
+    "judge": 0.524,
+    "filter_mae": 0.186,
+    "rules_mae": 0.313,
+    "prior_mae": 0.259,
+    "filter_label_agree": 0.597,
+    "rules_label_agree": 0.435
    },
    "polite_delegation": {
-    "n": 75,
-    "judge": 0.023,
-    "filter_mae": 0.037,
-    "rules_mae": 0.48,
-    "prior_mae": 0.474,
-    "filter_label_agree": 0.907,
-    "rules_label_agree": 0.413
+    "n": 81,
+    "judge": 0.021,
+    "filter_mae": 0.072,
+    "rules_mae": 0.486,
+    "prior_mae": 0.416,
+    "filter_label_agree": 0.864,
+    "rules_label_agree": 0.383
+   },
+   "quiz_command": {
+    "n": 47,
+    "judge": 0.49,
+    "filter_mae": 0.013,
+    "rules_mae": 0.014,
+    "prior_mae": 0.071,
+    "filter_label_agree": 1.0,
+    "rules_label_agree": 0.979
    },
    "reasoning": {
-    "n": 85,
-    "judge": 0.974,
-    "filter_mae": 0.052,
-    "rules_mae": 0.216,
-    "prior_mae": 0.476,
-    "filter_label_agree": 1.0,
-    "rules_label_agree": 0.753
+    "n": 91,
+    "judge": 0.972,
+    "filter_mae": 0.056,
+    "rules_mae": 0.232,
+    "prior_mae": 0.535,
+    "filter_label_agree": 0.989,
+    "rules_label_agree": 0.703
+   },
+   "short_fact": {
+    "n": 50,
+    "judge": 0.096,
+    "filter_mae": 0.088,
+    "rules_mae": 0.245,
+    "prior_mae": 0.393,
+    "filter_label_agree": 0.76,
+    "rules_label_agree": 0.66
+   },
+   "solve_request": {
+    "n": 62,
+    "judge": 0.035,
+    "filter_mae": 0.139,
+    "rules_mae": 0.266,
+    "prior_mae": 0.412,
+    "filter_label_agree": 0.79,
+    "rules_label_agree": 0.645
    },
    "vague": {
-    "n": 55,
-    "judge": 0.568,
-    "filter_mae": 0.084,
-    "rules_mae": 0.133,
-    "prior_mae": 0.08,
-    "filter_label_agree": 0.691,
-    "rules_label_agree": 0.582
+    "n": 62,
+    "judge": 0.557,
+    "filter_mae": 0.094,
+    "rules_mae": 0.137,
+    "prior_mae": 0.14,
+    "filter_label_agree": 0.742,
+    "rules_label_agree": 0.597
+   },
+   "very_short": {
+    "n": 47,
+    "judge": 0.47,
+    "filter_mae": 0.12,
+    "rules_mae": 0.196,
+    "prior_mae": 0.235,
+    "filter_label_agree": 0.723,
+    "rules_label_agree": 0.574
    },
    "why_how": {
-    "n": 105,
-    "judge": 0.32,
-    "filter_mae": 0.065,
-    "rules_mae": 0.222,
-    "prior_mae": 0.24,
-    "filter_label_agree": 0.933,
-    "rules_label_agree": 0.771
+    "n": 121,
+    "judge": 0.318,
+    "filter_mae": 0.046,
+    "rules_mae": 0.223,
+    "prior_mae": 0.194,
+    "filter_label_agree": 0.934,
+    "rules_label_agree": 0.793
    },
    "wrong_claim": {
-    "n": 75,
-    "judge": 0.778,
-    "filter_mae": 0.066,
-    "rules_mae": 0.161,
-    "prior_mae": 0.281,
+    "n": 83,
+    "judge": 0.776,
+    "filter_mae": 0.068,
+    "rules_mae": 0.169,
+    "prior_mae": 0.339,
     "filter_label_agree": 0.88,
-    "rules_label_agree": 0.6
+    "rules_label_agree": 0.554
    }
   },
   "by_reply": {
    "first message": {
-    "n": 702,
-    "judge": 0.464,
-    "filter_mae": 0.077,
-    "rules_mae": 0.216,
-    "prior_mae": 0.319,
-    "filter_label_agree": 0.859,
-    "rules_label_agree": 0.699
+    "n": 971,
+    "judge": 0.399,
+    "filter_mae": 0.067,
+    "rules_mae": 0.217,
+    "prior_mae": 0.327,
+    "filter_label_agree": 0.889,
+    "rules_label_agree": 0.695
    },
    "reply": {
-    "n": 287,
-    "judge": 0.579,
-    "filter_mae": 0.099,
-    "rules_mae": 0.241,
-    "prior_mae": 0.341,
-    "filter_label_agree": 0.78,
+    "n": 365,
+    "judge": 0.537,
+    "filter_mae": 0.106,
+    "rules_mae": 0.238,
+    "prior_mae": 0.35,
+    "filter_label_agree": 0.797,
     "rules_label_agree": 0.578
    }
   },
   "by_hard": {
    "hard kind": {
-    "n": 515,
-    "judge": 0.426,
-    "filter_mae": 0.089,
-    "rules_mae": 0.238,
-    "prior_mae": 0.272,
-    "filter_label_agree": 0.817,
-    "rules_label_agree": 0.635
+    "n": 828,
+    "judge": 0.345,
+    "filter_mae": 0.083,
+    "rules_mae": 0.227,
+    "prior_mae": 0.29,
+    "filter_label_agree": 0.842,
+    "rules_label_agree": 0.661
    },
    "other kind": {
-    "n": 474,
-    "judge": 0.575,
-    "filter_mae": 0.077,
-    "rules_mae": 0.207,
-    "prior_mae": 0.383,
-    "filter_label_agree": 0.857,
-    "rules_label_agree": 0.696
+    "n": 508,
+    "judge": 0.586,
+    "filter_mae": 0.068,
+    "rules_mae": 0.216,
+    "prior_mae": 0.405,
+    "filter_label_agree": 0.9,
+    "rules_label_agree": 0.667
    }
   },
+  "by_lang": {
+   "de": {
+    "n": 80,
+    "judge": 0.519,
+    "filter_mae": 0.162,
+    "rules_mae": 0.302,
+    "prior_mae": 0.318,
+    "filter_label_agree": 0.775,
+    "rules_label_agree": 0.425
+   },
+   "en": {
+    "n": 1256,
+    "judge": 0.432,
+    "filter_mae": 0.072,
+    "rules_mae": 0.218,
+    "prior_mae": 0.334,
+    "filter_label_agree": 0.869,
+    "rules_label_agree": 0.678
+   }
+  },
+  "by_round": {
+   "round 1": {
+    "n": 989,
+    "judge": 0.498,
+    "filter_mae": 0.068,
+    "rules_mae": 0.223,
+    "prior_mae": 0.336,
+    "filter_label_agree": 0.884,
+    "rules_label_agree": 0.664
+   },
+   "round 2": {
+    "n": 347,
+    "judge": 0.264,
+    "filter_mae": 0.105,
+    "rules_mae": 0.222,
+    "prior_mae": 0.327,
+    "filter_label_agree": 0.807,
+    "rules_label_agree": 0.66
+   }
+  },
+  "combined": {
+   "mean of filter and draftShare": {
+    "agree": 0.71,
+    "kappa": 0.572,
+    "confusion": {
+     "ai": {
+      "ai": 294,
+      "together": 156,
+      "own": 9
+     },
+     "together": {
+      "ai": 21,
+      "together": 319,
+      "own": 31
+     },
+     "own": {
+      "ai": 2,
+      "together": 169,
+      "own": 335
+     }
+    },
+    "mae": 0.142,
+    "rmse": 0.192
+   },
+   "rules if linter >= 0.7 sure, else filter": {
+    "agree": 0.833,
+    "kappa": 0.748,
+    "confusion": {
+     "ai": {
+      "ai": 381,
+      "together": 37,
+      "own": 41
+     },
+     "together": {
+      "ai": 31,
+      "together": 288,
+      "own": 52
+     },
+     "own": {
+      "ai": 4,
+      "together": 58,
+      "own": 444
+     }
+    },
+    "mae": 0.129
+   },
+   "share_rules_sure": 0.427
+  },
   "certainty": {
-   "mean": 0.681,
+   "mean": 0.839,
    "tertiles": [
-    0.569,
-    0.866
+    0.835,
+    0.995
    ],
    "mae_low_mid_high": [
-    0.152,
-    0.074,
-    0.023
+    0.16,
+    0.055,
+    0.017
    ]
   },
   "worst": [
    {
-    "id": "s0188",
+    "id": "s1274",
+    "kind": "polite_delegation",
+    "text": "also wegen dem referat über zellatmung... ich hab grad keine zeit und so, vielleicht könntest du einfach... die ganzen stichpunkte und erklärung schreiben, wäre echt nett, muss morgen fertig sein und ich raff das thema eh nicht richtig",
+    "judge": 0.0,
+    "filter": 0.977,
+    "rules": 0.5
+   },
+   {
+    "id": "s1194",
+    "kind": "solve_request",
+    "text": "transpose this melody from c major to g major, the notes are c d e f g a b c",
+    "judge": 0.001,
+    "filter": 0.968,
+    "rules": 0.5
+   },
+   {
+    "id": "s1022",
+    "kind": "solve_request",
+    "text": "Prove, using propositional logic, that the statement 'if P implies Q and Q is false then P is false' is valid, please show formal derivation steps with rules used.",
+    "judge": 0.001,
+    "filter": 0.951,
+    "rules": 0.5
+   },
+   {
+    "id": "s1061",
+    "kind": "solve_request",
+    "text": "Figure out how many years passed between the fall of the Western Roman Empire and the start of the First Crusade.",
+    "judge": 0.001,
+    "filter": 0.919,
+    "rules": 0.5
+   },
+   {
+    "id": "s1259",
+    "kind": "solve_request",
+    "text": "a ball drops from 20m, find time to hit ground, g=9.8",
+    "judge": 0.001,
+    "filter": 0.865,
+    "rules": 0.5
+   },
+   {
+    "id": "s1093",
+    "kind": "bare_command",
+    "text": "find the limit as x approaches 0 of sin(x)/x and show the steps clearly please",
+    "judge": 0.005,
+    "filter": 0.764,
+    "rules": 0.5
+   },
+   {
+    "id": "s0415",
     "kind": "mixed",
-    "text": "so i'm trying to build a function that checks if a list has duplicates, i was thinking of using a set and comparing lengths, but honestly can you just finish writing the whole function with error handling and stuff, i'm kinda lost on the edge cases",
-    "judge": 0.071,
-    "filter": 0.857,
+    "text": "ok so we're mixing acid and base in lab tomorrow and i kinda remember something about it being exothermic or whatever. can you like explain what actually happens when they react, i mean i get it neutralizes but not really the chemistry part of it",
+    "judge": 0.251,
+    "filter": 0.961,
     "rules": 0.82
    },
    {
-    "id": "s0671",
-    "kind": "mixed",
-    "text": "so like the french revolution happened because of money problems and stuff, can you fill in the rest of the causes and write it up—",
-    "judge": 0.011,
-    "filter": 0.692,
-    "rules": 0.5
-   },
-   {
-    "id": "s0400",
-    "kind": "mixed",
-    "text": "I have been analyzing the chord progression in this piece, and I believe it follows a I-vi-IV-V pattern, though I am not fully certain about the final cadence. Would you be so kind as to confirm this and complete the harmonic analysis for the remaining measures?",
-    "judge": 0.715,
-    "filter": 0.098,
-    "rules": 0.85
-   },
-   {
-    "id": "s0698",
-    "kind": "fact",
-    "text": "when did world war one start",
-    "judge": 0.0,
-    "filter": 0.562,
-    "rules": 0.172
-   },
-   {
-    "id": "s0314",
-    "kind": "fact",
-    "text": "name for the -OH group?",
-    "judge": 0.001,
-    "filter": 0.551,
+    "id": "s1128",
+    "kind": "answer",
+    "text": "vielleicht wegen dem krieg?",
+    "judge": 0.733,
+    "filter": 0.055,
     "rules": 0.25
    },
    {
-    "id": "s0980",
-    "kind": "claim_question",
-    "text": "Is a contract still valid if one party was a minor at the time of signing?",
-    "judge": 0.211,
-    "filter": 0.745,
+    "id": "s1215",
+    "kind": "bare_command",
+    "text": "the 3x3 one, rows 1 2 3, 4 5 6, 7 8 9",
+    "judge": 0.319,
+    "filter": 0.992,
     "rules": 0.5
+   },
+   {
+    "id": "s0668",
+    "kind": "hint_quiz",
+    "text": "mens rea? intent?",
+    "judge": 0.746,
+    "filter": 0.076,
+    "rules": 0.25
    },
    {
     "id": "s0104",
     "kind": "polite_delegation",
     "text": "not sure, could you just fill that part in, phosphorus or nitrogen i guess",
     "judge": 0.08,
-    "filter": 0.57,
+    "filter": 0.741,
     "rules": 0.85
    },
    {
-    "id": "s0578",
+    "id": "s0900",
     "kind": "fact",
-    "text": "define carbon footprint",
-    "judge": 0.0,
-    "filter": 0.489,
-    "rules": 0.15
-   },
-   {
-    "id": "s0358",
-    "kind": "fact",
-    "text": "wut is a eigenvalue",
-    "judge": 0.007,
-    "filter": 0.489,
-    "rules": 0.25
-   },
-   {
-    "id": "s0329",
-    "kind": "fact",
-    "text": "when did ww1 start",
-    "judge": 0.0,
-    "filter": 0.473,
-    "rules": 0.172
-   },
-   {
-    "id": "s0286",
-    "kind": "fact",
-    "text": "Who wrote the novel 'Frankenstein'?",
-    "judge": 0.0,
-    "filter": 0.468,
-    "rules": 0.25
-   },
-   {
-    "id": "s0271",
-    "kind": "claim_question",
-    "text": "is it true that people with secure attachment style as kids usually end up having healthier relationships as adults?",
-    "judge": 0.275,
-    "filter": 0.742,
+    "text": "who rote romeo and juliet and wen",
+    "judge": 0.001,
+    "filter": 0.659,
     "rules": 0.5
    },
    {
-    "id": "s0404",
+    "id": "s0990",
     "kind": "mixed",
-    "text": "so i think inflation is mostly caused by too much money printed by the government, but theres probably demand stuff too. can you write up the full explanation with examples for my essay",
-    "judge": 0.248,
-    "filter": 0.715,
+    "text": "so like my idea is that unemployment rises because of minimum wage increases, since employers cant afford to hire as many workers... could you expand this into a full argument with evidence and write the rest of the essay for me?",
+    "judge": 0.092,
+    "filter": 0.732,
     "rules": 0.85
    },
    {
-    "id": "s0831",
-    "kind": "claim",
-    "text": "The French Revolution started in 1789, correct?",
-    "judge": 0.181,
-    "filter": 0.645,
+    "id": "s1043",
+    "kind": "solve_request",
+    "text": "Calcualte how many years passed between the fall of Rome in 476 AD and the start of the Renaissance around 1400, and explain breifly what happend in between.",
+    "judge": 0.002,
+    "filter": 0.61,
     "rules": 0.5
    },
    {
-    "id": "s0693",
-    "kind": "claim_question",
-    "text": "is it true that the left brain is just for logic and right brain is for creativity?",
-    "judge": 0.276,
-    "filter": 0.737,
-    "rules": 0.5
+    "id": "s0936",
+    "kind": "answer",
+    "text": "discrete i thnk",
+    "judge": 0.759,
+    "filter": 0.166,
+    "rules": 0.25
    }
   ]
  },
@@ -1083,37 +1276,37 @@
   "n": 150,
   "words_median": 14.5,
   "settle_word_median": 2.0,
-  "settle_word_mean": 4.31,
+  "settle_word_mean": 5.22,
   "settled_by_word": {
-   "1": 0.427,
-   "2": 0.593,
-   "3": 0.66,
-   "5": 0.793,
-   "8": 0.867
+   "1": 0.32,
+   "2": 0.52,
+   "3": 0.573,
+   "5": 0.693,
+   "8": 0.833
   },
-  "settle_fraction_median": 0.167,
-  "abs_gap_to_final_at_1/3": 0.109,
-  "abs_gap_to_final_at_2/3": 0.061,
+  "settle_fraction_median": 0.203,
+  "abs_gap_to_final_at_1/3": 0.126,
+  "abs_gap_to_final_at_2/3": 0.063,
   "certainty_mean": {
-   "word 1": 0.16,
-   "1/3": 0.453,
-   "2/3": 0.579,
-   "full": 0.674
+   "word 1": 0.542,
+   "1/3": 0.721,
+   "2/3": 0.796,
+   "full": 0.857
   },
   "mean_abs_step_per_word": {
-   "filter": 0.022,
-   "filter alpha 1": 0.024
+   "filter": 0.03,
+   "filter calibrated": 0.027
   },
   "label_flips": {
    "filter": {
-    "mean": 1.0,
-    "share_at_least_one": 0.733,
-    "share_more_than_two": 0.093
+    "mean": 1.05,
+    "share_at_least_one": 0.673,
+    "share_more_than_two": 0.073
    },
-   "filter alpha 1": {
-    "mean": 0.93,
-    "share_at_least_one": 0.58,
-    "share_more_than_two": 0.093
+   "filter calibrated": {
+    "mean": 0.99,
+    "share_at_least_one": 0.62,
+    "share_more_than_two": 0.1
    },
    "rules": {
     "mean": 0.96,
@@ -1127,16 +1320,16 @@
     "kind": "wrong_claim",
     "text": "derivative of x^x is just x*x^(x-1) right since power rule",
     "estimates": [
-     0.51,
-     0.55,
-     0.75,
-     0.81,
-     0.79,
-     0.94,
-     0.95,
-     0.95,
-     0.96,
-     0.96
+     0.34,
+     0.48,
+     0.63,
+     0.76,
+     0.77,
+     0.97,
+     0.98,
+     0.98,
+     0.99,
+     0.99
     ]
    },
    {
@@ -1144,18 +1337,18 @@
     "kind": "answer",
     "text": "The standard error gets larger as the sample size increases, I believe.",
     "estimates": [
-     0.58,
-     0.58,
-     0.58,
-     0.64,
-     0.64,
-     0.67,
-     0.71,
+     0.47,
+     0.42,
+     0.5,
+     0.68,
+     0.68,
+     0.74,
      0.75,
-     0.77,
-     0.79,
-     0.82,
-     0.82
+     0.74,
+     0.75,
+     0.75,
+     0.76,
+     0.76
     ]
    },
    {
@@ -1163,12 +1356,12 @@
     "kind": "wrong_claim",
     "text": "more data = no overfitting, always",
     "estimates": [
-     0.59,
-     0.65,
-     0.65,
-     0.62,
-     0.65,
-     0.71
+     0.3,
+     0.5,
+     0.5,
+     0.55,
+     0.63,
+     0.73
     ]
    },
    {
@@ -1176,12 +1369,12 @@
     "kind": "answer",
     "text": "the assassination of franz ferdinand i think",
     "estimates": [
-     0.58,
-     0.64,
+     0.29,
+     0.63,
      0.65,
-     0.67,
+     0.65,
+     0.65,
      0.7,
-     0.72,
      0.75
     ]
    },
@@ -1190,12 +1383,12 @@
     "kind": "why_how",
     "text": "Why does regularization help prevent overfitting?",
     "estimates": [
-     0.38,
-     0.27,
-     0.27,
-     0.27,
-     0.27,
-     0.26
+     0.26,
+     0.25,
+     0.25,
+     0.25,
+     0.25,
+     0.25
     ]
    },
    {
@@ -1203,14 +1396,14 @@
     "kind": "delegate",
     "text": "nah jus giv me the final answr pls",
     "estimates": [
-     0.25,
-     0.25,
-     0.26,
-     0.17,
-     0.16,
-     0.12,
-     0.12,
-     0.08
+     0.01,
+     0.01,
+     0.01,
+     0.01,
+     0.0,
+     0.01,
+     0.01,
+     0.0
     ]
    }
   ]
@@ -1225,16 +1418,16 @@
   "filter": {
    "mae": {
     "1/3": 0.148,
-    "2/3": 0.093,
-    "full": 0.087
+    "2/3": 0.088,
+    "full": 0.082
    },
    "label_agree": {
-    "1/3": 0.65,
-    "2/3": 0.8,
+    "1/3": 0.7,
+    "2/3": 0.833,
     "full": 0.85
    },
-   "delta_corr_1/3_to_full": 0.521,
-   "same_direction_when_judge_moves": 0.871
+   "delta_corr_1/3_to_full": 0.394,
+   "same_direction_when_judge_moves": 0.903
   },
   "judge_moves_n": 31,
   "rules": {
@@ -1266,9 +1459,9 @@
      "full": 0.72
     },
     "filter": {
-     "1/3": 0.54,
-     "2/3": 0.62,
-     "full": 0.73
+     "1/3": 0.31,
+     "2/3": 0.57,
+     "full": 0.63
     },
     "rules": {
      "1/3": 0.25,
@@ -1290,9 +1483,9 @@
      "full": 0.75
     },
     "filter": {
-     "1/3": 0.65,
-     "2/3": 0.63,
-     "full": 0.7
+     "1/3": 0.69,
+     "2/3": 0.73,
+     "full": 0.74
     },
     "rules": {
      "1/3": 0.25,
@@ -1314,9 +1507,9 @@
      "full": 0.25
     },
     "filter": {
-     "1/3": 0.78,
-     "2/3": 0.77,
-     "full": 0.72
+     "1/3": 0.77,
+     "2/3": 0.75,
+     "full": 0.75
     },
     "rules": {
      "1/3": 0.85,
@@ -1338,9 +1531,9 @@
      "full": 0.5
     },
     "filter": {
-     "1/3": 0.23,
-     "2/3": 0.47,
-     "full": 0.49
+     "1/3": 0.16,
+     "2/3": 0.5,
+     "full": 0.5
     },
     "rules": {
      "1/3": 0.25,
@@ -1362,9 +1555,9 @@
      "full": 0.95
     },
     "filter": {
-     "1/3": 0.91,
-     "2/3": 0.99,
-     "full": 0.99
+     "1/3": 0.94,
+     "2/3": 0.98,
+     "full": 1.0
     },
     "rules": {
      "1/3": 0.85,
@@ -1386,8 +1579,8 @@
      "full": 1.0
     },
     "filter": {
-     "1/3": 0.86,
-     "2/3": 0.99,
+     "1/3": 0.95,
+     "2/3": 1.0,
      "full": 1.0
     },
     "rules": {
@@ -1399,52 +1592,62 @@
   ]
  },
  "online": {
-  "stream_items": 499,
+  "stream_items": 675,
   "blocks": [
    "1-100",
    "101-200",
    "201-300",
    "301-400",
-   "401-499"
+   "401-500",
+   "501-600",
+   "601-675"
   ],
   "static": {
-   "mae_all": 0.094,
+   "mae_all": 0.088,
    "mae_blocks": [
+    0.088,
+    0.092,
     0.094,
-    0.098,
-    0.093,
+    0.08,
+    0.088,
     0.087,
-    0.098
+    0.092
    ]
   },
   "weight 1": {
-   "mae_all": 0.087,
+   "mae_all": 0.081,
    "mae_blocks": [
-    0.095,
-    0.094,
+    0.086,
     0.084,
-    0.079,
-    0.085
+    0.087,
+    0.075,
+    0.078,
+    0.073,
+    0.087
    ]
   },
   "weight 3": {
-   "mae_all": 0.086,
+   "mae_all": 0.084,
    "mae_blocks": [
-    0.097,
-    0.093,
+    0.087,
+    0.083,
+    0.09,
     0.079,
-    0.076,
-    0.082
+    0.083,
+    0.079,
+    0.091
    ]
   },
   "weight 10": {
-   "mae_all": 0.091,
+   "mae_all": 0.09,
    "mae_blocks": [
-    0.105,
-    0.101,
-    0.083,
-    0.08,
-    0.086
+    0.091,
+    0.087,
+    0.097,
+    0.085,
+    0.091,
+    0.086,
+    0.096
    ]
   }
  },
@@ -1464,62 +1667,62 @@
    "31-40"
   ],
   "static": {
-   "mae_all": 0.089,
+   "mae_all": 0.056,
    "mae_blocks": [
-    0.086,
-    0.087,
-    0.084,
-    0.1
+    0.052,
+    0.058,
+    0.051,
+    0.062
    ]
   },
   "weight 1": {
-   "mae_all": 0.07,
+   "mae_all": 0.061,
    "mae_blocks": [
-    0.077,
-    0.068,
+    0.063,
     0.062,
-    0.074
+    0.051,
+    0.067
    ]
   },
   "weight 3": {
-   "mae_all": 0.072,
+   "mae_all": 0.065,
    "mae_blocks": [
-    0.075,
-    0.072,
+    0.069,
     0.064,
-    0.075
+    0.056,
+    0.071
    ]
   },
   "weight 10": {
-   "mae_all": 0.075,
+   "mae_all": 0.067,
    "mae_blocks": [
-    0.08,
-    0.076,
-    0.068,
-    0.077
+    0.072,
+    0.065,
+    0.059,
+    0.072
    ]
   },
   "mae_on_unseen_after_k_updates": {
    "weight 1": {
-    "0": 0.089,
-    "5": 0.08,
-    "10": 0.075,
-    "20": 0.074,
-    "30": 0.075
+    "0": 0.056,
+    "5": 0.067,
+    "10": 0.063,
+    "20": 0.059,
+    "30": 0.066
    },
    "weight 3": {
-    "0": 0.089,
-    "5": 0.08,
-    "10": 0.08,
-    "20": 0.076,
-    "30": 0.076
+    "0": 0.056,
+    "5": 0.075,
+    "10": 0.068,
+    "20": 0.064,
+    "30": 0.07
    },
    "weight 10": {
-    "0": 0.089,
-    "5": 0.091,
-    "10": 0.087,
-    "20": 0.078,
-    "30": 0.078
+    "0": 0.056,
+    "5": 0.081,
+    "10": 0.071,
+    "20": 0.065,
+    "30": 0.073
    }
   }
  },
@@ -1619,158 +1822,67 @@
    },
    "filter": {
     "n": 136,
-    "accuracy": 0.662,
-    "kappa": 0.498,
-    "weighted_kappa": 0.569,
+    "accuracy": 0.838,
+    "kappa": 0.758,
+    "weighted_kappa": 0.785,
     "confusion_rows_label_cols_pred": [
      [
-      38,
-      8,
+      40,
+      6,
       0
      ],
      [
-      4,
-      33,
+      1,
+      36,
       5
      ],
      [
       4,
-      25,
-      19
+      6,
+      38
      ]
     ],
     "per_class": {
      "own": {
-      "recall": 0.826,
-      "precision": 0.826,
+      "recall": 0.87,
+      "precision": 0.889,
       "support": 46
      },
      "together": {
-      "recall": 0.786,
-      "precision": 0.5,
+      "recall": 0.857,
+      "precision": 0.75,
       "support": 42
      },
      "ai": {
-      "recall": 0.396,
-      "precision": 0.792,
+      "recall": 0.792,
+      "precision": 0.884,
       "support": 48
      }
     },
     "by_tag": {
      "(no tag)": {
       "n": 73,
-      "accuracy": 0.726
+      "accuracy": 0.89
      },
      "boundary": {
       "n": 15,
-      "accuracy": 0.467
-     },
-     "code": {
-      "n": 5,
       "accuracy": 0.8
      },
-     "de": {
-      "n": 12,
-      "accuracy": 0.417
-     },
-     "hedge": {
-      "n": 13,
-      "accuracy": 0.692
-     },
-     "hint": {
-      "n": 6,
-      "accuracy": 1.0
-     },
-     "negation": {
-      "n": 9,
-      "accuracy": 0.778
-     },
-     "polite": {
-      "n": 4,
-      "accuracy": 0.75
-     },
-     "quiz": {
-      "n": 6,
-      "accuracy": 0.667
-     },
-     "short": {
-      "n": 7,
-      "accuracy": 0.571
-     },
-     "typo": {
-      "n": 1,
-      "accuracy": 1.0
-     }
-    },
-    "english_only": {
-     "n": 124,
-     "accuracy": 0.685,
-     "kappa": 0.532
-    }
-   },
-   "filter alpha 1": {
-    "n": 136,
-    "accuracy": 0.691,
-    "kappa": 0.538,
-    "weighted_kappa": 0.607,
-    "confusion_rows_label_cols_pred": [
-     [
-      42,
-      4,
-      0
-     ],
-     [
-      9,
-      26,
-      7
-     ],
-     [
-      6,
-      16,
-      26
-     ]
-    ],
-    "per_class": {
-     "own": {
-      "recall": 0.913,
-      "precision": 0.737,
-      "support": 46
-     },
-     "together": {
-      "recall": 0.619,
-      "precision": 0.565,
-      "support": 42
-     },
-     "ai": {
-      "recall": 0.542,
-      "precision": 0.788,
-      "support": 48
-     }
-    },
-    "by_tag": {
-     "(no tag)": {
-      "n": 73,
-      "accuracy": 0.74
-     },
-     "boundary": {
-      "n": 15,
-      "accuracy": 0.533
-     },
      "code": {
       "n": 5,
-      "accuracy": 0.6
+      "accuracy": 1.0
      },
      "de": {
       "n": 12,
-      "accuracy": 0.417
+      "accuracy": 0.75
      },
      "hedge": {
       "n": 13,
-      "accuracy": 0.692
+      "accuracy": 0.615
      },
      "hint": {
       "n": 6,
-      "accuracy": 0.5
+      "accuracy": 0.833
      },
      "negation": {
       "n": 9,
@@ -1782,7 +1894,7 @@
      },
      "quiz": {
       "n": 6,
-      "accuracy": 0.667
+      "accuracy": 1.0
      },
      "short": {
       "n": 7,
@@ -1795,8 +1907,281 @@
     },
     "english_only": {
      "n": 124,
-     "accuracy": 0.718,
-     "kappa": 0.577
+     "accuracy": 0.847,
+     "kappa": 0.77
+    }
+   },
+   "filter calibrated": {
+    "n": 136,
+    "accuracy": 0.787,
+    "kappa": 0.681,
+    "weighted_kappa": 0.738,
+    "confusion_rows_label_cols_pred": [
+     [
+      33,
+      13,
+      0
+     ],
+     [
+      1,
+      36,
+      5
+     ],
+     [
+      2,
+      8,
+      38
+     ]
+    ],
+    "per_class": {
+     "own": {
+      "recall": 0.717,
+      "precision": 0.917,
+      "support": 46
+     },
+     "together": {
+      "recall": 0.857,
+      "precision": 0.632,
+      "support": 42
+     },
+     "ai": {
+      "recall": 0.792,
+      "precision": 0.884,
+      "support": 48
+     }
+    },
+    "by_tag": {
+     "(no tag)": {
+      "n": 73,
+      "accuracy": 0.808
+     },
+     "boundary": {
+      "n": 15,
+      "accuracy": 0.733
+     },
+     "code": {
+      "n": 5,
+      "accuracy": 1.0
+     },
+     "de": {
+      "n": 12,
+      "accuracy": 0.583
+     },
+     "hedge": {
+      "n": 13,
+      "accuracy": 0.615
+     },
+     "hint": {
+      "n": 6,
+      "accuracy": 0.833
+     },
+     "negation": {
+      "n": 9,
+      "accuracy": 0.778
+     },
+     "polite": {
+      "n": 4,
+      "accuracy": 1.0
+     },
+     "quiz": {
+      "n": 6,
+      "accuracy": 1.0
+     },
+     "short": {
+      "n": 7,
+      "accuracy": 0.857
+     },
+     "typo": {
+      "n": 1,
+      "accuracy": 1.0
+     }
+    },
+    "english_only": {
+     "n": 124,
+     "accuracy": 0.806,
+     "kappa": 0.71
+    }
+   },
+   "mean of filter and draftShare": {
+    "n": 136,
+    "accuracy": 0.721,
+    "kappa": 0.585,
+    "weighted_kappa": 0.642,
+    "confusion_rows_label_cols_pred": [
+     [
+      26,
+      19,
+      1
+     ],
+     [
+      2,
+      38,
+      2
+     ],
+     [
+      2,
+      12,
+      34
+     ]
+    ],
+    "per_class": {
+     "own": {
+      "recall": 0.565,
+      "precision": 0.867,
+      "support": 46
+     },
+     "together": {
+      "recall": 0.905,
+      "precision": 0.551,
+      "support": 42
+     },
+     "ai": {
+      "recall": 0.708,
+      "precision": 0.919,
+      "support": 48
+     }
+    },
+    "by_tag": {
+     "(no tag)": {
+      "n": 73,
+      "accuracy": 0.795
+     },
+     "boundary": {
+      "n": 15,
+      "accuracy": 0.733
+     },
+     "code": {
+      "n": 5,
+      "accuracy": 1.0
+     },
+     "de": {
+      "n": 12,
+      "accuracy": 0.417
+     },
+     "hedge": {
+      "n": 13,
+      "accuracy": 0.308
+     },
+     "hint": {
+      "n": 6,
+      "accuracy": 0.833
+     },
+     "negation": {
+      "n": 9,
+      "accuracy": 0.667
+     },
+     "polite": {
+      "n": 4,
+      "accuracy": 0.75
+     },
+     "quiz": {
+      "n": 6,
+      "accuracy": 0.833
+     },
+     "short": {
+      "n": 7,
+      "accuracy": 0.714
+     },
+     "typo": {
+      "n": 1,
+      "accuracy": 1.0
+     }
+    },
+    "english_only": {
+     "n": 124,
+     "accuracy": 0.75,
+     "kappa": 0.628
+    }
+   },
+   "rules if linter >= 0.7 sure, else filter": {
+    "n": 136,
+    "accuracy": 0.831,
+    "kappa": 0.747,
+    "weighted_kappa": 0.77,
+    "confusion_rows_label_cols_pred": [
+     [
+      41,
+      5,
+      0
+     ],
+     [
+      3,
+      35,
+      4
+     ],
+     [
+      5,
+      6,
+      37
+     ]
+    ],
+    "per_class": {
+     "own": {
+      "recall": 0.891,
+      "precision": 0.837,
+      "support": 46
+     },
+     "together": {
+      "recall": 0.833,
+      "precision": 0.761,
+      "support": 42
+     },
+     "ai": {
+      "recall": 0.771,
+      "precision": 0.902,
+      "support": 48
+     }
+    },
+    "by_tag": {
+     "(no tag)": {
+      "n": 73,
+      "accuracy": 0.932
+     },
+     "boundary": {
+      "n": 15,
+      "accuracy": 0.733
+     },
+     "code": {
+      "n": 5,
+      "accuracy": 1.0
+     },
+     "de": {
+      "n": 12,
+      "accuracy": 0.75
+     },
+     "hedge": {
+      "n": 13,
+      "accuracy": 0.462
+     },
+     "hint": {
+      "n": 6,
+      "accuracy": 0.833
+     },
+     "negation": {
+      "n": 9,
+      "accuracy": 0.778
+     },
+     "polite": {
+      "n": 4,
+      "accuracy": 0.75
+     },
+     "quiz": {
+      "n": 6,
+      "accuracy": 0.833
+     },
+     "short": {
+      "n": 7,
+      "accuracy": 0.714
+     },
+     "typo": {
+      "n": 1,
+      "accuracy": 1.0
+     }
+    },
+    "english_only": {
+     "n": 124,
+     "accuracy": 0.839,
+     "kappa": 0.758
     }
    },
    "judge": {
@@ -1905,12 +2290,26 @@
     "share_more_than_two": 0.0
    },
    "filter": {
-    "mean": 0.74,
-    "share_at_least_one": 0.559,
-    "share_more_than_two": 0.037
+    "mean": 1.04,
+    "share_at_least_one": 0.61,
+    "share_more_than_two": 0.103
    }
   },
-  "filter_vs_judge_percent_mae": 0.196,
+  "share_rules_sure": 0.507,
+  "leak_sensitivity": {
+   "near_items_dropped": 23,
+   "examples": [
+    "the moon has no light of its own, right?",
+    "write bio lab report pls",
+    "heavier objects fall faster than light ones right",
+    "i think mountains form mostly because of volcanoes pushing up the land, but i al",
+    "why we need activation function in neural network, is it for making it non linea"
+   ],
+   "accuracy": 0.846,
+   "kappa": 0.768,
+   "weighted_kappa": 0.788
+  },
+  "filter_vs_judge_percent_mae": 0.111,
   "cases": [
    {
     "id": "L001",
@@ -1918,7 +2317,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.795,
+    "filter": 0.762,
     "judge": 0.751
    },
    {
@@ -1927,7 +2326,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.751,
+    "filter": 0.75,
     "judge": 0.757
    },
    {
@@ -1936,7 +2335,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.641,
+    "filter": 0.749,
     "judge": 0.751
    },
    {
@@ -1945,7 +2344,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.759,
+    "filter": 0.752,
     "judge": 0.751
    },
    {
@@ -1956,7 +2355,7 @@
      "hedge"
     ],
     "rules": "own",
-    "filter": 0.623,
+    "filter": 0.651,
     "judge": 0.729
    },
    {
@@ -1965,7 +2364,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.79,
+    "filter": 0.835,
     "judge": 0.765
    },
    {
@@ -1974,7 +2373,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.701,
+    "filter": 0.748,
     "judge": 0.698
    },
    {
@@ -1983,7 +2382,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.763,
+    "filter": 0.761,
     "judge": 0.751
    },
    {
@@ -1992,7 +2391,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.745,
+    "filter": 0.767,
     "judge": 0.751
    },
    {
@@ -2001,7 +2400,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.728,
+    "filter": 0.716,
     "judge": 0.866
    },
    {
@@ -2012,7 +2411,7 @@
      "hedge"
     ],
     "rules": "together",
-    "filter": 0.762,
+    "filter": 0.761,
     "judge": 0.69
    },
    {
@@ -2021,7 +2420,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.692,
+    "filter": 0.749,
     "judge": 0.751
    },
    {
@@ -2032,7 +2431,7 @@
      "short"
     ],
     "rules": "together",
-    "filter": 0.733,
+    "filter": 0.75,
     "judge": 0.467
    },
    {
@@ -2041,7 +2440,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.806,
+    "filter": 0.79,
     "judge": 0.751
    },
    {
@@ -2050,7 +2449,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.909,
+    "filter": 0.842,
     "judge": 0.791
    },
    {
@@ -2059,7 +2458,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.853,
+    "filter": 0.872,
     "judge": 0.754
    },
    {
@@ -2068,7 +2467,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.739,
+    "filter": 0.712,
     "judge": 0.753
    },
    {
@@ -2077,7 +2476,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.741,
+    "filter": 0.761,
     "judge": 0.937
    },
    {
@@ -2086,7 +2485,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.756,
+    "filter": 0.751,
     "judge": 0.773
    },
    {
@@ -2095,7 +2494,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.733,
+    "filter": 0.752,
     "judge": 0.785
    },
    {
@@ -2106,7 +2505,7 @@
      "typo"
     ],
     "rules": "own",
-    "filter": 0.827,
+    "filter": 0.806,
     "judge": 0.769
    },
    {
@@ -2115,7 +2514,7 @@
     "label": "own",
     "tags": [],
     "rules": "ai",
-    "filter": 0.742,
+    "filter": 0.584,
     "judge": 0.765
    },
    {
@@ -2124,7 +2523,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.775,
+    "filter": 0.896,
     "judge": 0.983
    },
    {
@@ -2133,7 +2532,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.831,
+    "filter": 0.881,
     "judge": 0.772
    },
    {
@@ -2142,7 +2541,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.803,
+    "filter": 0.767,
     "judge": 0.774
    },
    {
@@ -2151,7 +2550,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.792,
+    "filter": 0.932,
     "judge": 0.999
    },
    {
@@ -2160,7 +2559,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.893,
+    "filter": 0.939,
     "judge": 0.866
    },
    {
@@ -2169,7 +2568,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.997,
+    "filter": 1.0,
     "judge": 0.976
    },
    {
@@ -2187,7 +2586,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.525,
+    "filter": 0.668,
     "judge": 0.991
    },
    {
@@ -2196,7 +2595,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.983,
+    "filter": 1.0,
     "judge": 0.874
    },
    {
@@ -2207,7 +2606,7 @@
      "code"
     ],
     "rules": "own",
-    "filter": 0.974,
+    "filter": 0.995,
     "judge": 0.83
    },
    {
@@ -2218,7 +2617,7 @@
      "code"
     ],
     "rules": "own",
-    "filter": 0.8,
+    "filter": 0.764,
     "judge": 0.795
    },
    {
@@ -2227,7 +2626,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.954,
+    "filter": 0.981,
     "judge": 0.963
    },
    {
@@ -2236,7 +2635,7 @@
     "label": "own",
     "tags": [],
     "rules": "ai",
-    "filter": 0.57,
+    "filter": 0.222,
     "judge": 0.905
    },
    {
@@ -2245,7 +2644,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.837,
+    "filter": 0.808,
     "judge": 0.944
    },
    {
@@ -2254,7 +2653,7 @@
     "label": "own",
     "tags": [],
     "rules": "together",
-    "filter": 0.838,
+    "filter": 0.833,
     "judge": 0.779
    },
    {
@@ -2263,7 +2662,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.972,
+    "filter": 0.989,
     "judge": 0.805
    },
    {
@@ -2274,7 +2673,7 @@
      "boundary"
     ],
     "rules": "own",
-    "filter": 0.266,
+    "filter": 0.252,
     "judge": 0.806
    },
    {
@@ -2283,7 +2682,7 @@
     "label": "own",
     "tags": [],
     "rules": "own",
-    "filter": 0.986,
+    "filter": 1.0,
     "judge": 0.918
    },
    {
@@ -2294,7 +2693,7 @@
      "negation"
     ],
     "rules": "together",
-    "filter": 0.75,
+    "filter": 0.763,
     "judge": 0.823
    },
    {
@@ -2305,7 +2704,7 @@
      "negation"
     ],
     "rules": "own",
-    "filter": 0.77,
+    "filter": 0.761,
     "judge": 0.83
    },
    {
@@ -2316,7 +2715,7 @@
      "de"
     ],
     "rules": "together",
-    "filter": 0.448,
+    "filter": 0.744,
     "judge": 0.755
    },
    {
@@ -2327,7 +2726,7 @@
      "de"
     ],
     "rules": "together",
-    "filter": 0.595,
+    "filter": 0.785,
     "judge": 0.757
    },
    {
@@ -2338,7 +2737,7 @@
      "de"
     ],
     "rules": "together",
-    "filter": 0.678,
+    "filter": 0.828,
     "judge": 0.905
    },
    {
@@ -2349,7 +2748,7 @@
      "de"
     ],
     "rules": "together",
-    "filter": 0.506,
+    "filter": 0.494,
     "judge": 0.978
    },
    {
@@ -2360,7 +2759,7 @@
      "boundary"
     ],
     "rules": "together",
-    "filter": 0.374,
+    "filter": 0.253,
     "judge": 0.226
    },
    {
@@ -2371,7 +2770,7 @@
      "boundary"
     ],
     "rules": "ai",
-    "filter": 0.303,
+    "filter": 0.25,
     "judge": 0.243
    },
    {
@@ -2380,7 +2779,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.256,
+    "filter": 0.25,
     "judge": 0.253
    },
    {
@@ -2389,7 +2788,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.278,
+    "filter": 0.25,
     "judge": 0.251
    },
    {
@@ -2398,7 +2797,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.261,
+    "filter": 0.25,
     "judge": 0.249
    },
    {
@@ -2407,7 +2806,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.257,
+    "filter": 0.25,
     "judge": 0.251
    },
    {
@@ -2416,7 +2815,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.737,
+    "filter": 0.613,
     "judge": 0.289
    },
    {
@@ -2425,7 +2824,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.251,
+    "filter": 0.25,
     "judge": 0.251
    },
    {
@@ -2434,7 +2833,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.721,
+    "filter": 0.455,
     "judge": 0.249
    },
    {
@@ -2443,7 +2842,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.483,
+    "filter": 0.261,
     "judge": 0.252
    },
    {
@@ -2454,7 +2853,7 @@
      "boundary"
     ],
     "rules": "together",
-    "filter": 0.052,
+    "filter": 0.002,
     "judge": 0.005
    },
    {
@@ -2463,7 +2862,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.458,
+    "filter": 0.253,
     "judge": 0.252
    },
    {
@@ -2472,7 +2871,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.385,
+    "filter": 0.283,
     "judge": 0.253
    },
    {
@@ -2481,7 +2880,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.613,
+    "filter": 0.287,
     "judge": 0.479
    },
    {
@@ -2492,7 +2891,7 @@
      "short"
     ],
     "rules": "together",
-    "filter": 0.384,
+    "filter": 0.259,
     "judge": 0.236
    },
    {
@@ -2503,7 +2902,7 @@
      "short"
     ],
     "rules": "ai",
-    "filter": 0.429,
+    "filter": 0.211,
     "judge": 0.263
    },
    {
@@ -2512,7 +2911,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.274,
+    "filter": 0.25,
     "judge": 0.276
    },
    {
@@ -2521,7 +2920,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.297,
+    "filter": 0.098,
     "judge": 0.25
    },
    {
@@ -2532,7 +2931,7 @@
      "boundary"
     ],
     "rules": "own",
-    "filter": 0.278,
+    "filter": 0.275,
     "judge": 0.26
    },
    {
@@ -2541,7 +2940,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.719,
+    "filter": 0.284,
     "judge": 0.263
    },
    {
@@ -2564,7 +2963,7 @@
      "quiz"
     ],
     "rules": "together",
-    "filter": 0.376,
+    "filter": 0.5,
     "judge": 0.499
    },
    {
@@ -2575,7 +2974,7 @@
      "quiz"
     ],
     "rules": "together",
-    "filter": 0.164,
+    "filter": 0.5,
     "judge": 0.5
    },
    {
@@ -2586,7 +2985,7 @@
      "quiz"
     ],
     "rules": "together",
-    "filter": 0.383,
+    "filter": 0.5,
     "judge": 0.499
    },
    {
@@ -2597,7 +2996,7 @@
      "hint"
     ],
     "rules": "together",
-    "filter": 0.455,
+    "filter": 0.5,
     "judge": 0.5
    },
    {
@@ -2609,7 +3008,7 @@
      "negation"
     ],
     "rules": "together",
-    "filter": 0.463,
+    "filter": 0.485,
     "judge": 0.505
    },
    {
@@ -2618,7 +3017,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.476,
+    "filter": 0.348,
     "judge": 0.498
    },
    {
@@ -2627,7 +3026,7 @@
     "label": "together",
     "tags": [],
     "rules": "ai",
-    "filter": 0.097,
+    "filter": 0.0,
     "judge": 0.221
    },
    {
@@ -2638,7 +3037,7 @@
      "quiz"
     ],
     "rules": "together",
-    "filter": 0.111,
+    "filter": 0.5,
     "judge": 0.501
    },
    {
@@ -2647,7 +3046,7 @@
     "label": "together",
     "tags": [],
     "rules": "together",
-    "filter": 0.06,
+    "filter": 0.003,
     "judge": 0.5
    },
    {
@@ -2658,7 +3057,7 @@
      "boundary"
     ],
     "rules": "together",
-    "filter": 0.665,
+    "filter": 0.644,
     "judge": 0.139
    },
    {
@@ -2669,7 +3068,7 @@
      "boundary"
     ],
     "rules": "together",
-    "filter": 0.71,
+    "filter": 0.545,
     "judge": 0.214
    },
    {
@@ -2681,7 +3080,7 @@
      "polite"
     ],
     "rules": "own",
-    "filter": 0.39,
+    "filter": 0.5,
     "judge": 0.501
    },
    {
@@ -2690,7 +3089,7 @@
     "label": "together",
     "tags": [],
     "rules": "ai",
-    "filter": 0.441,
+    "filter": 0.026,
     "judge": 0.451
    },
    {
@@ -2703,7 +3102,7 @@
      "hint"
     ],
     "rules": "together",
-    "filter": 0.632,
+    "filter": 0.314,
     "judge": 0.504
    },
    {
@@ -2714,7 +3113,7 @@
      "hedge"
     ],
     "rules": "together",
-    "filter": 0.319,
+    "filter": 0.205,
     "judge": 0.5
    },
    {
@@ -2726,7 +3125,7 @@
      "hedge"
     ],
     "rules": "together",
-    "filter": 0.543,
+    "filter": 0.307,
     "judge": 0.263
    },
    {
@@ -2738,7 +3137,7 @@
      "hint"
     ],
     "rules": "own",
-    "filter": 0.627,
+    "filter": 0.731,
     "judge": 0.5
    },
    {
@@ -2750,7 +3149,7 @@
      "boundary"
     ],
     "rules": "ai",
-    "filter": 0.452,
+    "filter": 0.321,
     "judge": 0.226
    },
    {
@@ -2763,7 +3162,7 @@
      "negation"
     ],
     "rules": "together",
-    "filter": 0.575,
+    "filter": 0.644,
     "judge": 0.501
    },
    {
@@ -2775,7 +3174,7 @@
      "quiz"
     ],
     "rules": "together",
-    "filter": 0.415,
+    "filter": 0.499,
     "judge": 0.5
    },
    {
@@ -2786,7 +3185,7 @@
      "de"
     ],
     "rules": "together",
-    "filter": 0.499,
+    "filter": 0.302,
     "judge": 0.48
    },
    {
@@ -2795,7 +3194,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.006,
+    "filter": 0.0,
     "judge": 0.0
    },
    {
@@ -2804,7 +3203,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.007,
+    "filter": 0.0,
     "judge": 0.0
    },
    {
@@ -2813,7 +3212,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.066,
+    "filter": 0.0,
     "judge": 0.0
    },
    {
@@ -2822,7 +3221,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.722,
+    "filter": 0.259,
     "judge": 0.0
    },
    {
@@ -2831,7 +3230,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.008,
+    "filter": 0.0,
     "judge": 0.0
    },
    {
@@ -2840,7 +3239,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.2,
+    "filter": 0.018,
     "judge": 0.0
    },
    {
@@ -2851,7 +3250,7 @@
      "code"
     ],
     "rules": "ai",
-    "filter": 0.088,
+    "filter": 0.0,
     "judge": 0.0
    },
    {
@@ -2862,7 +3261,7 @@
      "code"
     ],
     "rules": "ai",
-    "filter": 0.536,
+    "filter": 0.005,
     "judge": 0.0
    },
    {
@@ -2871,7 +3270,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.561,
+    "filter": 0.002,
     "judge": 0.0
    },
    {
@@ -2880,7 +3279,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.19,
+    "filter": 0.003,
     "judge": 0.0
    },
    {
@@ -2889,7 +3288,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.659,
+    "filter": 0.031,
     "judge": 0.0
    },
    {
@@ -2898,7 +3297,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.601,
+    "filter": 0.013,
     "judge": 0.0
    },
    {
@@ -2907,7 +3306,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.425,
+    "filter": 0.02,
     "judge": 0.0
    },
    {
@@ -2916,7 +3315,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.018,
+    "filter": 0.0,
     "judge": 0.0
    },
    {
@@ -2927,7 +3326,7 @@
      "boundary"
     ],
     "rules": "together",
-    "filter": 0.79,
+    "filter": 0.773,
     "judge": 0.0
    },
    {
@@ -2936,7 +3335,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.876,
+    "filter": 0.0,
     "judge": 0.0
    },
    {
@@ -2945,7 +3344,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.347,
+    "filter": 0.002,
     "judge": 0.0
    },
    {
@@ -2956,7 +3355,7 @@
      "boundary"
     ],
     "rules": "ai",
-    "filter": 0.39,
+    "filter": 0.047,
     "judge": 0.11
    },
    {
@@ -2965,7 +3364,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.097,
+    "filter": 0.004,
     "judge": 0.0
    },
    {
@@ -2974,7 +3373,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.518,
+    "filter": 0.015,
     "judge": 0.0
    },
    {
@@ -2983,7 +3382,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.067,
+    "filter": 0.0,
     "judge": 0.001
    },
    {
@@ -2992,7 +3391,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.399,
+    "filter": 0.003,
     "judge": 0.0
    },
    {
@@ -3001,7 +3400,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.305,
+    "filter": 0.018,
     "judge": 0.0
    },
    {
@@ -3012,7 +3411,7 @@
      "boundary"
     ],
     "rules": "ai",
-    "filter": 0.216,
+    "filter": 0.021,
     "judge": 0.024
    },
    {
@@ -3021,7 +3420,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.086,
+    "filter": 0.012,
     "judge": 0.002
    },
    {
@@ -3030,7 +3429,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.392,
+    "filter": 0.0,
     "judge": 0.0
    },
    {
@@ -3039,7 +3438,7 @@
     "label": "ai",
     "tags": [],
     "rules": "ai",
-    "filter": 0.422,
+    "filter": 0.0,
     "judge": 0.0
    },
    {
@@ -3050,7 +3449,7 @@
      "short"
     ],
     "rules": "ai",
-    "filter": 0.283,
+    "filter": 0.003,
     "judge": 0.0
    },
    {
@@ -3061,7 +3460,7 @@
      "boundary"
     ],
     "rules": "ai",
-    "filter": 0.341,
+    "filter": 0.007,
     "judge": 0.233
    },
    {
@@ -3072,7 +3471,7 @@
      "short"
     ],
     "rules": "ai",
-    "filter": 0.107,
+    "filter": 0.001,
     "judge": 0.0
    },
    {
@@ -3083,7 +3482,7 @@
      "short"
     ],
     "rules": "ai",
-    "filter": 0.449,
+    "filter": 0.218,
     "judge": 0.0
    },
    {
@@ -3094,7 +3493,7 @@
      "short"
     ],
     "rules": "ai",
-    "filter": 0.478,
+    "filter": 0.283,
     "judge": 0.021
    },
    {
@@ -3105,7 +3504,7 @@
      "negation"
     ],
     "rules": "together",
-    "filter": 0.228,
+    "filter": 0.24,
     "judge": 0.0
    },
    {
@@ -3117,7 +3516,7 @@
      "hedge"
     ],
     "rules": "together",
-    "filter": 0.319,
+    "filter": 0.257,
     "judge": 0.0
    },
    {
@@ -3128,7 +3527,7 @@
      "hedge"
     ],
     "rules": "own",
-    "filter": 0.018,
+    "filter": 0.021,
     "judge": 0.0
    },
    {
@@ -3139,7 +3538,7 @@
      "hedge"
     ],
     "rules": "own",
-    "filter": 0.708,
+    "filter": 0.82,
     "judge": 0.0
    },
    {
@@ -3150,7 +3549,7 @@
      "polite"
     ],
     "rules": "ai",
-    "filter": 0.022,
+    "filter": 0.003,
     "judge": 0.0
    },
    {
@@ -3161,7 +3560,7 @@
      "polite"
     ],
     "rules": "ai",
-    "filter": 0.21,
+    "filter": 0.034,
     "judge": 0.0
    },
    {
@@ -3173,7 +3572,7 @@
      "boundary"
     ],
     "rules": "together",
-    "filter": 0.012,
+    "filter": 0.015,
     "judge": 0.005
    },
    {
@@ -3184,7 +3583,7 @@
      "hedge"
     ],
     "rules": "own",
-    "filter": 0.497,
+    "filter": 0.94,
     "judge": 0.0
    },
    {
@@ -3195,7 +3594,7 @@
      "hedge"
     ],
     "rules": "ai",
-    "filter": 0.026,
+    "filter": 0.001,
     "judge": 0.0
    },
    {
@@ -3206,7 +3605,7 @@
      "hedge"
     ],
     "rules": "together",
-    "filter": 0.193,
+    "filter": 0.001,
     "judge": 0.0
    },
    {
@@ -3217,7 +3616,7 @@
      "hedge"
     ],
     "rules": "together",
-    "filter": 0.029,
+    "filter": 0.021,
     "judge": 0.0
    },
    {
@@ -3229,7 +3628,7 @@
      "boundary"
     ],
     "rules": "ai",
-    "filter": 0.081,
+    "filter": 0.083,
     "judge": 0.189
    },
    {
@@ -3240,7 +3639,7 @@
      "de"
     ],
     "rules": "together",
-    "filter": 0.565,
+    "filter": 0.569,
     "judge": 0.0
    },
    {
@@ -3251,7 +3650,7 @@
      "de"
     ],
     "rules": "ai",
-    "filter": 0.53,
+    "filter": 0.013,
     "judge": 0.0
    },
    {
@@ -3262,7 +3661,7 @@
      "de"
     ],
     "rules": "together",
-    "filter": 0.502,
+    "filter": 0.675,
     "judge": 0.001
    },
    {
@@ -3274,7 +3673,7 @@
      "boundary"
     ],
     "rules": "ai",
-    "filter": 0.413,
+    "filter": 0.153,
     "judge": 0.156
    }
   ]
