@@ -4,8 +4,9 @@ FastAPI running on Cloudflare Python Workers (Pyodide), with a Cloudflare D1 dat
 separately from the frontend (Cloudflare Pages); the frontend calls it through `frontend/src/lib/api.ts`.
 
 What it does today (IMPLEMENTATION_PLAN.md, ADR-3/5/8): anonymous sessions, a guarded relay to
-Claude with a daily token budget per user, study event logging and CSV export. The routes that need
-the frontend data model (`/state`, `/conversations/:id/messages`, `/sync`) are planned, not built.
+Claude with a daily token budget per user, persistence of the frontend's data model (concepts,
+edges, trees, conversations, messages, attempts: one idempotent batch sync, a bootstrap read and
+messages per conversation), study event logging and CSV export.
 
 ## Structure
 
@@ -16,12 +17,13 @@ migrations/              D1 schema as .sql files, applied with `d1 migrations ap
 src/main.py              Worker entry point (the only module that imports `workers` besides upstream.py)
 src/app.py               create_app(): CORS, routers, the error format
 src/config.py            vars and secrets from the Worker env
-src/schemas.py           request/response models (camelCase on the wire)
+src/schemas.py           request/response models (camelCase on the wire), incl. the synced entities and their limits
+src/entities.py          how a synced entity maps to its D1 row and back, and the SQL to upsert and read it
 src/auth.py              session tokens, the `current_user` dependency, the admin token check
 src/db.py                small async functions over D1
 src/llm.py               Claude request bodies, response and SSE parsing (pure logic)
 src/upstream.py          the HTTP call to Claude through the Workers `fetch`
-src/routes/              health, session, ai, events, admin
+src/routes/              health, session, ai, events, sync (state, messages, sync), admin
 tests/                   pytest suite, fake Claude API, smoke test (see docs/testing.md)
 docs/api.md              the API reference
 docs/testing.md          how to test, manual checklist, results table
@@ -60,8 +62,11 @@ Full reference with request and response shapes, error codes and `curl` examples
 | `GET /api/health` | none | liveness check, `{"ok": true, "environment": ...}` |
 | `POST /api/session` | none | create (or, with a known `participantId`, fetch) an anonymous user and its token |
 | `POST /api/ai/complete` | token | one Claude call: `chat` (optionally streamed as SSE), `analyze`, `tree`, `quiz` (JSON) |
+| `PUT /api/sync` | token | idempotent upsert of the user's entities (up to 500 rows) in one `db.batch()` |
+| `GET /api/state` | token | bootstrap: the user's concepts, edges, trees, conversations, attempts (no messages) |
+| `GET /api/conversations/{id}/messages` | token | the messages of one of the user's conversations |
 | `POST /api/events` | token | store study events, idempotent by event id |
-| `GET /api/admin/export?table=events\|usage\|users` | `X-Admin-Token` | one table as CSV |
+| `GET /api/admin/export?table=...` | `X-Admin-Token` | one table as CSV: `events`, `usage`, `users`, `conversations`, `messages`, `attempts`, `concepts`, `concept_edges`, `trees` |
 
 New routes go into `src/routes/` and are mounted in `src/app.py`. Dependencies go in
 `pyproject.toml` (`uv add <pkg>`); only pure-Python packages or ones Pyodide supports work in the
@@ -99,12 +104,12 @@ Cloudflare: **Workers & Pages → Create → Worker → Import a repository**, t
 | Root directory | `backend` |
 | Build command | `pip install uv && npm ci` |
 | Deploy command | `uv run pywrangler deploy` |
+| Build watch paths | `backend/*` |
 
 Pushes to other branches also start a build, which runs `npx wrangler preview` and fails with
 "missing a `previews` block". That red check on a pull request is expected and does not touch the
 deployed Worker. We left the `previews` block out on purpose: it would need a second database, or
 previews would write into the real one.
-| Build watch paths | `backend/*` |
 
 Then set `VITE_API_URL` to the Worker's URL (`https://hci-backend.leon-grass.workers.dev`)
 in the **Pages** project's environment variables and redeploy the frontend.
@@ -129,6 +134,27 @@ endpoints answer with errors until they are done:
    the Paid plan ($5/month) raises the limit.
 6. Check the deployed Worker: `curl https://hci-backend.leon-grass.workers.dev/api/health`, then the
    live checks T-20 to T-26 in [docs/testing.md](docs/testing.md).
+
+### After merging a PR with a new migration
+
+Every new file in `migrations/` has to be applied to the real database once. Until then the
+routes that need it answer 500 `internal_error` (no such table); everything else keeps working,
+because migrations here only add tables and indexes.
+
+| Migration | Needed by | Applied to `hci-grp19` |
+|---|---|---|
+| `0001_users_usage_events.sql` | session, ai, events, export | 16 Nov 2026 |
+| `0002_graph_and_chats.sql` | `/sync`, `/state`, `/conversations/{id}/messages`, the export of the six new tables | **open**: apply after the merge of the M2 backend PR |
+
+From `backend/`, with a Cloudflare login for the account that holds `hci-grp19`:
+
+```bash
+uv run pywrangler d1 migrations apply hci-grp19 --remote   # applies only the files not yet applied
+```
+
+Then run T-31 in [docs/testing.md](docs/testing.md) against the deployed Worker. Applying it before
+the merge is also safe (the running code does not touch the new tables) and avoids the short window
+of 500s.
 
 **CORS:** `src/app.py` allows `localhost:5173` and `*.hci-2026-group-19.pages.dev`. Change the
 regex there if the frontend moves to another domain.
