@@ -73,31 +73,31 @@ export interface SseEvent {
   data: unknown;
 }
 
+/** An event with its data as text: the backend sends JSON, an OpenAI-style stream ends with `[DONE]`. */
+export interface SseText {
+  event: string;
+  data: string;
+}
+
 /** One event block (`event: …` and `data: …` lines); null for comments and keep-alives. */
-function parseEvent(block: string): SseEvent | null {
+function parseBlock(block: string): SseText | null {
   let event = 'message';
   const data: string[] = [];
   for (const line of block.split('\n')) {
     if (line.startsWith('event:')) event = line.slice(6).trim();
     else if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''));
   }
-  if (!data.length) return null;
-  try {
-    return { event, data: JSON.parse(data.join('\n')) };
-  } catch {
-    throw new ApiError(200, 'bad_stream', `The backend sent an unreadable event: ${data.join(' ').slice(0, 80)}`);
-  }
+  return data.length ? { event, data: data.join('\n') } : null;
 }
 
 /**
- * POST and read the answer as server-sent events, one event at a time. Events (and UTF-8
- * characters) may be split across network chunks; that is handled here. Errors before the stream
- * starts are ApiErrors with the HTTP status; a connection that breaks mid-stream is `network`;
- * aborting `signal` rejects with the AbortError. The caller decides which event ends the stream.
+ * The server-sent events of a response body, one at a time, from any server (the backend, or a
+ * model API in `ai/own/`). Events (and UTF-8 characters) may be split across network chunks; that
+ * is handled here. A connection that breaks mid-stream is an ApiError `network`; aborting `signal`
+ * rejects with the AbortError. The caller decides which event ends the stream.
  */
-export async function* apiStream(path: string, body: unknown, opts: CallOptions = {}): AsyncGenerator<SseEvent> {
-  const res = await request(path, body, opts);
-  if (!res.body) throw new ApiError(res.status, 'bad_stream', 'The backend answered without a body.');
+export async function* sseEvents(res: Response, signal?: AbortSignal): AsyncGenerator<SseText> {
+  if (!res.body) throw new ApiError(res.status, 'bad_stream', 'The answer came without a body.');
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = '';
   try {
@@ -106,13 +106,13 @@ export async function* apiStream(path: string, body: unknown, opts: CallOptions 
       try {
         chunk = await reader.read();
       } catch (e) {
-        if (opts.signal?.aborted) throw e;
+        if (signal?.aborted) throw e;
         throw new ApiError(0, 'network', `The connection broke off (${reason(e)}).`);
       }
       if (chunk.done) return;
       buffer += chunk.value.replace(/\r\n/g, '\n');
       for (let end = buffer.indexOf('\n\n'); end >= 0; end = buffer.indexOf('\n\n')) {
-        const ev = parseEvent(buffer.slice(0, end));
+        const ev = parseBlock(buffer.slice(0, end));
         buffer = buffer.slice(end + 2);
         if (ev) yield ev;
       }
@@ -120,5 +120,22 @@ export async function* apiStream(path: string, body: unknown, opts: CallOptions 
   } finally {
     // The caller stopped early (done, error event, abort): close the connection.
     reader.cancel().catch(() => {});
+  }
+}
+
+/**
+ * POST to the backend and read the answer as server-sent events with JSON data. Errors before the
+ * stream starts are ApiErrors with the HTTP status; the rest is as in `sseEvents`.
+ */
+export async function* apiStream(path: string, body: unknown, opts: CallOptions = {}): AsyncGenerator<SseEvent> {
+  const res = await request(path, body, opts);
+  for await (const { event, data } of sseEvents(res, opts.signal)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      throw new ApiError(200, 'bad_stream', `The backend sent an unreadable event: ${data.replace(/\n/g, ' ').slice(0, 80)}`);
+    }
+    yield { event, data: parsed };
   }
 }
