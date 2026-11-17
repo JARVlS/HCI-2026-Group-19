@@ -400,6 +400,44 @@ type OrganizationPolicy =
 - **Data model:** `Conversation` gains `continuedFrom?: Id` and `carrySummary?: string`. Nothing
   else changes, because chats ↔ trees are derived from attempts anyway.
 
+**Second A/B candidate (Salomon, 17 Nov 2026, PROPOSED): does seeing your score make you think more?**
+```ts
+type ScoreFeedback =
+  | 'shown'    // A: the person sees the score Arbor gives their thinking
+  | 'hidden';  // B: the same score is computed and logged, but never shown
+```
+- **Question:** do people do more of the thinking themselves, measured by our own "thought along"
+  score (ADR-6, 17 Nov note), when they can see that score than when they cannot?
+- **The app first checks which group the person is in, then decides what to render.** The group is
+  a field of the user on the server (`users.condition`, returned by `POST /session` and `GET /me`),
+  so it survives a reload and another device (accounts, ADR-8). Nothing score-related renders
+  before the group is known. Outside a study (no participant id) the score is shown.
+- **Same judge in both groups:** the fast model rates every sent message (and every rated draft)
+  in A and in B, with the same prompt and model, and the result is saved with the message. B only
+  hides it. So the dependent variable is measured the same way in both.
+- **What B hides, exactly:** the live score line under the composer (label, bar, split), the
+  label glyph and the "why" with its percentages on messages, the "who's thinking" bar and trail,
+  the squirrel's reactions to the label, and the leaf fill that encodes whose thinking a leaf was
+  (leaves are drawn neutral). **Identical in both:** the chat, the tutor and its prompt, which
+  concepts the tree shows, saving, the task.
+- **Not part of this IV:** the veil (predict → reveal) and the nudges are consequences of the
+  score that a person can read their rating from. For a clean comparison they are the same in
+  both groups; recommended: off in both during this test (open question 9).
+- **If A beats B, follow-up tests of how the score is shown,** one factor at a time, same measure:
+  colour (neutral vs. red/green vs. another hue; never colour alone, for colour-blind
+  participants), and reward (none vs. the squirrel saying "I'm proud of you"). Each is one more
+  `StudyConfig` field (`scoreStyle`, `reward`), not a fork.
+- **Threats to name in the report:** (1) the score is our own judge, so "thinks more" means
+  "is rated higher": it needs the validity check of M9/R4, a learning measure that does not come
+  from the judge (a short quiz after the task), and a sample of turns rated by two team members
+  who do not know the group. (2) People in A can learn to phrase prompts so the judge likes them
+  ("I think …" in front of a request): compare the score with correctness and the quiz. (3) With
+  about 12 participants only a large effect is detectable; report effect size and interval, and
+  consider each person doing both groups on two topics in balanced order (twice the data, but
+  whoever saw the score once may behave differently afterwards). (4) Praise for a score can
+  crowd out the wish to learn: ask about pressure and motivation in the questionnaire.
+
+
 ### ADR-10 "Continue with ChatGPT": assessment and decision
 What the docs actually say (Nov 2026):
 - **Plan usage** (running requests on the user's ChatGPT plan) is offered to **open-source
@@ -532,6 +570,86 @@ the way of it. Rules, for every design:
   scrolls.
 - Screen readers get the verdict through a visually hidden live region instead of the visible list.
 
+### ADR-15 Judging while typing: measure first, then a cascade (17 Nov 2026, **PROPOSED**)
+ADR-6 keeps the linter (tier 1) on word rules: instant and free. After send, the fast model's
+scale sets the label (ADR-6, 17 Nov note) and Claude picks concepts and reasons. While typing, the
+rules alone decide, and they often disagree with what lands after send. That undermines the one
+intervention students see on every prompt.
+
+**Measured baseline** (`npm run eval:linter`, `frontend/eval/`, 136 prompts, labels still Claude's
+draft): the rules agree 68 % of the time (Cohen's κ 0.52, weighted 0.58). They miss own thinking
+most: only 46 % of own messages are labelled own, half of them become "together" (claims without
+"I think", worked steps, corrections, German). Hedged delegation ("I think you should just write
+it") is right 31 % of the time, German 42 %. A naive Bayes model trained leave-one-out on the same
+136 prompts reaches 57 % (κ 0.35): too little data for a learned model yet. The fast model could
+not be measured yet (see M9).
+
+**Options weighed** (cost per message on top of today's chat + analysis + one score):
+| Option | Cost | Quality | Explains words? |
+|---|---|---|---|
+| Rules (today) | 0 | κ 0.52 on the draft set | yes |
+| Fast model on a typing pause (PR #14, 600 ms) | ~1–3 extra score calls of ~250 tokens | to be measured; on the 21 thinking cases of `eval:score` 19 in band | no: a score only |
+| Naive Bayes / logistic regression on words, in the browser | 0, ~100 KB of weights | κ 0.35 at 136 examples; needs several hundred labelled prompts | yes (word log-odds) |
+| Sentence embeddings in the browser (MiniLM-class, ~25 MB) | 0 per call, a big first download | unknown; better with context | only with attribution |
+| Decision trees on hand-made features | 0 | bounded by the features, like the rules | yes |
+
+**Direction (to be confirmed by M9's numbers):** a cascade. Tier 0 on every keystroke stays local
+(the rules, later a learned model when there is data), with smoothing so the label does not
+flicker. Tier 1, the fast model, rates the draft after a typing pause (PR #14), and if its share of
+the budget matters, only when tier 0 is unsure. The rating sent with the message is reused on send,
+so a draft rated once costs nothing extra. Tier 2, the after-send analysis, stays authoritative.
+The underlines keep coming from tier 0 (the fast model returns a number, not words); where tier 1
+and the underlines disagree, the score line follows tier 1 and says so on hover.
+
+**Decision rule:** adopt tier 1 as the default for the score line if the fast model beats the
+rules by at least 10 points of agreement on the team-rated set and its median latency stays under
+1 s; otherwise keep the rules and gate tier 1 to unsure drafts. Train a local model only once a
+labelled set of 500 or more prompts exists (study data needs consent first).
+
+### ADR-16 A revealed guess is judged by meaning, not by shared words (17 Nov 2026, **PROPOSED**)
+At predict → reveal the student types a guess, then sees the answer. Today two things judge it,
+and neither says *which* idea of the guess was right:
+- **What the student sees** is word-stem overlap (`guessStems` / `markHits` in
+  `designs/ascii/Transcript.tsx`): the first 5 letters of every longer word of the guess are
+  matched against the answer. A right guess in other words gets "no direct overlap. what did you
+  miss?"; a wrong guess that reuses the answer's words ("the vaccine kills the germ" against an
+  answer about germs) lights up as if it had been right.
+- **The number** comes from the fast model (`scoreGuess`: the 1–5 thinking scale and the 1–3
+  "is it right" scale against the reply). That does judge meaning, but it is a single number,
+  and on the live site it fails on every call while `FAST_API_KEY` is missing (M9).
+
+**Decision:** after the reveal, once the reply is complete, one structured LLM call grades the
+guess against the answer (new task `grade` on `POST /api/ai/complete`, `MODEL_ANALYZE`, JSON
+output like `analyze`):
+```ts
+interface GuessGrade {                     // schema in frontend/src/ai/schemas/guessGrade.ts
+  verdict: 'right' | 'partly' | 'wrong' | 'no_guess';
+  matches: { guessQuote: string; answerQuote: string; relation: 'same' | 'partly' | 'contradicts' }[];
+  missed?: string;        // the key idea of the answer the guess did not have, in one short sentence
+  misconception?: string; // only when the guess states something the answer contradicts
+}
+```
+- Quotes, never offsets (ADR-6): `lib/evidence.ts` resolves `answerQuote` and `guessQuote` to
+  spans. The answer highlights the matched ideas by relation (same: the "you" colour; contradicts:
+  marked as such), and "what you missed" replaces "no direct overlap".
+- **Numbers stay with the fast model** (G-Eval scales, calibrated, cheap): `correct` and the
+  thinking raise as today. When the fast score is missing or failed, the grade's verdict sets
+  `correctness` (right 1, partly .5, wrong / no_guess 0) and a non-empty guess still counts as
+  thinking together. If the two disagree, the fast score wins for the number and the grade's
+  quotes stay as the explanation.
+- **While the grade is on its way** the lexical overlap shows, labelled honestly as "words in
+  common", then the semantic result replaces it (like the linter label before the analysis).
+  Demo mode and providers without `json` keep the lexical version.
+- **Cost:** one call per revealed guess, only with nudges on *active* and a delegating prompt, so a
+  few per session; input = question + guess + answer (capped like the analysis), output about 200
+  tokens.
+- **Rejected:** embeddings alone. A paraphrase of a misconception is as close to the answer as a
+  right guess ("vaccines kill germs" vs. an answer about vaccines), so similarity cannot say right
+  or wrong. They could still pre-select which answer sentence to compare, if the call gets too big.
+- The grade feeds the attempt of every concept of that turn (`source: 'reveal'`, `correctness`),
+  which is the open M4 item "predict → reveal and quiz answers feed the analysis"; the same call
+  shape can later grade quiz answers.
+
 ---
 
 ## 4. API contract (backend ↔ frontend)
@@ -549,7 +667,7 @@ Errors: `{ error: { code, message } }` with an HTTP status.
 | `GET /state` | → `{ concepts, edges, trees, conversations, attempts }` | bootstrap; messages excluded |
 | `GET /conversations/:id/messages` | → `{ messages }` | lazy per conversation |
 | `PUT /sync` | `{ concepts?, edges?, trees?, conversations?, messages?, attempts? }` → `{ ok, serverTime }` | idempotent upsert by client id, one `db.batch()`; last-write-wins on `updatedAt` |
-| `POST /ai/complete` | `{ task: 'chat'\|'analyze'\|'tree'\|'quiz', system, messages, schema?, stream? }` | `chat` + `stream:true` → **SSE**: `event: delta {text}` … `event: done {usage}` / `event: error {code,message}`. Others → `{ output, usage }` (JSON outputs, see note below). 429 `budget_exceeded` when over budget. |
+| `POST /ai/complete` | `{ task: 'chat'\|'analyze'\|'tree'\|'quiz', system, messages, schema?, stream? }` (task `grade` proposed, ADR-16) | `chat` + `stream:true` → **SSE**: `event: delta {text}` … `event: done {usage}` / `event: error {code,message}`. Others → `{ output, usage }` (JSON outputs, see note below). 429 `budget_exceeded` when over budget. |
 | `POST /events` | `{ events: StudyEvent[] }` → `{ ok }` | batched, fire-and-forget |
 | `GET /admin/export?table=events\|attempts\|messages` | → CSV | header `X-Admin-Token` |
 
@@ -807,7 +925,7 @@ network error with retry, and the budget limit shows a friendly message.
       concept skeleton (≈3–6 topics, 3–6 concepts each) as unvisited, hollow-outline leaves. Leaves
       only grow in once attempted. The forest and graph show what's ahead.
 - [ ] Predict → reveal and quiz answers feed the analysis (`source:'reveal'|'quiz'`, with
-      `correctness`).
+      `correctness`). *17 Nov:* the semantic guess grade that provides it is ADR-16 / M10.
 - [ ] `OrganizationPolicy` (ADR-9): `split-chats` moves the triggering turn into a new chat
       with markers + carry-over summary; `split-trees` only creates the tree. Switchable with
       `/policy` in `?debug=1`, so both are demoable before M6.
@@ -864,6 +982,27 @@ message mode (tune prompts until it is, or report honestly).
 - [x] `GET /admin/export` CSVs feed straight into the analysis notebook. *16 Nov:* tables `events|usage|users`.
 - [ ] Pilot checklist: full run in under 20 min, export opens in pandas, no absurd values.
 
+- [ ] **Score visibility test** (ADR-9, second candidate; PROPOSED 17 Nov, runs only if the team
+      and the TA agree, open question 9):
+      - Assignment: `POST /session` with a participant id and no condition assigns the group on
+        the server, balanced (the smaller group gets the next person, a coin decides a tie), and
+        stores it in `users.condition`; `?cond=` on the study link overrides it for the
+        experimenter. If the organization test runs too, the condition names both
+        (e.g. `trees.shown`).
+      - `StudyConfig.scoreFeedback: 'shown' | 'hidden'`, and ONE selector (`showScore`) that every
+        place listed in ADR-9 asks. A test renders both designs in `hidden` and asserts that no
+        label, percent, bar or filled leaf appears; the judge still runs and the scores are saved.
+      - Measures: per participant the mean "thought along" percent over the task's turns
+        (primary); share of delegated and of own turns; first vs. sent rating of a draft (did they
+        rework it before sending); correctness of own claims; turns and words per prompt; a short
+        quiz on the topic after the task; questionnaire (noticed a score? felt pressure? useful?).
+      - Events: `draft_rated` (first and last rating per prompt), `turn_sent` with the rating,
+        `score_shown` (A only); each with `cond`.
+      - Analysis in `research/`: per-participant means, a permutation or Mann-Whitney test,
+        effect size with interval, one plot per measure; the turn sample rated blind by two people.
+      - Follow-ups only if A beats B: `scoreStyle` (colour) and `reward` (the squirrel's praise),
+        one at a time.
+
 **Freeze Dec 5.** After that: bug fixes only, until the study ends.
 
 ### R Research track (Python, `research/`, parallel to M4–M6, owner: whoever writes the report sections)
@@ -878,7 +1017,7 @@ message mode (tune prompts until it is, or report honestly).
 - [ ] **R3 Study data:** after the study, replay our attempts with the R2 params, check
       calibration on the gradable attempts we have (descriptive only; n is far too small to
       fit or validate per-concept parameters, so say so in Limitations).
-- [ ] **R4 Classifier validity:** analyze the M4 eval harness output (agreement, Cohen's κ vs.
+- [ ] **R4 Classifier validity:** analyze the M4 eval harness output and M9's `eval:linter` (agreement, Cohen's κ vs.
       team labels, confusion matrix). Goes into the report's apparatus/limitations.
 - [ ] **R5 Study stats:** export → tests and plots per the lecture's analysis slides.
 
@@ -934,6 +1073,52 @@ opens an empty chat whose first message gets a live Claude answer and grows the 
 up keeps that chat; log out and log in on another browser shows it again; typing a long prompt
 never moves anything but the prompt itself.
 
+### M9 Linter v2: measure, then judge drafts better (FE, 17 Nov →) ⇢ M8, ADR-15
+- [x] Labelled prompt set `frontend/eval/linter-set.ts`: 136 prompts (46 own, 42 together,
+      48 ai), tags for the hard cases (hedge, negation, German, boundary, …). *17 Nov:* labels are
+      Claude's draft from the rubric in the file.
+- [x] Eval harness `npm run eval:linter` (`eval/linter.eval.ts`, `eval/metrics.ts`): accuracy,
+      Cohen's κ (plain and linearly weighted), per-class recall and precision, accuracy per tag,
+      label changes while typing, a rules → fast model cascade at several thresholds, and every
+      missed case. Rules and naive Bayes run offline; the fast model with `VITE_API_URL`.
+- [x] First numbers (`eval/results/linter-2026-11-17.md`): rules 68 % / κ 0.52, naive Bayes
+      57 % / κ 0.35, rules change label in 63 % of prompts while typing (at most twice).
+- [ ] **Set `FAST_API_KEY` on the deployed Worker** (`uv run pywrangler secret put FAST_API_KEY`).
+      *17 Nov:* it is missing, so every fast score fails on the live site (the after-send percent
+      and PR #14's score line), and the eval could not measure the fast model.
+- [ ] Two team members label the 136 prompts independently (without the draft labels); report
+      their κ, settle disagreements, record `rater`. Add real-looking prompts from the pilot
+      (with consent) toward 300.
+- [ ] Run `eval:linter` with the fast model; apply ADR-15's decision rule; tick ADR-15 or amend it.
+- [ ] Depending on the result: gate PR #14's pause rating to unsure drafts, smooth the rules'
+      label over time, and fix the rules' biggest misses (own claims without "I think", corrections,
+      German).
+
+*Acceptance:* a team-rated set with inter-rater κ reported, the three judges compared on it, and
+ADR-15 decided with those numbers. The same numbers feed R4.
+
+### M10 Semantic guess feedback at predict → reveal (BE + FE) ⇢ M3, ADR-16
+- [ ] Backend: task `grade` in the task allowlist (`schemas.py` `Task`), mapped to
+      `MODEL_ANALYZE` / `EFFORT_ANALYZE` / `MAX_TOKENS_JSON`; tests; `docs/api.md`.
+- [ ] `ai/schemas/guessGrade.ts` + `ai/prompts/grade.ts`; `Provider.json('grade')` for `arbor`
+      and `own` (scripted: none, keeps the lexical overlap).
+- [ ] `turn.ts`: run the grade once the reply is complete and a guess was revealed (next to
+      `scoreGuess`; never fails the turn); store it on the reply; `correctness` from the verdict
+      when the fast score is missing.
+- [ ] Transcript (ASCII): highlights from the resolved `answerQuote`s by relation, "what you
+      missed", a misconception line; "words in common" while the grade is pending; same in the
+      classic design only if the team wants it (§8).
+- [ ] Eval: `npm run eval:grade` with about 30 question / answer / guess triples (right in other
+      words, partly right, wrong with shared words, misconception, "idk"), expected verdict and the
+      idea that should match; report verdict agreement and how often the expected idea is quoted.
+      Run the lexical overlap on the same triples as the baseline.
+- [ ] Set `FAST_API_KEY` on the Worker (M9), so the guess's numbers work on the live site too.
+
+*Acceptance:* on the eval triples the verdict agrees with the expected one at least 85 % of the
+time, every "right in other words" case highlights the matching idea, and no "wrong with shared
+words" case is shown as right; in the browser the semantic result replaces the overlap within
+about 3 s of the reveal.
+
 ### Stretch (post-study)
 - **S2 Desktop shell (ADR-11):** Electron wrapper around the same build; providers in the main
   process over IPC; ChatGPT plan via `@siwc/local`; local model discovery; keys in the OS keychain.
@@ -962,6 +1147,12 @@ never moves anything but the prompt itself.
 7. **Radial items (M2b):** are the 8 proposed wedges right? It's the same menu in both conditions
    (not part of the IV).
 8. **Demo Day date:** decides whether M7 (BYOK) lands before or after it.
+9. **Score visibility test (M6, ADR-9, proposed by Salomon 17 Nov):** (a) Does it run next to the
+   organization test (`split-chats` vs `split-trees`, which carries the course's M3 requirement),
+   as a second factor, as a second session, or instead of it? Twelve participants do not carry
+   two factors at once. (b) Are veil and nudges off in both groups during this test, so that the
+   only difference is the visible score? (c) One group per person, or both groups per person on
+   two topics? Ask the TA with the study design (Dec 4/8).
 
 **Decided:** the study runs on live Claude through the backend relay (department credits);
 ChatGPT sign-in is not viable for the hosted app, so BYOK covers "use your own model" (M7) and

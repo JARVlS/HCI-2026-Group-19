@@ -17,6 +17,7 @@ cd frontend && npm ci && npm test && npm run build   # vitest + tsc + vite
 cd frontend && npm run dev                            # http://localhost:5173
 cd backend && uv run --group test pytest -q          # unit tests (CPython, fake D1)
 cd backend && bash tests/smoke.sh                     # real Workers runtime, fake model API
+cd frontend && npm run eval:linter                    # linter vs labelled prompts (offline; + fast model with VITE_API_URL)
 ```
 
 Local dev talks to `VITE_API_URL` (`frontend/.env.development`: `http://localhost:8787`). To use
@@ -48,5 +49,8 @@ the deployed backend from `npm run dev`, put `VITE_API_URL=https://hci-backend.l
 - Cost: every live answer spends the group's token budget (`TOTAL_TOKEN_BUDGET` in
   `backend/wrangler.toml`). Use `?demo=1` or the local fake model for UI work that does not need
   real answers.
+- A change to how prompts are judged (rules, prompts, thresholds) comes with a fresh `npm run
+  eval:linter` result in `frontend/eval/results/` (ADR-15). The labels there are a draft until the
+  team has rated them; say so wherever the numbers are quoted.
 - Accounts are optional (ADR-8 amended): guests are anonymous sessions; no email, no reset.
   Test accounts go in local databases only, never on the deployed backend.
