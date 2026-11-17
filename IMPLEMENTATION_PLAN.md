@@ -532,6 +532,42 @@ the way of it. Rules, for every design:
   scrolls.
 - Screen readers get the verdict through a visually hidden live region instead of the visible list.
 
+### ADR-15 Judging while typing: measure first, then a cascade (17 Nov 2026, **PROPOSED**)
+ADR-6 keeps the linter (tier 1) on word rules: instant and free. After send, the fast model's
+scale sets the label (ADR-6, 17 Nov note) and Claude picks concepts and reasons. While typing, the
+rules alone decide, and they often disagree with what lands after send. That undermines the one
+intervention students see on every prompt.
+
+**Measured baseline** (`npm run eval:linter`, `frontend/eval/`, 136 prompts, labels still Claude's
+draft): the rules agree 68 % of the time (Cohen's κ 0.52, weighted 0.58). They miss own thinking
+most: only 46 % of own messages are labelled own, half of them become "together" (claims without
+"I think", worked steps, corrections, German). Hedged delegation ("I think you should just write
+it") is right 31 % of the time, German 42 %. A naive Bayes model trained leave-one-out on the same
+136 prompts reaches 57 % (κ 0.35): too little data for a learned model yet. The fast model could
+not be measured yet (see M9).
+
+**Options weighed** (cost per message on top of today's chat + analysis + one score):
+| Option | Cost | Quality | Explains words? |
+|---|---|---|---|
+| Rules (today) | 0 | κ 0.52 on the draft set | yes |
+| Fast model on a typing pause (PR #14, 600 ms) | ~1–3 extra score calls of ~250 tokens | to be measured; on the 21 thinking cases of `eval:score` 19 in band | no: a score only |
+| Naive Bayes / logistic regression on words, in the browser | 0, ~100 KB of weights | κ 0.35 at 136 examples; needs several hundred labelled prompts | yes (word log-odds) |
+| Sentence embeddings in the browser (MiniLM-class, ~25 MB) | 0 per call, a big first download | unknown; better with context | only with attribution |
+| Decision trees on hand-made features | 0 | bounded by the features, like the rules | yes |
+
+**Direction (to be confirmed by M9's numbers):** a cascade. Tier 0 on every keystroke stays local
+(the rules, later a learned model when there is data), with smoothing so the label does not
+flicker. Tier 1, the fast model, rates the draft after a typing pause (PR #14), and if its share of
+the budget matters, only when tier 0 is unsure. The rating sent with the message is reused on send,
+so a draft rated once costs nothing extra. Tier 2, the after-send analysis, stays authoritative.
+The underlines keep coming from tier 0 (the fast model returns a number, not words); where tier 1
+and the underlines disagree, the score line follows tier 1 and says so on hover.
+
+**Decision rule:** adopt tier 1 as the default for the score line if the fast model beats the
+rules by at least 10 points of agreement on the team-rated set and its median latency stays under
+1 s; otherwise keep the rules and gate tier 1 to unsure drafts. Train a local model only once a
+labelled set of 500 or more prompts exists (study data needs consent first).
+
 ---
 
 ## 4. API contract (backend ↔ frontend)
@@ -878,7 +914,7 @@ message mode (tune prompts until it is, or report honestly).
 - [ ] **R3 Study data:** after the study, replay our attempts with the R2 params, check
       calibration on the gradable attempts we have (descriptive only; n is far too small to
       fit or validate per-concept parameters, so say so in Limitations).
-- [ ] **R4 Classifier validity:** analyze the M4 eval harness output (agreement, Cohen's κ vs.
+- [ ] **R4 Classifier validity:** analyze the M4 eval harness output and M9's `eval:linter` (agreement, Cohen's κ vs.
       team labels, confusion matrix). Goes into the report's apparatus/limitations.
 - [ ] **R5 Study stats:** export → tests and plots per the lecture's analysis slides.
 
@@ -933,6 +969,30 @@ a prompt squeezed to two words, and a linter that made the prompt jump.
 opens an empty chat whose first message gets a live Claude answer and grows the first tree; sign
 up keeps that chat; log out and log in on another browser shows it again; typing a long prompt
 never moves anything but the prompt itself.
+
+### M9 Linter v2: measure, then judge drafts better (FE, 17 Nov →) ⇢ M8, ADR-15
+- [x] Labelled prompt set `frontend/eval/linter-set.ts`: 136 prompts (46 own, 42 together,
+      48 ai), tags for the hard cases (hedge, negation, German, boundary, …). *17 Nov:* labels are
+      Claude's draft from the rubric in the file.
+- [x] Eval harness `npm run eval:linter` (`eval/linter.eval.ts`, `eval/metrics.ts`): accuracy,
+      Cohen's κ (plain and linearly weighted), per-class recall and precision, accuracy per tag,
+      label changes while typing, a rules → fast model cascade at several thresholds, and every
+      missed case. Rules and naive Bayes run offline; the fast model with `VITE_API_URL`.
+- [x] First numbers (`eval/results/linter-2026-11-17.md`): rules 68 % / κ 0.52, naive Bayes
+      57 % / κ 0.35, rules change label in 63 % of prompts while typing (at most twice).
+- [ ] **Set `FAST_API_KEY` on the deployed Worker** (`uv run pywrangler secret put FAST_API_KEY`).
+      *17 Nov:* it is missing, so every fast score fails on the live site (the after-send percent
+      and PR #14's score line), and the eval could not measure the fast model.
+- [ ] Two team members label the 136 prompts independently (without the draft labels); report
+      their κ, settle disagreements, record `rater`. Add real-looking prompts from the pilot
+      (with consent) toward 300.
+- [ ] Run `eval:linter` with the fast model; apply ADR-15's decision rule; tick ADR-15 or amend it.
+- [ ] Depending on the result: gate PR #14's pause rating to unsure drafts, smooth the rules'
+      label over time, and fix the rules' biggest misses (own claims without "I think", corrections,
+      German).
+
+*Acceptance:* a team-rated set with inter-rater κ reported, the three judges compared on it, and
+ADR-15 decided with those numbers. The same numbers feed R4.
 
 ### Stretch (post-study)
 - **S2 Desktop shell (ADR-11):** Electron wrapper around the same build; providers in the main
