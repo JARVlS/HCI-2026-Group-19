@@ -21,7 +21,7 @@ export interface Classification {
   evidence?: Evidence[];
 }
 
-/** A probability score from the fast model: `p` (0..1) is how likely the positive answer is. */
+/** A score from the fast model's rating scale (G-Eval): `p`, 0..1, how much the student thought along or how right it is. */
 export interface Score {
   p: number;
   model?: string;

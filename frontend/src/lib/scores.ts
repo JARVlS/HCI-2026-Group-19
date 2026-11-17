@@ -1,6 +1,6 @@
 import type { ConceptAttempt } from './domain';
 import { MODE_SCORE, thinkingMode } from './modes';
-import type { Classification, MessageScores, Score, ScoreState } from './types';
+import type { ChatMessage, Classification, MessageScores, Score, ScoreState } from './types';
 
 /**
  * Fast and slow judging (IMPLEMENTATION_PLAN.md ADR-6): a scored user message takes its numbers
@@ -73,7 +73,7 @@ const shown = (s: ScoreState | undefined): ScoreShown => (s === undefined ? null
 export interface ScoreView {
   /** How much the student thought along in the message (raised by a revealed guess). null: not scored (demo). */
   thought: ScoreShown;
-  /** A revealed guess raised `thought`. */
+  /** A revealed guess raised `thought` so far that the label changed. */
   byGuess: boolean;
   /** How much the revealed guess on its own thought along. */
   guess: ScoreShown;
@@ -83,8 +83,24 @@ export interface ScoreView {
 
 export function scoreView(s: MessageScores | undefined): ScoreView {
   if (!s) return { thought: null, byGuess: false, guess: null, right: null };
-  const byGuess = isScore(s.thinking) && isScore(s.guess) && s.guess.p > s.thinking.p;
-  return { thought: byGuess ? shown(s.guess) : shown(s.thinking), byGuess, guess: shown(s.guess), right: shown(s.correct) };
+  const t = isScore(s.thinking) ? s.thinking.p : null;
+  const g = isScore(s.guess) ? s.guess.p : null;
+  const raised = t !== null && g !== null && g > t;
+  // "with your guess" only when the guess changed the label, not for every small raise.
+  const byGuess = raised && thinkingMode(g) !== thinkingMode(t);
+  return { thought: raised ? g : shown(s.thinking), byGuess, guess: shown(s.guess), right: shown(s.correct) };
+}
+
+/**
+ * How much of the thinking a user message was the student's (0..1), for the "who's thinking" bar,
+ * trail and status line: its "thought along" percent when it has one (live), else its label's value
+ * (demo, a score still on its way or failed, a relabel by the user).
+ */
+export function thinkingShare(m: ChatMessage): number {
+  const thought = scoreView(m.scores).thought;
+  const c = m.classification;
+  if (typeof thought === 'number' && !c?.overridden) return thought;
+  return MODE_SCORE[c?.mode ?? 'together'];
 }
 
 /*

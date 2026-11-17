@@ -3,12 +3,13 @@ import type { Mode } from './types';
 export const MODE_SCORE: Record<Mode, number> = { own: 1, together: 0.5, ai: 0 };
 
 /**
- * Where the fast model's "thought along" score (0..1) turns into a label: own from OWN_FROM,
- * ai up to AI_UP_TO, together in between. Fixed thirds: a clear yes or no from the model decides,
- * and whatever it is unsure about is "together".
+ * Where the fast model's "thought along" score (0..1, a 5-step scale: 0, 25, 50, 75, 100 %) turns
+ * into a label: own from OWN_FROM (an own claim, guess or reasoning: 75 % and up), ai up to AI_UP_TO
+ * (hands the work over: 0 %, "explain X" about 14 %), together in between (a plain why or how
+ * question about 25 %, a hint or quiz request about 50 %), as in the analysis rubric.
  */
 export const OWN_FROM = 0.67;
-export const AI_UP_TO = 0.33;
+export const AI_UP_TO = 0.2;
 
 export function thinkingMode(p: number): Mode {
   if (p >= OWN_FROM) return 'own';

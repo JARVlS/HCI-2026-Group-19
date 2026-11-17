@@ -260,7 +260,7 @@ describe('live mode', () => {
     expect(serverMessages(server, chat)[0].scores).toEqual({ thinking: { p: 0.2, model: 'fast' } });
 
     a.dispatch({ type: 'reveal', id: reply.id, guess: 'it trains memory cells' });
-    expect(asked.slice(1).map((x) => x.input.question)).toEqual(['thinking', 'correct']);
+    expect(asked.slice(1).map((x) => x.input.question)).toEqual(['guess', 'correct']);
     asked[1].answer({ p: 0.8 });
     asked[2].answer({ p: 0.9 });
     await settle();

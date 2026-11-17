@@ -172,27 +172,38 @@ describe('arbor provider: analyze', () => {
 });
 
 describe('arbor provider: score', () => {
+  /** The backend's answer: each option's share, summing to 1. Default: mostly "4" (much) on the 5-step scale. */
   const scored = (p: Partial<{ probabilities: Record<string, number>; model: string }> = {}) =>
-    json({ probabilities: { '1': 0.83, '2': 0.17 }, mass: 0.99, usage: { inputTokens: 212, outputTokens: 1 }, model: 'zai.glm-4.7-flash', ...p });
-  const think = { question: 'thinking' as const, text: 'I think it scatters blue light more', recent: [] };
+    json({ probabilities: { '1': 0, '2': 0, '3': 0.2, '4': 0.6, '5': 0.2 }, mass: 0.99, usage: { inputTokens: 212, outputTokens: 1 }, model: 'zai.glm-4.7', ...p });
+  const think = { question: 'thinking' as const, text: 'I think the seasons come from the distance to the sun', recent: [] };
 
-  it('asks the question with the options 1 and 2 and returns P(1)', async () => {
+  it('asks for a rating on the 5-step scale and returns the weighted sum', async () => {
     const calls = fakeBackend(() => scored());
-    expect(await provider().score(think, new AbortController().signal)).toEqual({ p: 0.83, model: 'zai.glm-4.7-flash' });
+    const r = await provider().score(think, new AbortController().signal);
+    expect(r.p).toBeCloseTo(0.2 * 0.5 + 0.6 * 0.75 + 0.2 * 1);
+    expect(r.model).toBe('zai.glm-4.7');
     expect(calls[0]).toMatchObject({ path: '/api/ai/score', method: 'POST', auth: 'Bearer token-1' });
     expect(calls[0].body).toEqual({
-      system: expect.stringContaining('did the student think along?'),
-      messages: [{ role: 'user', content: 'Student message:\nI think it scatters blue light more\n\nAnswer (1 or 2):' }],
-      options: ['1', '2'],
+      system: expect.stringContaining("how much of the thinking in this message is the student's own?"),
+      messages: [{ role: 'user', content: 'Student message:\nI think the seasons come from the distance to the sun\n\nRating (1 to 5):' }],
+      options: ['1', '2', '3', '4', '5'],
     });
   });
 
-  it('the correct question sends the statement and the tutor answer', async () => {
-    const calls = fakeBackend(() => scored({ probabilities: { '1': 0.1, '2': 0.9 } }));
+  it('the correct question has three options: right, partly right, wrong', async () => {
+    const calls = fakeBackend(() => scored({ probabilities: { '1': 0.1, '2': 0.2, '3': 0.7 } }));
     const r = await provider().score({ question: 'correct', statement: 'it reflects the ocean', reference: 'Rayleigh scattering.' }, new AbortController().signal);
-    expect(r.p).toBe(0.1);
-    expect(calls[0].body!.system).toContain("is the student's statement right?");
+    expect(r.p).toBeCloseTo(0.1 + 0.2 * 0.5);
+    expect(calls[0].body!.options).toEqual(['1', '2', '3']);
     expect((calls[0].body!.messages as { content: string }[])[0].content).toContain("Tutor's answer:\nRayleigh scattering.\n\nStudent's statement:\nit reflects the ocean");
+  });
+
+  it('a guess is rated with its question as context', async () => {
+    const calls = fakeBackend(() => scored({ probabilities: { '1': 1, '2': 0, '3': 0, '4': 0, '5': 0 } }));
+    const r = await provider().score({ question: 'guess', prompt: 'Summarise vaccines', guess: 'no idea' }, new AbortController().signal);
+    expect(r.p).toBe(0);
+    expect(calls[0].body!.system).toContain('typed before reading');
+    expect(calls[0].body!.options).toEqual(['1', '2', '3', '4', '5']);
   });
 
   it.each(['budget_exceeded', 'total_budget_exceeded'])('429 %s is budget_exceeded', async (code) => {
@@ -200,10 +211,10 @@ describe('arbor provider: score', () => {
     expect((await failure(provider().score(think, new AbortController().signal))).code).toBe('budget_exceeded');
   });
 
-  it('the model not answering with an option, or an answer without P(1), is invalid_output', async () => {
+  it('the model not answering with an option, or an answer missing an option of the scale, is invalid_output', async () => {
     fakeBackend(() => apiError(502, 'invalid_model_output', 'The model answered "maybe".'));
     expect((await failure(provider().score(think, new AbortController().signal))).code).toBe('invalid_output');
-    fakeBackend(() => scored({ probabilities: { yes: 1 } }));
+    fakeBackend(() => scored({ probabilities: { '1': 0.5, '2': 0.5 } }));
     expect((await failure(provider().score(think, new AbortController().signal))).code).toBe('invalid_output');
   });
 
@@ -234,7 +245,7 @@ describe('arbor provider in a turn', () => {
   it('a live turn on a fresh chat streams, picks a subject and grows a leaf in that grove', async () => {
     const calls = fakeBackend(({ path, body }) =>
       path === '/api/ai/score'
-        ? json({ probabilities: { '1': 0.6, '2': 0.4 }, mass: 0.98, usage: {}, model: 'fast-test' })
+        ? json({ probabilities: { '1': 0, '2': 0.4, '3': 0.6, '4': 0, '5': 0 }, mass: 0.98, usage: {}, model: 'fast-test' })
         : body!.task === 'chat'
           ? sse([event('delta', { text: 'Short ' }), event('delta', { text: 'answer.' }), done])
           : json({ output: { ...answer, subject: { existingId: null, newLabel: 'Physics of light' } }, usage: {}, model: 'claude-test', truncated: false }),
@@ -248,8 +259,8 @@ describe('arbor provider in a turn', () => {
     expect(user).toMatchObject({ analysis: 'done', classification: { mode: 'together', reasons: ['Asks why something happens'] } });
     // Three calls per ungraded turn: the reply, the analysis and the fast "thought along" score.
     expect(calls.map((c) => c.path).sort()).toEqual(['/api/ai/complete', '/api/ai/complete', '/api/ai/score']);
-    expect(user.scores).toEqual({ thinking: { p: 0.6, model: 'fast-test' } });
-    expect(s.state.domain.attempts.map((a) => [a.mode, a.independence])).toEqual([['together', 0.6]]);
+    expect(user.scores).toEqual({ thinking: { p: 0.4, model: 'fast-test' } }); // 0.4 × 25 % + 0.6 × 50 %
+    expect(s.state.domain.attempts.map((a) => [a.mode, a.independence])).toEqual([['together', 0.4]]);
 
     const { concepts, conversations } = s.state.domain;
     const subject = Object.values(concepts).find((c) => c.label === 'Physics of light')!;

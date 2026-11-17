@@ -2,7 +2,7 @@ import { api, ApiError, apiStream } from '../../lib/api';
 import { session as browserSession, type Session } from '../../lib/session';
 import { ANALYZE_SYSTEM, analyzeMessage } from '../prompts/analyze';
 import { chatMessages, chatSystem } from '../prompts/chat';
-import { NO, scorePrompt, YES } from '../prompts/score';
+import { scaleScore, scorePrompt } from '../prompts/score';
 import type { ChatRequest, ChatResult, JsonTask, JsonTasks, Provider, ScoreInput, ScoreResult } from '../provider';
 import { ProviderError } from '../provider';
 import { TURN_ANALYSIS_SCHEMA, toTurnAnalysis } from '../schemas/turnAnalysis';
@@ -84,15 +84,16 @@ export class ArborProvider implements Provider {
   }
 
   async score(input: ScoreInput, signal: AbortSignal): Promise<ScoreResult> {
-    const body = { ...scorePrompt(input), options: [YES, NO] };
+    const { system, messages, scale } = scorePrompt(input);
+    const body = { system, messages, options: Object.keys(scale) };
     let answer: { probabilities?: Record<string, unknown>; model?: unknown };
     try {
       answer = await this.session.run((token) => api<typeof answer>(SCORE, body, { token, signal }));
     } catch (e) {
       throw toProviderError(e, signal);
     }
-    const p = answer.probabilities?.[YES];
-    if (typeof p !== 'number' || !(p >= 0 && p <= 1)) throw new ProviderError(`The score answer has no probability for "${YES}".`, 'invalid_output');
+    const p = scaleScore(answer.probabilities ?? {}, scale);
+    if (p === null) throw new ProviderError('The score answer lacks a probability for an option of the scale.', 'invalid_output');
     return { p, ...(typeof answer.model === 'string' && { model: answer.model }) };
   }
 

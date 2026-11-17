@@ -179,7 +179,7 @@ function score(deps: TurnDeps, userMessageId: Id, key: ScoreKey, input: ScoreInp
   );
 }
 
-/** Did the student think along in this message? Earlier turns are context. */
+/** How much did the student think along in this message? Earlier turns are context. */
 function scoreThinking(deps: TurnDeps, user: Message, upto: Message[]) {
   if (!deps.provider.score) return null;
   const recent = upto.slice(0, -1).slice(-SCORE_RECENT_MESSAGES).map((m) => ({ role: m.role, text: m.text }));
@@ -213,7 +213,7 @@ export function scoreGuess(deps: TurnDeps, replyId: Id | null): Promise<unknown>
   const user = domain.messagesByConv[found.conversationId].slice(0, found.index).filter((m) => m.role === 'user').at(-1);
   if (!reply.guess || reply.streaming || !user?.scores || user.scores.guess !== undefined) return null;
   return Promise.all([
-    score(deps, user.id, 'guess', { question: 'thinking', text: reply.guess, recent: [{ role: 'user', text: user.text }] }),
+    score(deps, user.id, 'guess', { question: 'guess', prompt: user.text, guess: reply.guess }),
     reply.stopped || reply.error ? null : score(deps, user.id, 'correct', { question: 'correct', statement: reply.guess, reference: reply.text }),
   ]);
 }

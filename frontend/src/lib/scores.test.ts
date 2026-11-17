@@ -4,8 +4,9 @@ import { ProviderError } from '../ai/provider';
 import type { ConceptJudgement, TurnAnalysis } from '../ai/schemas/turnAnalysis';
 import { testStore } from '../test/harness';
 import type { ConceptAttempt } from './domain';
+import type { ChatMessage } from './types';
 import { AI_UP_TO, OWN_FROM, thinkingMode } from './modes';
-import { guessScoreWords, messageScoreWords, scoredAttempt, scoredLabel, scoreView } from './scores';
+import { guessScoreWords, messageScoreWords, scoredAttempt, scoredLabel, scoreView, thinkingShare } from './scores';
 
 function deferred<T>() {
   let resolve!: (v: T) => void;
@@ -65,7 +66,8 @@ class Scoring implements Provider {
 
   /** The score call that asked this question about this text. */
   call(question: ScoreInput['question'], text: string) {
-    const c = this.calls.find((x) => x.input.question === question && (x.input.question === 'thinking' ? x.input.text : x.input.statement) === text);
+    const about = (x: ScoreInput) => (x.question === 'thinking' ? x.text : x.question === 'guess' ? x.guess : x.statement);
+    const c = this.calls.find((x) => x.input.question === question && about(x.input) === text);
     if (!c) throw new Error(`no ${question} call about "${text}"`);
     return c.answer;
   }
@@ -85,9 +87,20 @@ function live(fake = new Scoring()) {
 const numbers = (attempts: ConceptAttempt[]) => attempts.filter((a) => !a.supersededBy).map((a) => [a.mode, a.independence, a.correctness, a.source]);
 
 describe('thresholds', () => {
-  it('own from 0.67, ai up to 0.33, together in between', () => {
-    expect([OWN_FROM, AI_UP_TO]).toEqual([0.67, 0.33]);
-    expect([1, 0.67, 0.669, 0.5, 0.331, 0.33, 0].map(thinkingMode)).toEqual(['own', 'own', 'together', 'together', 'together', 'ai', 'ai']);
+  it('own from 0.67, ai up to 0.2, together in between (a plain why question at 25 % is together)', () => {
+    expect([OWN_FROM, AI_UP_TO]).toEqual([0.67, 0.2]);
+    expect([1, 0.75, 0.67, 0.669, 0.5, 0.25, 0.201, 0.2, 0.14, 0].map(thinkingMode)).toEqual([
+      'own',
+      'own',
+      'own',
+      'together',
+      'together',
+      'together',
+      'together',
+      'ai',
+      'ai',
+      'ai',
+    ]);
   });
 });
 
@@ -283,11 +296,11 @@ describe('turn with a scoring provider: predict → reveal', () => {
     const t = await veiled(0.1, 'it trains memory cells to react faster', true);
     await vi.waitFor(() => expect(t.fake.calls).toHaveLength(3));
     expect(t.fake.calls.slice(1).map((c) => c.input)).toEqual([
-      { question: 'thinking', text: 'it trains memory cells to react faster', recent: [{ role: 'user', text: SUMMARY }] },
+      { question: 'guess', prompt: SUMMARY, guess: 'it trains memory cells to react faster' },
       { question: 'correct', statement: 'it trains memory cells to react faster', reference: 'Vaccines show the body a harmless copy.' },
     ]);
     expect(t.user().classification!.mode).toBe('ai'); // no flip by the reveal itself
-    t.fake.call('thinking', 'it trains memory cells to react faster').resolve({ p: 0.75 });
+    t.fake.call('guess', 'it trains memory cells to react faster').resolve({ p: 0.75 });
     t.fake.call('correct', 'it trains memory cells to react faster').resolve({ p: 0.9 });
     await Promise.all([t.sent, t.revealed()]);
     expect(t.user().classification!.mode).toBe('own');
@@ -301,7 +314,7 @@ describe('turn with a scoring provider: predict → reveal', () => {
   it('a reveal after the reply ended scores at once; a guess never lowers the percent; a wrong guess shows a low "right"', async () => {
     const t = await veiled(0.6, 'it is about the blood sugar');
     expect(t.fake.calls).toHaveLength(3);
-    t.fake.call('thinking', 'it is about the blood sugar').resolve({ p: 0.4 });
+    t.fake.call('guess', 'it is about the blood sugar').resolve({ p: 0.4 });
     t.fake.call('correct', 'it is about the blood sugar').resolve({ p: 0.05 });
     await Promise.all([t.sent, t.revealed()]);
     expect(numbers(t.s.state.domain.attempts)).toEqual([
@@ -320,9 +333,9 @@ describe('turn with a scoring provider: predict → reveal', () => {
     await tick();
     expect(t.reply()).toMatchObject({ stopped: true, veiled: true });
     const revealed = t.s.reveal(t.reply().id, 'memory cells');
-    expect(t.fake.calls.map((x) => x.input.question)).toEqual(['thinking', 'thinking']);
+    expect(t.fake.calls.map((x) => x.input.question)).toEqual(['thinking', 'guess']);
     t.fake.call('thinking', SUMMARY).resolve({ p: 0.1 });
-    t.fake.call('thinking', 'memory cells').resolve({ p: 0.7 });
+    t.fake.call('guess', 'memory cells').resolve({ p: 0.7 });
     await Promise.all([sent, revealed]);
     expect(numbers(t.s.state.domain.attempts)).toEqual([
       ['own', 0.7, null, 'reveal'],
@@ -381,12 +394,23 @@ describe('the rules on their own', () => {
     expect(messageScoreWords(scoreView({ thinking: 'pending' }))).toEqual([{ text: 'Thought along …', quiet: true }]);
     expect(messageScoreWords(scoreView({ thinking: 'failed' }))).toEqual([{ text: 'Thought along: not checked', quiet: true }]);
     expect(texts(messageScoreWords(scoreView({ thinking: { p: 0.1 }, guess: { p: 0.8 }, correct: 'pending' })))).toEqual(['Thought along 80% with your guess', 'Your guess: right …']);
+    // A guess that raises the percent but not the label ("no idea" after a delegating prompt) gets no "with your guess".
+    expect(texts(messageScoreWords(scoreView({ thinking: { p: 0.05 }, guess: { p: 0.12 }, correct: { p: 0 } })))).toEqual(['Thought along 12%', 'Your guess: right 0%']);
     expect(texts(messageScoreWords(scoreView({ thinking: { p: 0.1 }, correct: { p: 0.5 } }), true))).toEqual(['Right 50%']);
     expect(guessScoreWords(scoreView({ thinking: { p: 0.1 }, guess: 'pending', correct: 'pending' }))).toEqual([{ text: 'Checking your guess …', quiet: true }]);
     expect(texts(guessScoreWords(scoreView({ thinking: { p: 0.1 }, guess: { p: 0.8 }, correct: { p: 0.07 } })))).toEqual(['Right 7%', 'Thought along 80%']);
     expect(texts(guessScoreWords(scoreView({ thinking: { p: 0.1 }, guess: { p: 0.2 } })))).toEqual(['Thought along 20%']);
     const all = [...messageScoreWords(scoreView({ thinking: { p: 0.5, model: 'zai.glm-4.7-flash' } })), ...guessScoreWords(scoreView({ guess: 'failed', correct: 'failed' }))];
     for (const w of texts(all)) expect(w).not.toMatch(/probab|logprob|glm|model/i);
+  });
+
+  it("the bar's share: the percent of a scored message, the label's value otherwise (demo unchanged)", () => {
+    const m = (over: Partial<ChatMessage>): ChatMessage => ({ id: 'm', role: 'user', text: 'x', conceptIds: [], classification: { mode: 'own', confidence: 1, reasons: [] }, ...over });
+    expect(thinkingShare(m({}))).toBe(1); // demo: no scores
+    expect(thinkingShare(m({ scores: { thinking: { p: 0.75 } } }))).toBe(0.75); // not "you 100 %"
+    expect(thinkingShare(m({ scores: { thinking: { p: 0.1 }, guess: { p: 0.8 } } }))).toBe(0.8);
+    expect(thinkingShare(m({ scores: { thinking: 'pending' } }))).toBe(1);
+    expect(thinkingShare(m({ scores: { thinking: { p: 0.75 } }, classification: { mode: 'ai', confidence: 1, reasons: [], overridden: true } }))).toBe(0);
   });
 
   it('without a thinking score a guess can only raise the label', () => {
