@@ -10,7 +10,7 @@ describe('score prompts: rating scales', () => {
     }
     expect(THINKING_SYSTEM).toContain('a wrong claim or a misconception is still the student');
     expect(THINKING_SYSTEM).toMatch(/single digit from 1 to 5 and nothing else\.$/);
-    expect(GUESS_SYSTEM).toContain('An empty guess, "no idea", "idk" or "just tell me" is 1.');
+    expect(GUESS_SYSTEM).toContain('An empty guess, "no idea", "idk" or "just tell me" is 1. A vague guess, even one with a question mark, is 3.');
   });
 
   it('correct: right (1), partly right (0.5), wrong or no answer (0)', () => {

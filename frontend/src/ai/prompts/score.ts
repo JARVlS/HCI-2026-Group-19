@@ -38,7 +38,7 @@ export const THINKING_SYSTEM = [
 export const GUESS_SYSTEM = [
   "You rate a guess that a student typed before reading the AI tutor's answer to their question. Question: how much of the thinking in this guess is the student's own?",
   ...THINKING_STEPS,
-  'An empty guess, "no idea", "idk" or "just tell me" is 1.',
+  'An empty guess, "no idea", "idk" or "just tell me" is 1. A vague guess, even one with a question mark, is 3.',
   'Answer with a single digit from 1 to 5 and nothing else.',
 ].join(' ');
 
