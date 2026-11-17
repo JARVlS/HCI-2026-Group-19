@@ -14,6 +14,8 @@ export const THINKING_SYSTEM = [
   'You judge one message that a student wrote to an AI tutor. Question: did the student think along?',
   "Thinking along means the message contains the student's own reasoning, claim, prediction, guess, attempt or a specific idea they want checked, even if it is wrong.",
   'Not thinking along means the student hands the work to the AI: asks for a finished answer, summary, solution or text without any idea of their own, or only says they have no idea.',
+  // One example per side: without them the model sat on 0.5 for "Write me a short summary of …" (live check).
+  'Examples: "Write me a summary of how photosynthesis works" = 2. "I think plants store the energy as sugar, right?" = 1.',
   'Asking for a hint or to be quizzed is in between: the student wants to do the thinking but brings no idea of their own yet.',
   'Earlier turns are context only: judge the student message at the end.',
   `Answer with a single digit and nothing else: ${YES} = the student thought along, ${NO} = the student did not.`,

@@ -10,6 +10,7 @@ describe('score prompts', () => {
     // in between; "idk" is wrong, and so is a contradiction (naming only the first made the second drift).
     expect(THINKING_SYSTEM).toContain('even if it is wrong');
     expect(THINKING_SYSTEM).toContain('Asking for a hint or to be quizzed is in between');
+    expect(THINKING_SYSTEM).toMatch(/Examples: .* = 2\. .* = 1\./);
     expect(CORRECT_SYSTEM).toContain('"idk", "I don\'t know", "no idea"');
     expect(CORRECT_SYSTEM).toContain("contradicts the tutor's answer is wrong");
   });
