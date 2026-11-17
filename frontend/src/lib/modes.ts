@@ -47,6 +47,17 @@ export function scoreToMode(score: number): Mode {
   return 'ai';
 }
 
+/**
+ * The draft's live split for the composer's score line: how much of the thinking is the student's
+ * own (0..1); the rest is handed to the AI. From the linter's label and how sure it is: a sure
+ * "own" leans fully to the student, a sure "ai" fully to the AI, "together" sits in the middle,
+ * and an unsure label stays near the middle.
+ */
+export function draftShare(mode: Mode, confidence: number): number {
+  const c = Math.min(1, Math.max(0, confidence));
+  return 0.5 + (MODE_SCORE[mode] - 0.5) * c;
+}
+
 export function mean(values: number[]): number {
   if (!values.length) return 0;
   return values.reduce((a, b) => a + b, 0) / values.length;

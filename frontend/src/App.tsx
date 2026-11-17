@@ -1,6 +1,10 @@
-import { lazy, Suspense, type CSSProperties } from 'react';
+import { lazy, Suspense, useMemo, useState, type CSSProperties } from 'react';
+import { chooseProvider, isLiveChoice } from './ai/providers';
+import { logOut, readAccount, type Account } from './lib/account';
+import { PROVIDER_KEY, SETTINGS_KEY } from './lib/app';
 import { StoreProvider, useStore } from './lib/store';
 import type { Design } from './lib/types';
+import { AccountContext, Welcome, type AccountControls, type WelcomeMode } from './Welcome';
 
 /**
  * Arbor comes in several design styles that share one store (conversation, classifier,
@@ -74,10 +78,85 @@ function Boot() {
   );
 }
 
+function storage() {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function params() {
+  try {
+    return new URLSearchParams(window.location.search);
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+const read = (key: string) => {
+  try {
+    return storage()?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/** Live mode on this visit, decided as the store will decide it (lib/app.ts `initialState`). */
+function startsLive(p: URLSearchParams) {
+  return isLiveChoice(chooseProvider({ demo: p.get('demo') === '1', url: p.get('provider'), saved: read(PROVIDER_KEY), build: import.meta.env.VITE_DEFAULT_PROVIDER }));
+}
+
+/** The theme before the store exists: `?theme=`, else the saved setting, else the system's. */
+function earlyTheme(p: URLSearchParams) {
+  const t = p.get('theme');
+  if (t === 'light' || t === 'dark' || t === 'system') return t;
+  try {
+    return JSON.parse(read(SETTINGS_KEY) ?? '{}').theme ?? 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+/**
+ * The app, with the welcome screen in front on a first visit in live mode (ADR-8 amended): log in,
+ * sign up, or continue as guest. Nothing loads before that choice, so logging in never leaves an
+ * empty guest behind. `?welcome=1` shows it again (demos, user tests).
+ */
 export default function App() {
+  const p = useMemo(params, []);
+  const [account, setAccount] = useState<Account | null>(() => readAccount(storage()));
+  const [screen, setScreen] = useState<WelcomeMode | null>(() =>
+    startsLive(p) && (p.get('welcome') === '1' || !readAccount(storage())) ? 'start' : null,
+  );
+  const theme = earlyTheme(p);
+
+  const done = (a: Account, switched: boolean) => {
+    // Another user's token: reload, so the store loads that user's chats from scratch.
+    if (switched && screen !== 'start') return window.location.reload();
+    setAccount(a);
+    setScreen(null);
+  };
+
+  const controls = useMemo<AccountControls>(
+    () => ({
+      account,
+      open: (mode) => setScreen(mode),
+      logOut() {
+        logOut(storage());
+        window.location.reload();
+      },
+    }),
+    [account],
+  );
+
+  if (screen === 'start') return <Welcome mode="start" storage={storage()} theme={theme} onDone={done} />;
   return (
-    <StoreProvider>
-      <DesignSwitch />
-    </StoreProvider>
+    <AccountContext.Provider value={controls}>
+      <StoreProvider>
+        <DesignSwitch />
+      </StoreProvider>
+      {screen && <Welcome mode={screen} storage={storage()} theme={theme} onDone={done} onCancel={() => setScreen(null)} />}
+    </AccountContext.Provider>
   );
 }

@@ -460,6 +460,10 @@ body {
 .a-diag li.m-together .a-diag-word {
   color: var(--you);
 }
+/* A reason without a word of its own spans the word column too. */
+.a-diag li > .a-diag-why:nth-child(2) {
+  grid-column: 2 / -1;
+}
 .a-diag-word {
   overflow: hidden;
   white-space: nowrap;
@@ -538,9 +542,9 @@ body {
 
 /* ───────────── Composer ───────────── */
 .a-composer {
-  width: min(100%, 88ch);
-  margin: 0 auto;
-  padding: 10px 3ch 12px;
+  position: relative;
+  width: 100%;
+  padding: 4px 3ch 12px;
   border-top: 1px dashed var(--rule);
 }
 .a-prompt {
@@ -560,9 +564,11 @@ body {
   color: var(--mode);
   transition: color 0.3s;
 }
+/* Grows with the text up to half the screen, then scrolls. */
 .a-field {
   display: grid;
-  max-height: 160px;
+  max-height: 50vh;
+  max-height: 50dvh;
   overflow-y: auto;
 }
 .a-backdrop,
@@ -592,25 +598,112 @@ body {
 .a-field textarea::placeholder {
   color: var(--text-3);
 }
-.a-lint {
-  min-height: 20px;
-  margin: 6px 0 0 2ch;
+/* The live score: one line of fixed height above the prompt (ADR-14), so nothing moves while typing. */
+.a-gauge-row {
+  height: 20px;
+  margin: 0 0 4px 2ch;
+  white-space: nowrap;
 }
-.a-verdict {
-  animation: a-rise 0.2s var(--ease);
+.a-gauge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  min-width: 0;
+  outline: none;
+  cursor: default;
 }
-.a-verdict.m-ai strong {
+.a-gauge strong {
+  font-weight: 700;
+}
+.a-gauge.m-ai strong {
   color: var(--ai);
 }
-.a-verdict.m-own strong,
-.a-verdict.m-together strong {
+.a-gauge.m-own strong,
+.a-gauge.m-together strong {
   color: var(--you);
 }
-.a-after {
-  margin-top: 2px;
+.a-gauge-bar {
+  position: relative;
+  flex: none;
+  width: 10ch;
+  height: 6px;
+  background: color-mix(in srgb, var(--ai) 45%, transparent);
+}
+.a-gauge-bar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--you);
+  transition: width 0.3s var(--ease);
+}
+.a-gauge-after {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Every reason, on hover or focus of the score line; floats above, never pushes. */
+.a-gauge-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: -1ch;
+  z-index: 5;
+  width: min(60ch, calc(100vw - 32px));
+  padding: 6px 1ch;
+  white-space: normal;
+  border: 1px solid var(--text);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    visibility 0s 0.15s;
+}
+.a-gauge:hover .a-gauge-pop,
+.a-gauge:focus-visible .a-gauge-pop {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.15s;
+}
+.a-verdict-head .a-g,
+.a-gauge .a-g {
+  vertical-align: -1px;
+}
+/* The reason of one underlined word, above it, while the mouse rests on it. */
+.a-evtip {
+  position: absolute;
+  z-index: 6;
+  max-width: min(46ch, calc(100vw - 32px));
+  padding: 2px 1ch;
+  transform: translateY(calc(-100% - 6px));
   color: var(--text-2);
+  border: 1px solid var(--ev, var(--text));
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  pointer-events: none;
+  animation: a-fade 0.12s var(--ease);
+}
+.a-evtip.m-own,
+.a-evtip.m-together {
+  --ev: var(--you);
+}
+.a-evtip.m-ai {
+  --ev: var(--ai);
+}
+.a-evtip-word {
+  color: var(--ev);
+}
+.a-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .a-try {
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--text-3);
 }
 .a-try-btn {
@@ -623,8 +716,13 @@ body {
 
 /* Command menu */
 .a-menu {
+  position: absolute;
+  right: 3ch;
+  bottom: calc(100% - 2px);
+  left: 3ch;
+  z-index: 5;
   list-style: none;
-  margin: 0 0 8px;
+  margin: 0;
   padding: 4px 0;
   max-height: 200px;
   overflow-y: auto;
@@ -1367,13 +1465,14 @@ body {
 .a-fields {
   margin: 2px 0 0 10ch;
 }
-.a-field {
+/* Named apart from the composer's .a-field: the same class gave the prompt a 9ch column. */
+.a-form-row {
   display: grid;
   grid-template-columns: 9ch minmax(0, 1fr) auto;
   gap: 1ch;
   align-items: baseline;
 }
-.a-field input {
+.a-form-row input {
   min-width: 0;
   padding: 0;
   border: 0;
@@ -1381,10 +1480,10 @@ body {
   background: transparent;
   outline: none;
 }
-.a-field input:focus {
+.a-form-row input:focus {
   border-bottom-color: var(--text);
 }
-.a-field input::placeholder {
+.a-form-row input::placeholder {
   color: var(--text-3);
 }
 .a-hint {

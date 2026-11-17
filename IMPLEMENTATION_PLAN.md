@@ -230,11 +230,17 @@ export interface Provider {
 ```
 | Kind | Where it runs | Structured output via | When |
 |---|---|---|---|
-| `scripted` | browser, wraps `engine.ts` + `classify.ts` + `matchConcepts` | builds `TurnAnalysis` directly | M1 (default until M3) |
+| `scripted` | browser, wraps `engine.ts` + `classify.ts` + `matchConcepts` | builds `TurnAnalysis` directly | M1 (build default until 17 Nov; now `?demo=1` or a choice in settings) |
 | `arbor` | backend relay → Claude Messages API, department credits | tool use with `input_schema` | M3 (**study runs on this**) |
 | `anthropic` (BYOK) | **browser → api.anthropic.com** with the user's key (`anthropic-dangerous-direct-browser-access: true`) | tool use | M7 |
 | `openai-compatible` (BYOK / own server / local) | **browser → user's base URL**: OpenAI, OpenRouter, Groq, Mistral, a self-hosted vLLM/LiteLLM, Ollama or LM Studio on localhost | `response_format: json_schema` (Ollama: `format`); fallback "JSON only" prompt + `JSON.parse` + one repair retry | M7 |
 | `chatgpt` | Sign in with ChatGPT; desktop shell only (ADR-10/11) | Responses API | S2 |
+
+**Default (amended 17 Nov 2026, M8):** the production build defaults to `arbor`
+(`VITE_DEFAULT_PROVIDER` in `frontend/vite.config.ts`), so a new visitor gets live Claude and an
+empty chat, not the scripted demo. Cost control stays on the backend (`DAILY_TOKEN_BUDGET` per
+user, `TOTAL_TOKEN_BUDGET` for everyone); when it runs out, answers fail with the budget message
+and `?demo=1` still works offline.
 
 **Transport:** a provider is pure TS against `fetch`. In the desktop shell (ADR-11) the same
 providers run in the Electron main process and are reached over IPC (`window.arbor.provider.*`),
@@ -347,11 +353,26 @@ established way to model tutor help in BKT, and it's directly fittable with pyBK
 (`multigs` / `multilearn` with `mode` as the class column). The old weighted-mean score stays
 available as `baselineScore()` so the report can compare the two.
 
-### ADR-8 Auth: anonymous sessions
+### ADR-8 Auth: anonymous sessions, optional accounts (amended 17 Nov 2026)
 `POST /api/session` creates a user (optionally with `participantId` and `condition` from the URL)
 and returns `{ userId, token }`. Token = HMAC-SHA256(userId, `SESSION_SECRET`), stored in
-localStorage and sent as `Authorization: Bearer`. No email or password in M4. "Sign in with
-ChatGPT" identity could become the account system later.
+localStorage and sent as `Authorization: Bearer`.
+
+**Amendment (M8):** an account is an optional **username + password** on top of such a user
+(table `accounts`, migration 0003; `POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/me`).
+- A first visit in live mode starts at a **welcome screen**: log in, sign up, or **continue as
+  guest**. Nothing loads before the choice, so logging in never leaves an empty guest behind.
+  Visitors from before (a token, no choice) count as guests and skip the screen.
+- **Signing up as a guest keeps the guest:** same `userId`, same token, the chats stay. Logging
+  in switches the browser to the account's token; the guest's chats stay with the guest (not
+  merged). Logging out forgets the token on the device (tokens are stateless; no server logout).
+- **No email:** nothing to verify and no personal data needed for the study, but also no password
+  reset. Usernames may be email addresses; the export never includes the `accounts` table.
+- Passwords: PBKDF2-HMAC-SHA256, 100 000 iterations (the WebCrypto maximum in Workers), random
+  salt, hashed in WebCrypto through the Pyodide FFI. No rate limit yet: fine for the course, needed
+  before anything public. Study participants keep using `participantId`; accounts are for
+  everyone else (demo day, testers, the team).
+- "Sign in with ChatGPT" (S2) could still become a second way to log in.
 
 ### ADR-9 The study is configuration, not a fork, and organization is a policy
 `lib/study.ts` reads `?pid=P07&cond=A|B` (plus the existing URL params) into an immutable
@@ -494,6 +515,23 @@ URL params for the study (`?pid&cond&…`) stay in the query string; the hash on
   confirms. Every target stays reachable via `/` commands and the modeline lists `alt nav`.
   Touch: long-press on empty canvas opens the same menu (no Alt key on iOS).
 
+### ADR-14 The thought linter never moves the layout (17 Nov 2026)
+The linter used to print its verdict and a word-by-word diagnostics list **under** the prompt.
+Its height changed with every debounce (empty → verdict → list → empty), so the prompt jumped up
+and down while the student typed. A tool that is meant to make thinking visible must not get in
+the way of it. Rules, for every design:
+- **The words explain themselves:** the classifier's evidence stays underlined in the text
+  (solid = you, dashed = together, wavy = ai). Hovering a word shows its reason in a small pop-up
+  above it; nothing is laid out for it.
+- **One live score line of fixed height above the prompt**: glyph, label, a you ↔ ai bar with
+  the split (`draftShare` in `lib/modes.ts`), and what sending will do. It is always there (empty
+  when there is nothing to say), so the prompt never moves when the linter changes its mind. As the
+  prompt grows the line moves up with it. Hovering it lists every reason (the old diagnostics).
+- **Nothing under the prompt.** The command menu floats above it.
+- The prompt spans the chat column and grows with its text up to half the screen height, then
+  scrolls.
+- Screen readers get the verdict through a visually hidden live region instead of the visible list.
+
 ---
 
 ## 4. API contract (backend ↔ frontend)
@@ -505,6 +543,9 @@ Errors: `{ error: { code, message } }` with an HTTP status.
 |---|---|---|
 | `GET /health` | → `{ ok, environment }` | exists |
 | `POST /session` | `{ participantId?, condition? }` → `{ userId, token }` | ADR-8 |
+| `POST /auth/signup` | `{ username, password }` (+ optional guest token) → `{ userId, token, username, … }` | ADR-8 amended (M8): the guest becomes the account |
+| `POST /auth/login` | `{ username, password }` → `{ userId, token, username, … }` | 401 `invalid_credentials` |
+| `GET /me` | → `{ userId, username \| null, participantId, condition }` | null: a guest |
 | `GET /state` | → `{ concepts, edges, trees, conversations, attempts }` | bootstrap; messages excluded |
 | `GET /conversations/:id/messages` | → `{ messages }` | lazy per conversation |
 | `PUT /sync` | `{ concepts?, edges?, trees?, conversations?, messages?, attempts? }` → `{ ok, serverTime }` | idempotent upsert by client id, one `db.batch()`; last-write-wins on `updatedAt` |
@@ -865,6 +906,33 @@ key only in sessionStorage. Acceptance with real OpenAI, OpenRouter and Ollama i
 
 *Acceptance:* the full flow (chat + analysis + tree) works with an OpenAI key, an OpenRouter key
 and a local Ollama model, with no request to our backend except `/sync`.
+
+### M8 First run: live by default, accounts, a calmer composer (BE + FE, 17 Nov) ⇢ M2, M3
+What a new visitor sees on the deployed site: until now the scripted demo with its demo forest,
+a prompt squeezed to two words, and a linter that made the prompt jump.
+- [x] **Live by default** (ADR-4 amended): `VITE_DEFAULT_PROVIDER = arbor`; the demo stays
+      behind `?demo=1` and in settings.
+- [x] **Accounts** (ADR-8 amended): migration `0003_accounts.sql`, `/api/auth/signup|login`,
+      `/api/me`; PBKDF2 in WebCrypto; tests and smoke checks.
+- [x] **Welcome screen** (`src/Welcome.tsx`): log in, sign up, continue as guest; later as an
+      overlay from settings → account and `/signup`, `/login`, `/logout` (ASCII design).
+- [x] **A fresh user starts on an open, empty chat with no trees**: live mode already starts with
+      one empty chat; the intro no longer opens by itself in live mode (the empty chat links to it,
+      `?intro=1` forces it).
+- [x] **Composer** (ADR-14): full width, grows to half the screen; the model sheet's `.a-field`
+      class had given the prompt a 9ch column (renamed `.a-form-row`).
+- [x] **Linter rework** (ADR-14): underlines with hover reasons, one fixed score line above the
+      prompt, nothing below it.
+- [ ] Apply migration 0003 to `hci-grp19` and check T-39 on the deployed Worker (needs the
+      Cloudflare login).
+- [ ] Rate limit for `/api/auth/login` before the site is shared widely.
+- [ ] Classic design: an account entry in its settings (the welcome screen already covers both
+      designs; §8 says no new features in classic, so only if the team wants it).
+
+*Acceptance:* a new browser on the deployed site sees the welcome screen; "continue as guest"
+opens an empty chat whose first message gets a live Claude answer and grows the first tree; sign
+up keeps that chat; log out and log in on another browser shows it again; typing a long prompt
+never moves anything but the prompt itself.
 
 ### Stretch (post-study)
 - **S2 Desktop shell (ADR-11):** Electron wrapper around the same build; providers in the main

@@ -359,3 +359,13 @@ describe('switching the provider switches the world', () => {
     expect(server.calls).toHaveLength(1);
   });
 });
+
+describe('first visit (M8)', () => {
+  it('the intro opens by itself in the demo, not in live mode (live starts on the open chat)', async () => {
+    const { initialState, ONBOARD_KEY } = await import('./app');
+    expect(initialState(new URLSearchParams(), memoryStorage(), 'scripted').ui.onboarding).toBe(true);
+    expect(initialState(new URLSearchParams(), memoryStorage(), 'arbor').ui.onboarding).toBe(false);
+    expect(initialState(new URLSearchParams('intro=1'), memoryStorage(), 'arbor').ui.onboarding).toBe(true);
+    expect(initialState(new URLSearchParams(), memoryStorage({ [ONBOARD_KEY]: '1' }), 'scripted').ui.onboarding).toBe(false);
+  });
+});
