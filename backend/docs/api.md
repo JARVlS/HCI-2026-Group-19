@@ -220,7 +220,7 @@ the model to answer with exactly one of a few short `options` (for example `"1"`
 thought along, `"2"` = they did not). The server lets the **fast model** generate one token and
 returns how likely each option was as that token. Claude's API returns no token probabilities, so
 this route uses the third model slot: any OpenAI-compatible chat completions API that returns
-`logprobs` (`FAST_BASE_URL`, `MODEL_FAST`, secret `FAST_API_KEY`; today `zai.glm-4.7-flash` in
+`logprobs` (`FAST_BASE_URL`, `MODEL_FAST`, secret `FAST_API_KEY`; today `zai.glm-4.7` in
 Amazon Bedrock, eu-north-1). The frontend owns the prompts, as for `/ai/complete`.
 
 Request (unknown fields are a 422):
@@ -260,7 +260,7 @@ Response:
 
 ```json
 { "probabilities": { "1": 0.83, "2": 0.17 }, "mass": 0.99,
-  "usage": { "inputTokens": 212, "outputTokens": 1 }, "model": "zai.glm-4.7-flash" }
+  "usage": { "inputTokens": 212, "outputTokens": 1 }, "model": "zai.glm-4.7" }
 ```
 
 One number from 0 to 1 ("how much did the student think along") is the probability of the "yes"

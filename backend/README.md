@@ -45,7 +45,7 @@ SDK is not verified in that runtime. The fast model is called the same way (no `
 
 Claude's API returns no token probabilities, hence the third slot with another API format. Any
 endpoint that speaks OpenAI chat completions and returns `logprobs` works there (OpenAI, Groq, a
-self-hosted vLLM or Ollama); today it is `zai.glm-4.7-flash` in Amazon Bedrock (eu-north-1).
+self-hosted vLLM or Ollama); today it is `zai.glm-4.7` in Amazon Bedrock (eu-north-1).
 
 ## Run locally
 
@@ -105,7 +105,7 @@ the Worker bundle (pywrangler bundles only `[project.dependencies]`, see `pylock
 | `DAILY_TOKEN_BUDGET` | var | tokens per user per UTC day (200000), see docs/api.md "Budget and cost" |
 | `TOTAL_TOKEN_BUDGET` | var | tokens for all users together, never resets (900000, at most 10 USD) |
 | `ANTHROPIC_BASE_URL` | var | planned: `https://api.anthropic.com`; today the Bedrock endpoint; locally the fake API |
-| `MODEL_FAST` | var | the fast slot's model: `zai.glm-4.7-flash` (picked on 17 Nov 2026, see the comment in `wrangler.toml`) |
+| `MODEL_FAST` | var | the fast slot's model: `zai.glm-4.7` (picked on 17 Nov 2026, see the comment in `wrangler.toml`) |
 | `FAST_BASE_URL` | var | OpenAI-compatible API base, `/chat/completions` is appended: `https://bedrock-mantle.eu-north-1.api.aws/v1`; locally the fake API (`http://127.0.0.1:8790/v1`) |
 
 Vars live in `[vars]` in `wrangler.toml`. Secrets never go in a file that is committed: on Cloudflare
@@ -180,7 +180,7 @@ of 500s.
 
 No migration (the tokens go into the existing `usage` table under task `score`). The two new vars
 (`FAST_BASE_URL`, `MODEL_FAST`) come with `wrangler.toml`. One step by hand, best before the merge:
-set the secret, with a Bedrock API key that may call `zai.glm-4.7-flash` on bedrock-mantle in
+set the secret, with a Bedrock API key that may call `zai.glm-4.7` on bedrock-mantle in
 eu-north-1:
 
 ```bash
