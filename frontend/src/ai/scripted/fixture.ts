@@ -38,14 +38,9 @@ export interface FixtureOptions {
   now?: number;
   /** The scripted conversation starts empty (`?empty=1`). */
   empty?: boolean;
-  /**
-   * For a live provider: the demo forest stays, but the active chat is a new, untitled one without
-   * a subject (its first analysis picks one) instead of the scripted "Neural networks" chat.
-   */
-  fresh?: boolean;
 }
 
-export function demoFixture({ now = Date.now(), empty = false, fresh = false }: FixtureOptions = {}): DemoFixture {
+export function demoFixture({ now = Date.now(), empty = false }: FixtureOptions = {}): DemoFixture {
   const today = new Date(now).toISOString();
   const concepts: Record<Id, Concept> = {};
   const add = (id: Id, label: string, kind: Concept['kind'], parentId: Id | null, at: ISO) => {
@@ -60,12 +55,17 @@ export function demoFixture({ now = Date.now(), empty = false, fresh = false }: 
   for (const [id, label] of Object.entries(BRANCHES)) if (id !== 'other') add(id, label, 'topic', LIVE_TREE.id, today);
   for (const c of CONCEPTS) add(c.id, c.label, 'concept', c.branch, today);
 
-  const trees: KnowledgeTree[] = fresh
-    ? []
-    : [{ id: LIVE_TREE.id, rootConceptId: LIVE_TREE.id, title: LIVE_TREE.title, groveId: LIVE_TREE.grove, createdAt: today, updatedAt: today }];
-  const active: Conversation = fresh
-    ? { id: crypto.randomUUID(), title: 'New chat', subjectId: null, studyMode: false, createdAt: today, updatedAt: today }
-    : { id: LIVE_CONVERSATION_ID, title: LIVE_TREE.chatTitle, subjectId: LIVE_TREE.grove, studyMode: false, createdAt: today, updatedAt: today };
+  const trees: KnowledgeTree[] = [
+    { id: LIVE_TREE.id, rootConceptId: LIVE_TREE.id, title: LIVE_TREE.title, groveId: LIVE_TREE.grove, createdAt: today, updatedAt: today },
+  ];
+  const active: Conversation = {
+    id: LIVE_CONVERSATION_ID,
+    title: LIVE_TREE.chatTitle,
+    subjectId: LIVE_TREE.grove,
+    studyMode: false,
+    createdAt: today,
+    updatedAt: today,
+  };
   const conversations: Record<Id, Conversation> = { [active.id]: active };
   const attempts: ConceptAttempt[] = [];
   const attempt = (conversationId: Id, messageId: Id, conceptId: Id, mode: Mode, at: ISO, id = `a:${messageId}:${conceptId}`): ConceptAttempt => ({
@@ -83,7 +83,7 @@ export function demoFixture({ now = Date.now(), empty = false, fresh = false }: 
     createdAt: at,
   });
 
-  // Past chats: one conversation per tree, without messages (they are read-only in M1).
+  // Past chats: one conversation per tree, without messages (the demo has no transcript for them).
   for (const t of PAST_TREES) {
     const at = daysAgo(t.daysAgo, now);
     add(t.id, t.title, 'topic', t.grove, at);
@@ -101,7 +101,7 @@ export function demoFixture({ now = Date.now(), empty = false, fresh = false }: 
 
   // The live conversation, already under way.
   const messages: Message[] = [];
-  if (!empty && !fresh) {
+  if (!empty) {
     SEED.forEach((s, i) => {
       const at = new Date(now - (SEED.length - i) * 60_000).toISOString();
       const uid = `seed-${i}-u`;
@@ -124,7 +124,7 @@ export function demoFixture({ now = Date.now(), empty = false, fresh = false }: 
     messagesByConv: { [active.id]: messages },
     attempts,
     activeConversationId: active.id,
-    demoPrompts: fresh ? [] : [...DEMO_PROMPTS],
+    demoPrompts: [...DEMO_PROMPTS],
   };
 }
 

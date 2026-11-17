@@ -107,6 +107,8 @@ export interface KnowledgeTree {
   splitFrom?: Id;
   createdAt: ISO;
   updatedAt: ISO;
+  /** Only on the wire: a tree the planner removed is synced once more with this set (M2). */
+  deletedAt?: ISO;
 }
 
 /** Decides which trees exist (the M3 seam). Pure and deterministic; runs after every analysis merge. */

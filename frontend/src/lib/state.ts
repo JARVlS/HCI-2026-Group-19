@@ -1,3 +1,4 @@
+import { mergeMessages, NEW_CHAT_TITLE, titleFrom } from './chats';
 import type { Concept, ConceptAttempt, ConceptEdge, Conversation, Id, ISO, KnowledgeTree, Message, Mode, TreePlanner } from './domain';
 import { slugify } from './graph';
 import { MODE_SCORE } from './modes';
@@ -31,6 +32,9 @@ export interface TurnState {
   error?: string;
 }
 
+/** Live mode: something is loading from the backend, or failed to. */
+export type LoadStatus = 'loading' | { error: string };
+
 export interface SessionState {
   activeConversationId: Id;
   /** Concept id if the assistant just asked a quiz question in the active chat. */
@@ -38,6 +42,10 @@ export interface SessionState {
   turn: TurnState;
   /** Prompts `tab` cycles through (from the active fixture). */
   demoPrompts: string[];
+  /** Live mode: the user's data loads at start. Always 'ready' in demo mode. */
+  boot: 'ready' | LoadStatus;
+  /** Live mode: chats whose messages are loading or failed to load. A loaded chat has its list in `messagesByConv`. */
+  chatLoad: Record<Id, LoadStatus>;
 }
 
 export interface UiState {
@@ -53,6 +61,8 @@ export interface UiState {
   toast: { text: string; nonce: number } | null;
   /** Which of the active chat's trees the pane shows (null: the most recent one). */
   paneTreeId: Id | null;
+  /** The chat list is open. */
+  chats: boolean;
 }
 
 export interface State {
@@ -75,8 +85,14 @@ export interface AnalysisPatch {
 
 export type Action =
   | { type: 'hydrate'; domain: DomainState; activeConversationId: Id; demoPrompts: string[] }
+  | { type: 'bootStart' }
+  | { type: 'bootFailed'; error: string }
+  | { type: 'messagesLoading'; conversationId: Id }
+  | { type: 'messagesLoaded'; conversationId: Id; messages: Message[] }
+  | { type: 'messagesFailed'; conversationId: Id; error: string }
   | { type: 'conversationNew'; conversation: Conversation }
   | { type: 'conversationOpen'; id: Id }
+  | { type: 'conversationTitle'; id: Id; title: string; at: ISO }
   | { type: 'user'; msg: Message }
   | { type: 'retryStart'; conversationId: Id; userMessageId: Id }
   | { type: 'assistantStart'; msg: Message; userMessageId: Id }
@@ -91,6 +107,7 @@ export type Action =
   | { type: 'settings'; patch: Partial<Settings> }
   | { type: 'panel'; open: boolean }
   | { type: 'forest'; open: boolean; focus?: string | null }
+  | { type: 'chats'; open: boolean }
   | { type: 'paneTree'; id: Id | null }
   | { type: 'draft'; text: string }
   | { type: 'highlight'; ids: string[] }
@@ -212,7 +229,19 @@ function domainReducer(d: DomainState, a: Action): DomainState {
     case 'user': {
       const id = a.msg.conversationId;
       const list = d.messagesByConv[id] ?? [];
-      return touchConversation({ ...d, messagesByConv: { ...d.messagesByConv, [id]: [...list, a.msg] } }, id, a.msg.createdAt);
+      const next = touchConversation({ ...d, messagesByConv: { ...d.messagesByConv, [id]: [...list, a.msg] } }, id, a.msg.createdAt);
+      // A new chat is named after its first message (no model call); `/title` renames it.
+      const c = next.conversations[id];
+      if (!c || c.title !== NEW_CHAT_TITLE || list.some((m) => m.role === 'user')) return next;
+      return { ...next, conversations: { ...next.conversations, [id]: { ...c, title: titleFrom(a.msg.text) } } };
+    }
+    case 'messagesLoaded':
+      // What this device has (newer, or not saved yet) wins over what was loaded.
+      return { ...d, messagesByConv: { ...d.messagesByConv, [a.conversationId]: mergeMessages(a.messages, d.messagesByConv[a.conversationId] ?? []) } };
+    case 'conversationTitle': {
+      const c = d.conversations[a.id];
+      if (!c) return d;
+      return { ...d, conversations: { ...d.conversations, [a.id]: { ...c, title: a.title, updatedAt: a.at > c.updatedAt ? a.at : c.updatedAt } } };
     }
     case 'retryStart': {
       // Drop the failed reply (if any) so the retry streams into a fresh one.
@@ -276,7 +305,19 @@ function domainReducer(d: DomainState, a: Action): DomainState {
 function sessionReducer(s: SessionState, a: Action): SessionState {
   switch (a.type) {
     case 'hydrate':
-      return { ...s, activeConversationId: a.activeConversationId, demoPrompts: a.demoPrompts, pendingQuiz: null, turn: { status: 'idle' } };
+      return { ...s, activeConversationId: a.activeConversationId, demoPrompts: a.demoPrompts, pendingQuiz: null, turn: { status: 'idle' }, boot: 'ready', chatLoad: {} };
+    case 'bootStart':
+      return { ...s, boot: 'loading' };
+    case 'bootFailed':
+      return { ...s, boot: { error: a.error } };
+    case 'messagesLoading':
+      return { ...s, chatLoad: { ...s.chatLoad, [a.conversationId]: 'loading' } };
+    case 'messagesFailed':
+      return { ...s, chatLoad: { ...s.chatLoad, [a.conversationId]: { error: a.error } } };
+    case 'messagesLoaded': {
+      const { [a.conversationId]: _, ...rest } = s.chatLoad;
+      return { ...s, chatLoad: rest };
+    }
     case 'conversationNew':
     case 'conversationOpen': {
       const id = a.type === 'conversationNew' ? a.conversation.id : a.id;
@@ -304,10 +345,13 @@ function sessionReducer(s: SessionState, a: Action): SessionState {
 function uiReducer(u: UiState, a: Action): UiState {
   switch (a.type) {
     case 'hydrate':
-      return { ...u, highlight: [], forest: { open: false, focus: null }, paneTreeId: null };
+      return { ...u, highlight: [], forest: { open: false, focus: null }, paneTreeId: null, chats: false };
     case 'conversationNew':
     case 'conversationOpen':
-      return { ...u, highlight: [], paneTreeId: null };
+      // Opening a chat (from the chat list, the forest or a leaf) shows it.
+      return { ...u, highlight: [], paneTreeId: null, chats: false, forest: { open: false, focus: null } };
+    case 'chats':
+      return { ...u, chats: a.open };
     case 'panel':
       return { ...u, panelOpen: a.open };
     case 'forest':
@@ -332,12 +376,23 @@ function uiReducer(u: UiState, a: Action): UiState {
   }
 }
 
+/** A chat that was left without a message is dropped: an empty chat exists only while it is open. */
+function leave(d: DomainState, s: SessionState, a: Action): DomainState {
+  if (a.type !== 'conversationNew' && a.type !== 'conversationOpen') return d;
+  const id = s.activeConversationId;
+  const target = a.type === 'conversationNew' ? a.conversation.id : a.id;
+  if (id === target || d.messagesByConv[id]?.length !== 0) return d;
+  const { [id]: _c, ...conversations } = d.conversations;
+  const { [id]: _m, ...messagesByConv } = d.messagesByConv;
+  return { ...d, conversations, messagesByConv };
+}
+
 export function reducer(s: State, a: Action): State {
   if (a.type === 'hydrate') {
     return { ...s, domain: a.domain, session: sessionReducer(s.session, a), ui: uiReducer(s.ui, a) };
   }
   if (a.type === 'settings') return { ...s, settings: { ...s.settings, ...a.patch } };
-  const domain = domainReducer(s.domain, a);
+  const domain = domainReducer(leave(s.domain, s.session, a), a);
   const session = sessionReducer(s.session, a);
   const ui = uiReducer(s.ui, a);
   return domain === s.domain && session === s.session && ui === s.ui ? s : { ...s, domain, session, ui };
