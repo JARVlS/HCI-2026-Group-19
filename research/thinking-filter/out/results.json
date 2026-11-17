@@ -1,0 +1,3282 @@
+{
+ "history": {
+  "n": 287,
+  "mean_abs_diff": 0.059,
+  "mean_diff_with_minus_without": 0.04,
+  "share_abs_diff_over_0.1": 0.192,
+  "share_abs_diff_over_0.25": 0.049,
+  "label_flips": 28,
+  "label_flip_share": 0.098,
+  "flip_matrix_without_to_with": {
+   "ai": {
+    "ai": 67,
+    "together": 7,
+    "own": 3
+   },
+   "together": {
+    "ai": 0,
+    "together": 34,
+    "own": 14
+   },
+   "own": {
+    "ai": 0,
+    "together": 4,
+    "own": 158
+   }
+  },
+  "tutor_asked_share": 0.958,
+  "by_kind": {
+   "answer": {
+    "n": 50,
+    "without": 0.718,
+    "with": 0.801,
+    "flips": 6
+   },
+   "attempt": {
+    "n": 13,
+    "without": 0.933,
+    "with": 0.948,
+    "flips": 0
+   },
+   "claim": {
+    "n": 18,
+    "without": 0.787,
+    "with": 0.849,
+    "flips": 0
+   },
+   "claim_question": {
+    "n": 17,
+    "without": 0.77,
+    "with": 0.807,
+    "flips": 2
+   },
+   "delegate": {
+    "n": 24,
+    "without": 0.002,
+    "with": 0.0,
+    "flips": 0
+   },
+   "fact": {
+    "n": 13,
+    "without": 0.411,
+    "with": 0.511,
+    "flips": 2
+   },
+   "hint_quiz": {
+    "n": 19,
+    "without": 0.581,
+    "with": 0.66,
+    "flips": 4
+   },
+   "meta": {
+    "n": 26,
+    "without": 0.01,
+    "with": 0.034,
+    "flips": 0
+   },
+   "mixed": {
+    "n": 14,
+    "without": 0.621,
+    "with": 0.627,
+    "flips": 2
+   },
+   "polite_delegation": {
+    "n": 17,
+    "without": 0.068,
+    "with": 0.053,
+    "flips": 2
+   },
+   "reasoning": {
+    "n": 20,
+    "without": 0.976,
+    "with": 0.991,
+    "flips": 0
+   },
+   "vague": {
+    "n": 13,
+    "without": 0.621,
+    "with": 0.693,
+    "flips": 5
+   },
+   "why_how": {
+    "n": 25,
+    "without": 0.437,
+    "with": 0.495,
+    "flips": 3
+   },
+   "wrong_claim": {
+    "n": 18,
+    "without": 0.795,
+    "with": 0.772,
+    "flips": 2
+   }
+  },
+  "vs_generator_target": {
+   "without": {
+    "mae": 0.098,
+    "label_agree": 0.84
+   },
+   "with": {
+    "mae": 0.11,
+    "label_agree": 0.805
+   }
+  },
+  "biggest": [
+   {
+    "id": "s0668",
+    "kind": "hint_quiz",
+    "target": 3,
+    "tutor": "what element distinguishes murder from manslaughter?",
+    "text": "mens rea? intent?",
+    "asked": true,
+    "without": 0.057,
+    "with": 0.746
+   },
+   {
+    "id": "s0890",
+    "kind": "answer",
+    "target": 4,
+    "tutor": "what does the green light symbolize for gatsby?",
+    "text": "his hope. dreams.",
+    "asked": true,
+    "without": 0.059,
+    "with": 0.72
+   },
+   {
+    "id": "s0629",
+    "kind": "why_how",
+    "target": 2,
+    "tutor": "why do plants need sunlight to grow?",
+    "text": "for photosynthesis to make food",
+    "asked": true,
+    "without": 0.063,
+    "with": 0.72
+   },
+   {
+    "id": "s0627",
+    "kind": "fact",
+    "target": 1,
+    "tutor": "who wrote hamlet",
+    "text": "shakespeare?",
+    "asked": false,
+    "without": 0.002,
+    "with": 0.622
+   },
+   {
+    "id": "s0360",
+    "kind": "answer",
+    "target": 4,
+    "tutor": "what do you think Kant means by the categorical imperative?",
+    "text": "Act only on universal principles.",
+    "asked": true,
+    "without": 0.104,
+    "with": 0.585
+   },
+   {
+    "id": "s0263",
+    "kind": "fact",
+    "target": 1,
+    "tutor": "What's the term for a law that applies retroactively to punish past acts?",
+    "text": "ex post facto law",
+    "asked": true,
+    "without": 0.002,
+    "with": 0.467
+   },
+   {
+    "id": "s0065",
+    "kind": "answer",
+    "target": 4,
+    "tutor": "what does the ammeter read when resistors are in series?",
+    "text": "same current",
+    "asked": true,
+    "without": 0.199,
+    "with": 0.598
+   },
+   {
+    "id": "s0950",
+    "kind": "answer",
+    "target": 4,
+    "tutor": "what causes the different time zones on earth?",
+    "text": "something with earth spinning i guess",
+    "asked": true,
+    "without": 0.426,
+    "with": 0.735
+   },
+   {
+    "id": "s0522",
+    "kind": "answer",
+    "target": 4,
+    "tutor": "Comment dit-on 'I am hungry' en français?",
+    "text": "j'ai... faim?",
+    "asked": true,
+    "without": 0.482,
+    "with": 0.776
+   },
+   {
+    "id": "s0939",
+    "kind": "answer",
+    "target": 4,
+    "tutor": "why do people obey authority even when it conflicts with their morals?",
+    "text": "fear of consequences?",
+    "asked": true,
+    "without": 0.459,
+    "with": 0.75
+   },
+   {
+    "id": "s0739",
+    "kind": "claim_question",
+    "target": 4,
+    "tutor": "are you asking if dropout only works during training?",
+    "text": "yeah exactly, it turns off during test time right?",
+    "asked": true,
+    "without": 0.492,
+    "with": 0.781
+   },
+   {
+    "id": "s0138",
+    "kind": "mixed",
+    "target": 3,
+    "tutor": "You mentioned the assassination of Archduke Franz Ferdinand. How do you think that connects to the alliance system?",
+    "text": "I think since Austria-Hungary was allied with Germany, and Serbia had ties to Russia, the assassination triggered a chain reaction. Could you write up the full explanation of how all the alliances pulled everyone into the war?",
+    "asked": true,
+    "without": 0.187,
+    "with": 0.466
+   }
+  ]
+ },
+ "judge": {
+  "label_rows": 1572,
+  "rejected": 0,
+  "rejected_examples": [],
+  "training_items": 989,
+  "mass_mean": 0.9999,
+  "mass_min": 0.9983,
+  "top_level_counts": {
+   "1": 271,
+   "2": 126,
+   "3": 126,
+   "4": 292,
+   "5": 174
+  },
+  "label_counts": {
+   "together": 272,
+   "ai": 269,
+   "own": 448
+  },
+  "mean_top_probability": 0.896,
+  "by_kind": {
+   "answer": {
+    "n": 50,
+    "mean": 0.801,
+    "min": 0.585,
+    "max": 1.0
+   },
+   "attempt": {
+    "n": 55,
+    "mean": 0.953,
+    "min": 0.766,
+    "max": 1.0
+   },
+   "claim": {
+    "n": 75,
+    "mean": 0.783,
+    "min": 0.003,
+    "max": 0.998
+   },
+   "claim_question": {
+    "n": 70,
+    "mean": 0.695,
+    "min": 0.211,
+    "max": 0.998
+   },
+   "delegate": {
+    "n": 100,
+    "mean": 0.005,
+    "min": 0.0,
+    "max": 0.248
+   },
+   "fact": {
+    "n": 54,
+    "mean": 0.126,
+    "min": 0.0,
+    "max": 0.956
+   },
+   "hint_quiz": {
+    "n": 85,
+    "mean": 0.523,
+    "min": 0.262,
+    "max": 0.881
+   },
+   "meta": {
+    "n": 45,
+    "mean": 0.023,
+    "min": 0.001,
+    "max": 0.134
+   },
+   "mixed": {
+    "n": 60,
+    "mean": 0.529,
+    "min": 0.0,
+    "max": 0.999
+   },
+   "polite_delegation": {
+    "n": 75,
+    "mean": 0.023,
+    "min": 0.0,
+    "max": 0.341
+   },
+   "reasoning": {
+    "n": 85,
+    "mean": 0.974,
+    "min": 0.76,
+    "max": 1.0
+   },
+   "vague": {
+    "n": 55,
+    "mean": 0.568,
+    "min": 0.415,
+    "max": 0.765
+   },
+   "why_how": {
+    "n": 105,
+    "mean": 0.32,
+    "min": 0.046,
+    "max": 1.0
+   },
+   "wrong_claim": {
+    "n": 75,
+    "mean": 0.778,
+    "min": 0.561,
+    "max": 0.949
+   }
+  },
+  "target_label_agree": 0.884
+ },
+ "sonnet": {
+  "n": 200,
+  "exact": 0.815,
+  "within_one": 0.935,
+  "pearson_pct": 0.923,
+  "spearman_pct": 0.858,
+  "mean_abs_pct_diff": 0.071,
+  "mean_judge_minus_sonnet": -0.038,
+  "labels": {
+   "agree": 0.845,
+   "kappa": 0.7465663832570307,
+   "confusion": {
+    "ai": {
+     "ai": 47,
+     "together": 4,
+     "own": 3
+    },
+    "together": {
+     "ai": 1,
+     "together": 28,
+     "own": 23
+    },
+    "own": {
+     "ai": 0,
+     "together": 0,
+     "own": 94
+    }
+   }
+  },
+  "kappa_5": 0.755,
+  "confusion_judge_top_rows_sonnet_cols": {
+   "1": {
+    "1": 47,
+    "2": 4,
+    "3": 0,
+    "4": 4,
+    "5": 0
+   },
+   "2": {
+    "1": 1,
+    "2": 14,
+    "3": 2,
+    "4": 9,
+    "5": 0
+   },
+   "3": {
+    "1": 0,
+    "2": 0,
+    "3": 12,
+    "4": 11,
+    "5": 0
+   },
+   "4": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 59,
+    "5": 0
+   },
+   "5": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 6,
+    "5": 31
+   }
+  },
+  "by_kind": {
+   "answer": {
+    "n": 15,
+    "judge": 0.793,
+    "sonnet": 0.75,
+    "label_agree": 1.0
+   },
+   "attempt": {
+    "n": 15,
+    "judge": 0.969,
+    "sonnet": 0.983,
+    "label_agree": 1.0
+   },
+   "claim": {
+    "n": 15,
+    "judge": 0.828,
+    "sonnet": 0.783,
+    "label_agree": 0.933
+   },
+   "claim_question": {
+    "n": 15,
+    "judge": 0.649,
+    "sonnet": 0.7,
+    "label_agree": 0.8
+   },
+   "delegate": {
+    "n": 14,
+    "judge": 0.0,
+    "sonnet": 0.0,
+    "label_agree": 1.0
+   },
+   "fact": {
+    "n": 14,
+    "judge": 0.087,
+    "sonnet": 0.179,
+    "label_agree": 0.786
+   },
+   "hint_quiz": {
+    "n": 14,
+    "judge": 0.524,
+    "sonnet": 0.554,
+    "label_agree": 0.929
+   },
+   "meta": {
+    "n": 14,
+    "judge": 0.023,
+    "sonnet": 0.018,
+    "label_agree": 0.929
+   },
+   "mixed": {
+    "n": 14,
+    "judge": 0.468,
+    "sonnet": 0.768,
+    "label_agree": 0.357
+   },
+   "polite_delegation": {
+    "n": 14,
+    "judge": 0.046,
+    "sonnet": 0.089,
+    "label_agree": 0.714
+   },
+   "reasoning": {
+    "n": 14,
+    "judge": 0.984,
+    "sonnet": 1.0,
+    "label_agree": 1.0
+   },
+   "vague": {
+    "n": 14,
+    "judge": 0.578,
+    "sonnet": 0.714,
+    "label_agree": 0.357
+   },
+   "why_how": {
+    "n": 14,
+    "judge": 0.29,
+    "sonnet": 0.286,
+    "label_agree": 1.0
+   },
+   "wrong_claim": {
+    "n": 14,
+    "judge": 0.786,
+    "sonnet": 0.75,
+    "label_agree": 1.0
+   }
+  },
+  "biggest": [
+   {
+    "id": "s0953",
+    "kind": "mixed",
+    "text": "Good afternoon. I have been studying the reaction between acids and bases, and my understanding is that when hydrochloric acid reacts with sodium hydroxide, it produces sodium chloride and water through a neutralization reaction. Would you be so kind as to write up the full balanced equation along with a thorough explanation of the mechanism for my lab report, please?",
+    "tutor": null,
+    "judge_pct": 0.0,
+    "judge_top": 1,
+    "judge_top_p": 0.998,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0367",
+    "kind": "fact",
+    "text": "sqrt of variance",
+    "tutor": "so what's the formula for standard deviation again?",
+    "judge_pct": 0.101,
+    "judge_top": 1,
+    "judge_top_p": 0.832,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0762",
+    "kind": "mixed",
+    "text": "so im comparing two groups with a t-test but variances look different. i think i should use welch's t-test instead of the normal one. can you just set up the whole test for me and tell me what to write in the report?",
+    "tutor": null,
+    "judge_pct": 0.197,
+    "judge_top": 2,
+    "judge_top_p": 0.591,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0622",
+    "kind": "mixed",
+    "text": "so i wanna say 'i am going to the market tomorrow with my sister' in french, i think its 'je vais au marché demain avec ma soeur' but can u fix the rest of the paragraph for me too?",
+    "tutor": null,
+    "judge_pct": 0.256,
+    "judge_top": 1,
+    "judge_top_p": 0.429,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0667",
+    "kind": "mixed",
+    "text": "I think the imperfect tense is used for actions that were ongoing in the past, like when I was a child I used to play outside every day. Could you write out the full conjugation table for all the verbs in this exercise for me?",
+    "tutor": null,
+    "judge_pct": 0.263,
+    "judge_top": 2,
+    "judge_top_p": 0.479,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0325",
+    "kind": "mixed",
+    "text": "i think its mostly the rising cost of raw materials pushing supply left, but honestly im not totally sure how to model that shift mathematically, could you just set up the equations and walk through the whole thing for me?",
+    "tutor": "so what do you think drives the shift in the supply curve here, cost of inputs or something else?",
+    "judge_pct": 0.302,
+    "judge_top": 2,
+    "judge_top_p": 0.602,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0898",
+    "kind": "fact",
+    "text": "false positive",
+    "tutor": "what is a type I error called in statistics?",
+    "judge_pct": 0.307,
+    "judge_top": 1,
+    "judge_top_p": 0.601,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0455",
+    "kind": "mixed",
+    "text": "so erosion happens because of wind and water wearing stuff down over time i guess... can you fill in the rest with like actual examples and explain the different types properly for my worksheet",
+    "tutor": null,
+    "judge_pct": 0.32,
+    "judge_top": 2,
+    "judge_top_p": 0.763,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0588",
+    "kind": "polite_delegation",
+    "text": "umm i think its the cell membrane but honestly im not totally sure, could u maybe just explain the whole thing for me and like write it out cuz i have a quiz tmrw and i dont really get wat the textbok is sayin, sry for askin so much",
+    "tutor": "so what part of the cell do you think controls what goes in and out?",
+    "judge_pct": 0.341,
+    "judge_top": 2,
+    "judge_top_p": 0.628,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0907",
+    "kind": "mixed",
+    "text": "so i think the main reason coral reefs are bleaching is just warmer ocean water stressing the coral and making them expel their algae, but there's probably other stuff too like pollution and acidification. can you write a full paragraph explaining all the causes for my report",
+    "tutor": null,
+    "judge_pct": 0.343,
+    "judge_top": 2,
+    "judge_top_p": 0.514,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0295",
+    "kind": "mixed",
+    "text": "so im tryin to build a function that checks if a string is a palindrome, my idea is to just reverse the string and compare it to the orginal one, like if s == s[::-1] then its a palindrome, but i dont know how to handle spaces and capital letters properly, can u finish it for me and make it handle those cases too, also add some test cases pls",
+    "tutor": null,
+    "judge_pct": 0.357,
+    "judge_top": 2,
+    "judge_top_p": 0.514,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0144",
+    "kind": "claim_question",
+    "text": "isn't a contract only valid if its written down somewhere?",
+    "tutor": null,
+    "judge_pct": 0.381,
+    "judge_top": 2,
+    "judge_top_p": 0.583,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0050",
+    "kind": "claim_question",
+    "text": "isn't a contract void if one party was a minor at the time of signing?",
+    "tutor": null,
+    "judge_pct": 0.461,
+    "judge_top": 2,
+    "judge_top_p": 0.469,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0115",
+    "kind": "vague",
+    "text": "Something about the symbolism of the green light, but I'm not sure what it really represents.",
+    "tutor": null,
+    "judge_pct": 0.475,
+    "judge_top": 3,
+    "judge_top_p": 0.893,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   },
+   {
+    "id": "s0368",
+    "kind": "vague",
+    "text": "somthin about jurisdiction maybe? not sure",
+    "tutor": null,
+    "judge_pct": 0.501,
+    "judge_top": 3,
+    "judge_top_p": 0.954,
+    "sonnet": 4,
+    "sonnet_pct": 0.75
+   }
+  ]
+ },
+ "params": {
+  "alpha": 0.35,
+  "beta": 1.0,
+  "min_docs": 3,
+  "top_k": null
+ },
+ "filter": {
+  "n": 989,
+  "cross_entropy": 0.7434,
+  "filter": {
+   "agree": 0.836,
+   "kappa": 0.748,
+   "confusion": {
+    "ai": {
+     "ai": 228,
+     "together": 39,
+     "own": 2
+    },
+    "together": {
+     "ai": 16,
+     "together": 219,
+     "own": 37
+    },
+    "own": {
+     "ai": 1,
+     "together": 67,
+     "own": 380
+    }
+   },
+   "mae": 0.083,
+   "rmse": 0.138
+  },
+  "rules_share": {
+   "agree": 0.632,
+   "kappa": 0.443,
+   "confusion": {
+    "ai": {
+     "ai": 124,
+     "together": 103,
+     "own": 42
+    },
+    "together": {
+     "ai": 16,
+     "together": 219,
+     "own": 37
+    },
+    "own": {
+     "ai": 1,
+     "together": 165,
+     "own": 282
+    }
+   },
+   "mae": 0.223,
+   "rmse": 0.293
+  },
+  "rules_linter_label": {
+   "agree": 0.664,
+   "kappa": 0.492,
+   "confusion": {
+    "ai": {
+     "ai": 173,
+     "together": 54,
+     "own": 42
+    },
+    "together": {
+     "ai": 33,
+     "together": 202,
+     "own": 37
+    },
+    "own": {
+     "ai": 15,
+     "together": 151,
+     "own": 282
+    }
+   }
+  },
+  "prior": {
+   "agree": 0.275,
+   "kappa": 0.0,
+   "confusion": {
+    "ai": {
+     "ai": 0,
+     "together": 269,
+     "own": 0
+    },
+    "together": {
+     "ai": 0,
+     "together": 272,
+     "own": 0
+    },
+    "own": {
+     "ai": 0,
+     "together": 448,
+     "own": 0
+    }
+   },
+   "mae": 0.325,
+   "rmse": 0.365
+  },
+  "prior_estimate_range": [
+   0.496,
+   0.5
+  ],
+  "by_kind": {
+   "answer": {
+    "n": 50,
+    "judge": 0.801,
+    "filter_mae": 0.117,
+    "rules_mae": 0.222,
+    "prior_mae": 0.303,
+    "filter_label_agree": 0.68,
+    "rules_label_agree": 0.56
+   },
+   "attempt": {
+    "n": 55,
+    "judge": 0.953,
+    "filter_mae": 0.043,
+    "rules_mae": 0.162,
+    "prior_mae": 0.456,
+    "filter_label_agree": 1.0,
+    "rules_label_agree": 0.836
+   },
+   "claim": {
+    "n": 75,
+    "judge": 0.783,
+    "filter_mae": 0.092,
+    "rules_mae": 0.161,
+    "prior_mae": 0.308,
+    "filter_label_agree": 0.84,
+    "rules_label_agree": 0.68
+   },
+   "claim_question": {
+    "n": 70,
+    "judge": 0.695,
+    "filter_mae": 0.143,
+    "rules_mae": 0.207,
+    "prior_mae": 0.252,
+    "filter_label_agree": 0.643,
+    "rules_label_agree": 0.471
+   },
+   "delegate": {
+    "n": 100,
+    "judge": 0.005,
+    "filter_mae": 0.028,
+    "rules_mae": 0.28,
+    "prior_mae": 0.492,
+    "filter_label_agree": 0.96,
+    "rules_label_agree": 0.68
+   },
+   "fact": {
+    "n": 54,
+    "judge": 0.126,
+    "filter_mae": 0.181,
+    "rules_mae": 0.231,
+    "prior_mae": 0.448,
+    "filter_label_agree": 0.648,
+    "rules_label_agree": 0.759
+   },
+   "hint_quiz": {
+    "n": 85,
+    "judge": 0.523,
+    "filter_mae": 0.051,
+    "rules_mae": 0.069,
+    "prior_mae": 0.053,
+    "filter_label_agree": 0.918,
+    "rules_label_agree": 0.847
+   },
+   "meta": {
+    "n": 45,
+    "judge": 0.023,
+    "filter_mae": 0.141,
+    "rules_mae": 0.266,
+    "prior_mae": 0.475,
+    "filter_label_agree": 0.667,
+    "rules_label_agree": 0.844
+   },
+   "mixed": {
+    "n": 60,
+    "judge": 0.529,
+    "filter_mae": 0.172,
+    "rules_mae": 0.312,
+    "prior_mae": 0.245,
+    "filter_label_agree": 0.6,
+    "rules_label_agree": 0.45
+   },
+   "polite_delegation": {
+    "n": 75,
+    "judge": 0.023,
+    "filter_mae": 0.037,
+    "rules_mae": 0.48,
+    "prior_mae": 0.474,
+    "filter_label_agree": 0.907,
+    "rules_label_agree": 0.413
+   },
+   "reasoning": {
+    "n": 85,
+    "judge": 0.974,
+    "filter_mae": 0.052,
+    "rules_mae": 0.216,
+    "prior_mae": 0.476,
+    "filter_label_agree": 1.0,
+    "rules_label_agree": 0.753
+   },
+   "vague": {
+    "n": 55,
+    "judge": 0.568,
+    "filter_mae": 0.084,
+    "rules_mae": 0.133,
+    "prior_mae": 0.08,
+    "filter_label_agree": 0.691,
+    "rules_label_agree": 0.582
+   },
+   "why_how": {
+    "n": 105,
+    "judge": 0.32,
+    "filter_mae": 0.065,
+    "rules_mae": 0.222,
+    "prior_mae": 0.24,
+    "filter_label_agree": 0.933,
+    "rules_label_agree": 0.771
+   },
+   "wrong_claim": {
+    "n": 75,
+    "judge": 0.778,
+    "filter_mae": 0.066,
+    "rules_mae": 0.161,
+    "prior_mae": 0.281,
+    "filter_label_agree": 0.88,
+    "rules_label_agree": 0.6
+   }
+  },
+  "by_reply": {
+   "first message": {
+    "n": 702,
+    "judge": 0.464,
+    "filter_mae": 0.077,
+    "rules_mae": 0.216,
+    "prior_mae": 0.319,
+    "filter_label_agree": 0.859,
+    "rules_label_agree": 0.699
+   },
+   "reply": {
+    "n": 287,
+    "judge": 0.579,
+    "filter_mae": 0.099,
+    "rules_mae": 0.241,
+    "prior_mae": 0.341,
+    "filter_label_agree": 0.78,
+    "rules_label_agree": 0.578
+   }
+  },
+  "by_hard": {
+   "hard kind": {
+    "n": 515,
+    "judge": 0.426,
+    "filter_mae": 0.089,
+    "rules_mae": 0.238,
+    "prior_mae": 0.272,
+    "filter_label_agree": 0.817,
+    "rules_label_agree": 0.635
+   },
+   "other kind": {
+    "n": 474,
+    "judge": 0.575,
+    "filter_mae": 0.077,
+    "rules_mae": 0.207,
+    "prior_mae": 0.383,
+    "filter_label_agree": 0.857,
+    "rules_label_agree": 0.696
+   }
+  },
+  "certainty": {
+   "mean": 0.681,
+   "tertiles": [
+    0.569,
+    0.866
+   ],
+   "mae_low_mid_high": [
+    0.152,
+    0.074,
+    0.023
+   ]
+  },
+  "worst": [
+   {
+    "id": "s0188",
+    "kind": "mixed",
+    "text": "so i'm trying to build a function that checks if a list has duplicates, i was thinking of using a set and comparing lengths, but honestly can you just finish writing the whole function with error handling and stuff, i'm kinda lost on the edge cases",
+    "judge": 0.071,
+    "filter": 0.857,
+    "rules": 0.82
+   },
+   {
+    "id": "s0671",
+    "kind": "mixed",
+    "text": "so like the french revolution happened because of money problems and stuff, can you fill in the rest of the causes and write it up—",
+    "judge": 0.011,
+    "filter": 0.692,
+    "rules": 0.5
+   },
+   {
+    "id": "s0400",
+    "kind": "mixed",
+    "text": "I have been analyzing the chord progression in this piece, and I believe it follows a I-vi-IV-V pattern, though I am not fully certain about the final cadence. Would you be so kind as to confirm this and complete the harmonic analysis for the remaining measures?",
+    "judge": 0.715,
+    "filter": 0.098,
+    "rules": 0.85
+   },
+   {
+    "id": "s0698",
+    "kind": "fact",
+    "text": "when did world war one start",
+    "judge": 0.0,
+    "filter": 0.562,
+    "rules": 0.172
+   },
+   {
+    "id": "s0314",
+    "kind": "fact",
+    "text": "name for the -OH group?",
+    "judge": 0.001,
+    "filter": 0.551,
+    "rules": 0.25
+   },
+   {
+    "id": "s0980",
+    "kind": "claim_question",
+    "text": "Is a contract still valid if one party was a minor at the time of signing?",
+    "judge": 0.211,
+    "filter": 0.745,
+    "rules": 0.5
+   },
+   {
+    "id": "s0104",
+    "kind": "polite_delegation",
+    "text": "not sure, could you just fill that part in, phosphorus or nitrogen i guess",
+    "judge": 0.08,
+    "filter": 0.57,
+    "rules": 0.85
+   },
+   {
+    "id": "s0578",
+    "kind": "fact",
+    "text": "define carbon footprint",
+    "judge": 0.0,
+    "filter": 0.489,
+    "rules": 0.15
+   },
+   {
+    "id": "s0358",
+    "kind": "fact",
+    "text": "wut is a eigenvalue",
+    "judge": 0.007,
+    "filter": 0.489,
+    "rules": 0.25
+   },
+   {
+    "id": "s0329",
+    "kind": "fact",
+    "text": "when did ww1 start",
+    "judge": 0.0,
+    "filter": 0.473,
+    "rules": 0.172
+   },
+   {
+    "id": "s0286",
+    "kind": "fact",
+    "text": "Who wrote the novel 'Frankenstein'?",
+    "judge": 0.0,
+    "filter": 0.468,
+    "rules": 0.25
+   },
+   {
+    "id": "s0271",
+    "kind": "claim_question",
+    "text": "is it true that people with secure attachment style as kids usually end up having healthier relationships as adults?",
+    "judge": 0.275,
+    "filter": 0.742,
+    "rules": 0.5
+   },
+   {
+    "id": "s0404",
+    "kind": "mixed",
+    "text": "so i think inflation is mostly caused by too much money printed by the government, but theres probably demand stuff too. can you write up the full explanation with examples for my essay",
+    "judge": 0.248,
+    "filter": 0.715,
+    "rules": 0.85
+   },
+   {
+    "id": "s0831",
+    "kind": "claim",
+    "text": "The French Revolution started in 1789, correct?",
+    "judge": 0.181,
+    "filter": 0.645,
+    "rules": 0.5
+   },
+   {
+    "id": "s0693",
+    "kind": "claim_question",
+    "text": "is it true that the left brain is just for logic and right brain is for creativity?",
+    "judge": 0.276,
+    "filter": 0.737,
+    "rules": 0.5
+   }
+  ]
+ },
+ "word_by_word": {
+  "n": 150,
+  "words_median": 14.5,
+  "settle_word_median": 2.0,
+  "settle_word_mean": 4.31,
+  "settled_by_word": {
+   "1": 0.427,
+   "2": 0.593,
+   "3": 0.66,
+   "5": 0.793,
+   "8": 0.867
+  },
+  "settle_fraction_median": 0.167,
+  "abs_gap_to_final_at_1/3": 0.109,
+  "abs_gap_to_final_at_2/3": 0.061,
+  "certainty_mean": {
+   "word 1": 0.16,
+   "1/3": 0.453,
+   "2/3": 0.579,
+   "full": 0.674
+  },
+  "mean_abs_step_per_word": {
+   "filter": 0.022,
+   "filter alpha 1": 0.024
+  },
+  "label_flips": {
+   "filter": {
+    "mean": 1.0,
+    "share_at_least_one": 0.733,
+    "share_more_than_two": 0.093
+   },
+   "filter alpha 1": {
+    "mean": 0.93,
+    "share_at_least_one": 0.58,
+    "share_more_than_two": 0.093
+   },
+   "rules": {
+    "mean": 0.96,
+    "share_at_least_one": 0.787,
+    "share_more_than_two": 0.02
+   }
+  },
+  "examples": [
+   {
+    "id": "s0010",
+    "kind": "wrong_claim",
+    "text": "derivative of x^x is just x*x^(x-1) right since power rule",
+    "estimates": [
+     0.51,
+     0.55,
+     0.75,
+     0.81,
+     0.79,
+     0.94,
+     0.95,
+     0.95,
+     0.96,
+     0.96
+    ]
+   },
+   {
+    "id": "s0011",
+    "kind": "answer",
+    "text": "The standard error gets larger as the sample size increases, I believe.",
+    "estimates": [
+     0.58,
+     0.58,
+     0.58,
+     0.64,
+     0.64,
+     0.67,
+     0.71,
+     0.75,
+     0.77,
+     0.79,
+     0.82,
+     0.82
+    ]
+   },
+   {
+    "id": "s0022",
+    "kind": "wrong_claim",
+    "text": "more data = no overfitting, always",
+    "estimates": [
+     0.59,
+     0.65,
+     0.65,
+     0.62,
+     0.65,
+     0.71
+    ]
+   },
+   {
+    "id": "s0056",
+    "kind": "answer",
+    "text": "the assassination of franz ferdinand i think",
+    "estimates": [
+     0.58,
+     0.64,
+     0.65,
+     0.67,
+     0.7,
+     0.72,
+     0.75
+    ]
+   },
+   {
+    "id": "s0067",
+    "kind": "why_how",
+    "text": "Why does regularization help prevent overfitting?",
+    "estimates": [
+     0.38,
+     0.27,
+     0.27,
+     0.27,
+     0.27,
+     0.26
+    ]
+   },
+   {
+    "id": "s0086",
+    "kind": "delegate",
+    "text": "nah jus giv me the final answr pls",
+    "estimates": [
+     0.25,
+     0.25,
+     0.26,
+     0.17,
+     0.16,
+     0.12,
+     0.12,
+     0.08
+    ]
+   }
+  ]
+ },
+ "prefixes": {
+  "n": 60,
+  "judge_mean": {
+   "1/3": 0.407,
+   "2/3": 0.473,
+   "full": 0.504
+  },
+  "filter": {
+   "mae": {
+    "1/3": 0.148,
+    "2/3": 0.093,
+    "full": 0.087
+   },
+   "label_agree": {
+    "1/3": 0.65,
+    "2/3": 0.8,
+    "full": 0.85
+   },
+   "delta_corr_1/3_to_full": 0.521,
+   "same_direction_when_judge_moves": 0.871
+  },
+  "judge_moves_n": 31,
+  "rules": {
+   "mae": {
+    "1/3": 0.233,
+    "2/3": 0.211,
+    "full": 0.241
+   },
+   "label_agree": {
+    "1/3": 0.55,
+    "2/3": 0.65,
+    "full": 0.583
+   },
+   "delta_corr_1/3_to_full": 0.197,
+   "same_direction_when_judge_moves": 0.452
+  },
+  "examples": [
+   {
+    "id": "s0662",
+    "kind": "wrong_claim",
+    "texts": {
+     "1/3": "The Berlin Wall was",
+     "2/3": "The Berlin Wall was built right after World War",
+     "full": "The Berlin Wall was built right after World War 2 ended in 1945."
+    },
+    "judge": {
+     "1/3": 0.0,
+     "2/3": 0.69,
+     "full": 0.72
+    },
+    "filter": {
+     "1/3": 0.54,
+     "2/3": 0.62,
+     "full": 0.73
+    },
+    "rules": {
+     "1/3": 0.25,
+     "2/3": 0.5,
+     "full": 0.5
+    }
+   },
+   {
+    "id": "s0346",
+    "kind": "wrong_claim",
+    "texts": {
+     "1/3": "isnt the determinant",
+     "2/3": "isnt the determinant allways positive for",
+     "full": "isnt the determinant allways positive for any square matrix??"
+    },
+    "judge": {
+     "1/3": 0.21,
+     "2/3": 0.29,
+     "full": 0.75
+    },
+    "filter": {
+     "1/3": 0.65,
+     "2/3": 0.63,
+     "full": 0.7
+    },
+    "rules": {
+     "1/3": 0.25,
+     "2/3": 0.5,
+     "full": 0.5
+    }
+   },
+   {
+    "id": "s0404",
+    "kind": "mixed",
+    "texts": {
+     "1/3": "so i think inflation is mostly caused by too much money",
+     "2/3": "so i think inflation is mostly caused by too much money printed by the government, but theres probably demand stuff too. can",
+     "full": "so i think inflation is mostly caused by too much money printed by the government, but theres probably demand stuff too. can you write up the full explanation with examples for my essay"
+    },
+    "judge": {
+     "1/3": 0.75,
+     "2/3": 0.76,
+     "full": 0.25
+    },
+    "filter": {
+     "1/3": 0.78,
+     "2/3": 0.77,
+     "full": 0.72
+    },
+    "rules": {
+     "1/3": 0.85,
+     "2/3": 0.85,
+     "full": 0.85
+    }
+   },
+   {
+    "id": "s0869",
+    "kind": "hint_quiz",
+    "texts": {
+     "1/3": "Can I",
+     "2/3": "Can I get a hint",
+     "full": "Can I get a hint about friction?"
+    },
+    "judge": {
+     "1/3": 0.01,
+     "2/3": 0.5,
+     "full": 0.5
+    },
+    "filter": {
+     "1/3": 0.23,
+     "2/3": 0.47,
+     "full": 0.49
+    },
+    "rules": {
+     "1/3": 0.25,
+     "2/3": 0.5,
+     "full": 0.5
+    }
+   },
+   {
+    "id": "s0650",
+    "kind": "attempt",
+    "texts": {
+     "1/3": "I was trying to figure out why we see different phases of the moon. My idea is that",
+     "2/3": "I was trying to figure out why we see different phases of the moon. My idea is that the moon's shadow from the sun changes as it orbits earth, so I calculated that it takes about 29.5",
+     "full": "I was trying to figure out why we see different phases of the moon. My idea is that the moon's shadow from the sun changes as it orbits earth, so I calculated that it takes about 29.5 days for a full cycle based on the moon's orbital period. Does that reasoning and number sound right?"
+    },
+    "judge": {
+     "1/3": 0.51,
+     "2/3": 0.88,
+     "full": 0.95
+    },
+    "filter": {
+     "1/3": 0.91,
+     "2/3": 0.99,
+     "full": 0.99
+    },
+    "rules": {
+     "1/3": 0.85,
+     "2/3": 0.85,
+     "full": 0.91
+    }
+   },
+   {
+    "id": "s0212",
+    "kind": "attempt",
+    "texts": {
+     "1/3": "I tried solving x^2 - 5x +",
+     "2/3": "I tried solving x^2 - 5x + 6 = 0 by factoring into (x-2)(x-3),",
+     "full": "I tried solving x^2 - 5x + 6 = 0 by factoring into (x-2)(x-3), giving x=2 and x=3. Is this correct?"
+    },
+    "judge": {
+     "1/3": 0.56,
+     "2/3": 0.99,
+     "full": 1.0
+    },
+    "filter": {
+     "1/3": 0.86,
+     "2/3": 0.99,
+     "full": 1.0
+    },
+    "rules": {
+     "1/3": 0.85,
+     "2/3": 0.85,
+     "full": 0.85
+    }
+   }
+  ]
+ },
+ "online": {
+  "stream_items": 499,
+  "blocks": [
+   "1-100",
+   "101-200",
+   "201-300",
+   "301-400",
+   "401-499"
+  ],
+  "static": {
+   "mae_all": 0.094,
+   "mae_blocks": [
+    0.094,
+    0.098,
+    0.093,
+    0.087,
+    0.098
+   ]
+  },
+  "weight 1": {
+   "mae_all": 0.087,
+   "mae_blocks": [
+    0.095,
+    0.094,
+    0.084,
+    0.079,
+    0.085
+   ]
+  },
+  "weight 3": {
+   "mae_all": 0.086,
+   "mae_blocks": [
+    0.097,
+    0.093,
+    0.079,
+    0.076,
+    0.082
+   ]
+  },
+  "weight 10": {
+   "mae_all": 0.091,
+   "mae_blocks": [
+    0.105,
+    0.101,
+    0.083,
+    0.08,
+    0.086
+   ]
+  }
+ },
+ "habit": {
+  "n": 40,
+  "judge_mean": 0.617,
+  "judge_labels": {
+   "own": 23,
+   "together": 11,
+   "ai": 6
+  },
+  "rules_mae": 0.166,
+  "blocks": [
+   "1-10",
+   "11-20",
+   "21-30",
+   "31-40"
+  ],
+  "static": {
+   "mae_all": 0.089,
+   "mae_blocks": [
+    0.086,
+    0.087,
+    0.084,
+    0.1
+   ]
+  },
+  "weight 1": {
+   "mae_all": 0.07,
+   "mae_blocks": [
+    0.077,
+    0.068,
+    0.062,
+    0.074
+   ]
+  },
+  "weight 3": {
+   "mae_all": 0.072,
+   "mae_blocks": [
+    0.075,
+    0.072,
+    0.064,
+    0.075
+   ]
+  },
+  "weight 10": {
+   "mae_all": 0.075,
+   "mae_blocks": [
+    0.08,
+    0.076,
+    0.068,
+    0.077
+   ]
+  },
+  "mae_on_unseen_after_k_updates": {
+   "weight 1": {
+    "0": 0.089,
+    "5": 0.08,
+    "10": 0.075,
+    "20": 0.074,
+    "30": 0.075
+   },
+   "weight 3": {
+    "0": 0.089,
+    "5": 0.08,
+    "10": 0.08,
+    "20": 0.076,
+    "30": 0.076
+   },
+   "weight 10": {
+    "0": 0.089,
+    "5": 0.091,
+    "10": 0.087,
+    "20": 0.078,
+    "30": 0.078
+   }
+  }
+ },
+ "linter_set": {
+  "labels": "Claude's draft labels, not yet rated by the team",
+  "judges": {
+   "rules": {
+    "n": 136,
+    "accuracy": 0.676,
+    "kappa": 0.518,
+    "weighted_kappa": 0.576,
+    "confusion_rows_label_cols_pred": [
+     [
+      21,
+      23,
+      2
+     ],
+     [
+      3,
+      34,
+      5
+     ],
+     [
+      3,
+      8,
+      37
+     ]
+    ],
+    "per_class": {
+     "own": {
+      "recall": 0.457,
+      "precision": 0.778,
+      "support": 46
+     },
+     "together": {
+      "recall": 0.81,
+      "precision": 0.523,
+      "support": 42
+     },
+     "ai": {
+      "recall": 0.771,
+      "precision": 0.841,
+      "support": 48
+     }
+    },
+    "by_tag": {
+     "(no tag)": {
+      "n": 73,
+      "accuracy": 0.726
+     },
+     "boundary": {
+      "n": 15,
+      "accuracy": 0.667
+     },
+     "code": {
+      "n": 5,
+      "accuracy": 1.0
+     },
+     "de": {
+      "n": 12,
+      "accuracy": 0.417
+     },
+     "hedge": {
+      "n": 13,
+      "accuracy": 0.308
+     },
+     "hint": {
+      "n": 6,
+      "accuracy": 0.833
+     },
+     "negation": {
+      "n": 9,
+      "accuracy": 0.667
+     },
+     "polite": {
+      "n": 4,
+      "accuracy": 0.75
+     },
+     "quiz": {
+      "n": 6,
+      "accuracy": 0.833
+     },
+     "short": {
+      "n": 7,
+      "accuracy": 0.714
+     },
+     "typo": {
+      "n": 1,
+      "accuracy": 1.0
+     }
+    },
+    "english_only": {
+     "n": 124,
+     "accuracy": 0.702,
+     "kappa": 0.555
+    }
+   },
+   "filter": {
+    "n": 136,
+    "accuracy": 0.662,
+    "kappa": 0.498,
+    "weighted_kappa": 0.569,
+    "confusion_rows_label_cols_pred": [
+     [
+      38,
+      8,
+      0
+     ],
+     [
+      4,
+      33,
+      5
+     ],
+     [
+      4,
+      25,
+      19
+     ]
+    ],
+    "per_class": {
+     "own": {
+      "recall": 0.826,
+      "precision": 0.826,
+      "support": 46
+     },
+     "together": {
+      "recall": 0.786,
+      "precision": 0.5,
+      "support": 42
+     },
+     "ai": {
+      "recall": 0.396,
+      "precision": 0.792,
+      "support": 48
+     }
+    },
+    "by_tag": {
+     "(no tag)": {
+      "n": 73,
+      "accuracy": 0.726
+     },
+     "boundary": {
+      "n": 15,
+      "accuracy": 0.467
+     },
+     "code": {
+      "n": 5,
+      "accuracy": 0.8
+     },
+     "de": {
+      "n": 12,
+      "accuracy": 0.417
+     },
+     "hedge": {
+      "n": 13,
+      "accuracy": 0.692
+     },
+     "hint": {
+      "n": 6,
+      "accuracy": 1.0
+     },
+     "negation": {
+      "n": 9,
+      "accuracy": 0.778
+     },
+     "polite": {
+      "n": 4,
+      "accuracy": 0.75
+     },
+     "quiz": {
+      "n": 6,
+      "accuracy": 0.667
+     },
+     "short": {
+      "n": 7,
+      "accuracy": 0.571
+     },
+     "typo": {
+      "n": 1,
+      "accuracy": 1.0
+     }
+    },
+    "english_only": {
+     "n": 124,
+     "accuracy": 0.685,
+     "kappa": 0.532
+    }
+   },
+   "filter alpha 1": {
+    "n": 136,
+    "accuracy": 0.691,
+    "kappa": 0.538,
+    "weighted_kappa": 0.607,
+    "confusion_rows_label_cols_pred": [
+     [
+      42,
+      4,
+      0
+     ],
+     [
+      9,
+      26,
+      7
+     ],
+     [
+      6,
+      16,
+      26
+     ]
+    ],
+    "per_class": {
+     "own": {
+      "recall": 0.913,
+      "precision": 0.737,
+      "support": 46
+     },
+     "together": {
+      "recall": 0.619,
+      "precision": 0.565,
+      "support": 42
+     },
+     "ai": {
+      "recall": 0.542,
+      "precision": 0.788,
+      "support": 48
+     }
+    },
+    "by_tag": {
+     "(no tag)": {
+      "n": 73,
+      "accuracy": 0.74
+     },
+     "boundary": {
+      "n": 15,
+      "accuracy": 0.533
+     },
+     "code": {
+      "n": 5,
+      "accuracy": 0.6
+     },
+     "de": {
+      "n": 12,
+      "accuracy": 0.417
+     },
+     "hedge": {
+      "n": 13,
+      "accuracy": 0.692
+     },
+     "hint": {
+      "n": 6,
+      "accuracy": 0.5
+     },
+     "negation": {
+      "n": 9,
+      "accuracy": 0.778
+     },
+     "polite": {
+      "n": 4,
+      "accuracy": 1.0
+     },
+     "quiz": {
+      "n": 6,
+      "accuracy": 0.667
+     },
+     "short": {
+      "n": 7,
+      "accuracy": 0.714
+     },
+     "typo": {
+      "n": 1,
+      "accuracy": 1.0
+     }
+    },
+    "english_only": {
+     "n": 124,
+     "accuracy": 0.718,
+     "kappa": 0.577
+    }
+   },
+   "judge": {
+    "n": 136,
+    "accuracy": 0.971,
+    "kappa": 0.956,
+    "weighted_kappa": 0.967,
+    "confusion_rows_label_cols_pred": [
+     [
+      45,
+      1,
+      0
+     ],
+     [
+      0,
+      40,
+      2
+     ],
+     [
+      0,
+      1,
+      47
+     ]
+    ],
+    "per_class": {
+     "own": {
+      "recall": 0.978,
+      "precision": 1.0,
+      "support": 46
+     },
+     "together": {
+      "recall": 0.952,
+      "precision": 0.952,
+      "support": 42
+     },
+     "ai": {
+      "recall": 0.979,
+      "precision": 0.959,
+      "support": 48
+     }
+    },
+    "by_tag": {
+     "(no tag)": {
+      "n": 73,
+      "accuracy": 1.0
+     },
+     "boundary": {
+      "n": 15,
+      "accuracy": 0.8
+     },
+     "code": {
+      "n": 5,
+      "accuracy": 1.0
+     },
+     "de": {
+      "n": 12,
+      "accuracy": 1.0
+     },
+     "hedge": {
+      "n": 13,
+      "accuracy": 1.0
+     },
+     "hint": {
+      "n": 6,
+      "accuracy": 1.0
+     },
+     "negation": {
+      "n": 9,
+      "accuracy": 1.0
+     },
+     "polite": {
+      "n": 4,
+      "accuracy": 1.0
+     },
+     "quiz": {
+      "n": 6,
+      "accuracy": 1.0
+     },
+     "short": {
+      "n": 7,
+      "accuracy": 0.857
+     },
+     "typo": {
+      "n": 1,
+      "accuracy": 1.0
+     }
+    },
+    "english_only": {
+     "n": 124,
+     "accuracy": 0.968,
+     "kappa": 0.952
+    }
+   },
+   "naive Bayes (Leon, leave-one-out)": {
+    "n": 136,
+    "accuracy": 0.57,
+    "kappa": 0.35,
+    "weighted_kappa": 0.41,
+    "source": "frontend/eval/results/linter-2026-11-17.md (058f289)"
+   }
+  },
+  "typing_flips": {
+   "rules": {
+    "mean": 0.68,
+    "share_at_least_one": 0.632,
+    "share_more_than_two": 0.0
+   },
+   "filter": {
+    "mean": 0.74,
+    "share_at_least_one": 0.559,
+    "share_more_than_two": 0.037
+   }
+  },
+  "filter_vs_judge_percent_mae": 0.196,
+  "cases": [
+   {
+    "id": "L001",
+    "text": "I think the seasons happen because the earth is closer to the sun in summer.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.795,
+    "judge": 0.751
+   },
+   {
+    "id": "L002",
+    "text": "I think heavier objects fall faster than light ones.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.751,
+    "judge": 0.757
+   },
+   {
+    "id": "L003",
+    "text": "My guess is that antibiotics kill viruses.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.641,
+    "judge": 0.751
+   },
+   {
+    "id": "L004",
+    "text": "I believe a neural network with more layers always performs better.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.759,
+    "judge": 0.751
+   },
+   {
+    "id": "L005",
+    "text": "The moon makes its own light, right?",
+    "label": "own",
+    "tags": [
+     "hedge"
+    ],
+    "rules": "own",
+    "filter": 0.623,
+    "judge": 0.729
+   },
+   {
+    "id": "L006",
+    "text": "So basically evolution means animals change because they want to.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.79,
+    "judge": 0.765
+   },
+   {
+    "id": "L007",
+    "text": "Photosynthesis turns sunlight into sugar, and oxygen is just a by-product?",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.701,
+    "judge": 0.698
+   },
+   {
+    "id": "L008",
+    "text": "I would expect the pendulum to swing faster if it is heavier.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.763,
+    "judge": 0.751
+   },
+   {
+    "id": "L009",
+    "text": "Probably inflation goes up when the central bank prints more money.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.745,
+    "judge": 0.751
+   },
+   {
+    "id": "L010",
+    "text": "Mitochondria make energy for the cell, that is why muscle cells have so many of them.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.728,
+    "judge": 0.866
+   },
+   {
+    "id": "L011",
+    "text": "Isn’t the derivative of x squared just 2x?",
+    "label": "own",
+    "tags": [
+     "hedge"
+    ],
+    "rules": "together",
+    "filter": 0.762,
+    "judge": 0.69
+   },
+   {
+    "id": "L012",
+    "text": "I’d say the French revolution started mainly because people were starving.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.692,
+    "judge": 0.751
+   },
+   {
+    "id": "L013",
+    "text": "Overfitting = the model learns the noise in the training data, not the signal.",
+    "label": "own",
+    "tags": [
+     "short"
+    ],
+    "rules": "together",
+    "filter": 0.733,
+    "judge": 0.467
+   },
+   {
+    "id": "L014",
+    "text": "My hunch: batch norm helps because the inputs to each layer stay in a similar range.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.806,
+    "judge": 0.751
+   },
+   {
+    "id": "L015",
+    "text": "Water boils at a lower temperature on a mountain because the air pressure is lower, correct?",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.909,
+    "judge": 0.791
+   },
+   {
+    "id": "L016",
+    "text": "I guess the answer to 3b is 42 because the two forces cancel out.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.853,
+    "judge": 0.754
+   },
+   {
+    "id": "L017",
+    "text": "Rome fell because the empire got too big to defend.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.739,
+    "judge": 0.753
+   },
+   {
+    "id": "L018",
+    "text": "Dropout is basically like training many smaller networks and averaging them.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.741,
+    "judge": 0.937
+   },
+   {
+    "id": "L019",
+    "text": "If I double the sample size the standard error should halve.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.756,
+    "judge": 0.773
+   },
+   {
+    "id": "L020",
+    "text": "pretty sure recursion needs a base case otherwise it never stops",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.733,
+    "judge": 0.785
+   },
+   {
+    "id": "L021",
+    "text": "I think its because the enzymes denature at high temperature",
+    "label": "own",
+    "tags": [
+     "typo"
+    ],
+    "rules": "own",
+    "filter": 0.827,
+    "judge": 0.769
+   },
+   {
+    "id": "L022",
+    "text": "The answer is probably O(n log n) since we sort first.",
+    "label": "own",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.742,
+    "judge": 0.765
+   },
+   {
+    "id": "L023",
+    "text": "Electrons flow from minus to plus, the current direction is just a convention.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.775,
+    "judge": 0.983
+   },
+   {
+    "id": "L024",
+    "text": "Supply goes down so price goes up, that is why rents are so high in Zurich.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.831,
+    "judge": 0.772
+   },
+   {
+    "id": "L025",
+    "text": "I think dropout works because it forces the network to not rely on single neurons, is that right?",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.803,
+    "judge": 0.774
+   },
+   {
+    "id": "L026",
+    "text": "In my own words: overfitting is when the model memorises the training data instead of the pattern.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.792,
+    "judge": 0.999
+   },
+   {
+    "id": "L027",
+    "text": "I tried the chain rule on this and got dL/dw = dL/da * da/dz * dz/dw. Did I set it up correctly?",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.893,
+    "judge": 0.866
+   },
+   {
+    "id": "L028",
+    "text": "Here is my attempt: the loop runs n times and the inner one n/2 times, so it is O(n^2). Where did I go wrong?",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.997,
+    "judge": 0.976
+   },
+   {
+    "id": "L029",
+    "text": "I solved it with integration by parts, u = x and dv = e^x dx, and got x e^x - e^x. Can you check?",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.872,
+    "judge": 0.997
+   },
+   {
+    "id": "L030",
+    "text": "My explanation for the exam: vaccines show the body a harmless part of the germ so memory cells are ready later.",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.525,
+    "judge": 0.991
+   },
+   {
+    "id": "L031",
+    "text": "So if gradient descent moves against the gradient, a too big step jumps over the minimum and the loss gets worse.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.983,
+    "judge": 0.874
+   },
+   {
+    "id": "L032",
+    "text": "def fib(n): return n if n < 2 else fib(n-1) + fib(n-2)  # this is exponential because it recomputes, right?",
+    "label": "own",
+    "tags": [
+     "code"
+    ],
+    "rules": "own",
+    "filter": 0.974,
+    "judge": 0.83
+   },
+   {
+    "id": "L033",
+    "text": "My code throws an IndexError, I think because range(len(a)+1) goes one too far.",
+    "label": "own",
+    "tags": [
+     "code"
+    ],
+    "rules": "own",
+    "filter": 0.8,
+    "judge": 0.795
+   },
+   {
+    "id": "L034",
+    "text": "The derivative is zero at the top, so the max is where 2x - 4 = 0, so x = 2.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.954,
+    "judge": 0.963
+   },
+   {
+    "id": "L035",
+    "text": "Here is my summary of the chapter, tell me what I missed: cells divide by mitosis, chromosomes copy first, then split.",
+    "label": "own",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.57,
+    "judge": 0.905
+   },
+   {
+    "id": "L036",
+    "text": "I compared both: quicksort is faster on average but mergesort is stable, so for linked lists I would take mergesort.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.837,
+    "judge": 0.944
+   },
+   {
+    "id": "L037",
+    "text": "Let me try: the far side of the earth bulges because the earth is pulled away from that water.",
+    "label": "own",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.838,
+    "judge": 0.779
+   },
+   {
+    "id": "L038",
+    "text": "I think the trick is that the series is geometric with r = 1/2, so the sum is 2. Is that the idea?",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.972,
+    "judge": 0.805
+   },
+   {
+    "id": "L039",
+    "text": "Why does a smaller learning rate help? Is it because big steps overshoot?",
+    "label": "own",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "own",
+    "filter": 0.266,
+    "judge": 0.806
+   },
+   {
+    "id": "L040",
+    "text": "I wrote this proof by induction, base case n=1 holds, then I assume n and show n+1. Is the step valid?",
+    "label": "own",
+    "tags": [],
+    "rules": "own",
+    "filter": 0.986,
+    "judge": 0.918
+   },
+   {
+    "id": "L041",
+    "text": "I don’t think that’s right, the tilt of the axis matters more than the distance.",
+    "label": "own",
+    "tags": [
+     "negation"
+    ],
+    "rules": "together",
+    "filter": 0.75,
+    "judge": 0.823
+   },
+   {
+    "id": "L042",
+    "text": "No, I think the price falls because demand drops, not because supply rises.",
+    "label": "own",
+    "tags": [
+     "negation"
+    ],
+    "rules": "own",
+    "filter": 0.77,
+    "judge": 0.83
+   },
+   {
+    "id": "L043",
+    "text": "Ich glaube, die Jahreszeiten kommen von der Neigung der Erdachse.",
+    "label": "own",
+    "tags": [
+     "de"
+    ],
+    "rules": "together",
+    "filter": 0.448,
+    "judge": 0.755
+   },
+   {
+    "id": "L044",
+    "text": "Meine Vermutung: der Algorithmus ist O(n^2), weil zwei Schleifen ineinander laufen.",
+    "label": "own",
+    "tags": [
+     "de"
+    ],
+    "rules": "together",
+    "filter": 0.595,
+    "judge": 0.757
+   },
+   {
+    "id": "L045",
+    "text": "Ich habe die Kettenregel angewendet und bekomme 2x·cos(x²). Stimmt das?",
+    "label": "own",
+    "tags": [
+     "de"
+    ],
+    "rules": "together",
+    "filter": 0.678,
+    "judge": 0.905
+   },
+   {
+    "id": "L046",
+    "text": "Mit meinen Worten: Overfitting heisst, das Modell lernt die Trainingsdaten auswendig.",
+    "label": "own",
+    "tags": [
+     "de"
+    ],
+    "rules": "together",
+    "filter": 0.506,
+    "judge": 0.978
+   },
+   {
+    "id": "L047",
+    "text": "Why is the sky blue?",
+    "label": "together",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "together",
+    "filter": 0.374,
+    "judge": 0.226
+   },
+   {
+    "id": "L048",
+    "text": "How does backpropagation work?",
+    "label": "together",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "ai",
+    "filter": 0.303,
+    "judge": 0.243
+   },
+   {
+    "id": "L049",
+    "text": "Why do we need a non-linear activation function?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.256,
+    "judge": 0.253
+   },
+   {
+    "id": "L050",
+    "text": "How does the immune system remember a germ?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.278,
+    "judge": 0.251
+   },
+   {
+    "id": "L051",
+    "text": "Why does ice float?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.261,
+    "judge": 0.249
+   },
+   {
+    "id": "L052",
+    "text": "Why do some vaccines need a booster?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.257,
+    "judge": 0.251
+   },
+   {
+    "id": "L053",
+    "text": "How come the far side of the earth also has a high tide?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.737,
+    "judge": 0.289
+   },
+   {
+    "id": "L054",
+    "text": "Why does the learning rate matter so much?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.251,
+    "judge": 0.251
+   },
+   {
+    "id": "L055",
+    "text": "What happens to the loss if the learning rate is too small?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.721,
+    "judge": 0.249
+   },
+   {
+    "id": "L056",
+    "text": "Why is mergesort stable but quicksort is not?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.483,
+    "judge": 0.252
+   },
+   {
+    "id": "L057",
+    "text": "What is the difference between mitosis and meiosis?",
+    "label": "together",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "together",
+    "filter": 0.052,
+    "judge": 0.005
+   },
+   {
+    "id": "L058",
+    "text": "Why would a bank raise interest rates when inflation is high?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.458,
+    "judge": 0.252
+   },
+   {
+    "id": "L059",
+    "text": "How do I know when to use integration by parts?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.385,
+    "judge": 0.253
+   },
+   {
+    "id": "L060",
+    "text": "What would happen if there was no base case?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.613,
+    "judge": 0.479
+   },
+   {
+    "id": "L061",
+    "text": "why?",
+    "label": "together",
+    "tags": [
+     "short"
+    ],
+    "rules": "together",
+    "filter": 0.384,
+    "judge": 0.236
+   },
+   {
+    "id": "L062",
+    "text": "how so?",
+    "label": "together",
+    "tags": [
+     "short"
+    ],
+    "rules": "ai",
+    "filter": 0.429,
+    "judge": 0.263
+   },
+   {
+    "id": "L063",
+    "text": "Wait, why does the gradient point uphill?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.274,
+    "judge": 0.276
+   },
+   {
+    "id": "L064",
+    "text": "What do you mean by a hidden layer?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.297,
+    "judge": 0.25
+   },
+   {
+    "id": "L065",
+    "text": "Can you explain why my answer to 2a was wrong?",
+    "label": "together",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "own",
+    "filter": 0.278,
+    "judge": 0.26
+   },
+   {
+    "id": "L066",
+    "text": "Where does the 1/2 in the formula come from?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.719,
+    "judge": 0.263
+   },
+   {
+    "id": "L067",
+    "text": "Give me a hint how the chain rule shows up in backprop, don't tell me the answer.",
+    "label": "together",
+    "tags": [
+     "hint",
+     "negation"
+    ],
+    "rules": "together",
+    "filter": 0.5,
+    "judge": 0.508
+   },
+   {
+    "id": "L068",
+    "text": "Can you quiz me on gradient descent?",
+    "label": "together",
+    "tags": [
+     "quiz"
+    ],
+    "rules": "together",
+    "filter": 0.376,
+    "judge": 0.499
+   },
+   {
+    "id": "L069",
+    "text": "Quiz me on the causes of World War I.",
+    "label": "together",
+    "tags": [
+     "quiz"
+    ],
+    "rules": "together",
+    "filter": 0.164,
+    "judge": 0.5
+   },
+   {
+    "id": "L070",
+    "text": "Test me with three questions about cell biology.",
+    "label": "together",
+    "tags": [
+     "quiz"
+    ],
+    "rules": "together",
+    "filter": 0.383,
+    "judge": 0.499
+   },
+   {
+    "id": "L071",
+    "text": "Just a small hint please, I want to solve it myself.",
+    "label": "together",
+    "tags": [
+     "hint"
+    ],
+    "rules": "together",
+    "filter": 0.455,
+    "judge": 0.5
+   },
+   {
+    "id": "L072",
+    "text": "Don’t give me the solution, only tell me which rule to use.",
+    "label": "together",
+    "tags": [
+     "hint",
+     "negation"
+    ],
+    "rules": "together",
+    "filter": 0.463,
+    "judge": 0.505
+   },
+   {
+    "id": "L073",
+    "text": "How should I approach this proof?",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.476,
+    "judge": 0.498
+   },
+   {
+    "id": "L074",
+    "text": "What is the first step for solving a recurrence like this?",
+    "label": "together",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.097,
+    "judge": 0.221
+   },
+   {
+    "id": "L075",
+    "text": "Can you ask me questions until I understand recursion?",
+    "label": "together",
+    "tags": [
+     "quiz"
+    ],
+    "rules": "together",
+    "filter": 0.111,
+    "judge": 0.501
+   },
+   {
+    "id": "L076",
+    "text": "Let’s go through it step by step, you ask and I answer.",
+    "label": "together",
+    "tags": [],
+    "rules": "together",
+    "filter": 0.06,
+    "judge": 0.5
+   },
+   {
+    "id": "L077",
+    "text": "Which concept should I review first for the exam?",
+    "label": "together",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "together",
+    "filter": 0.665,
+    "judge": 0.139
+   },
+   {
+    "id": "L078",
+    "text": "Is there a trick to remember the order of the planets?",
+    "label": "together",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "together",
+    "filter": 0.71,
+    "judge": 0.214
+   },
+   {
+    "id": "L079",
+    "text": "Could you check my understanding by asking me something about entropy?",
+    "label": "together",
+    "tags": [
+     "quiz",
+     "polite"
+    ],
+    "rules": "own",
+    "filter": 0.39,
+    "judge": 0.501
+   },
+   {
+    "id": "L080",
+    "text": "Give me a similar exercise so I can practise.",
+    "label": "together",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.441,
+    "judge": 0.451
+   },
+   {
+    "id": "L081",
+    "text": "Point me to the part of my code that is wrong, but don’t fix it.",
+    "label": "together",
+    "tags": [
+     "code",
+     "negation",
+     "hint"
+    ],
+    "rules": "together",
+    "filter": 0.632,
+    "judge": 0.504
+   },
+   {
+    "id": "L082",
+    "text": "I’m stuck on 3b. Where should I start?",
+    "label": "together",
+    "tags": [
+     "hedge"
+    ],
+    "rules": "together",
+    "filter": 0.319,
+    "judge": 0.5
+   },
+   {
+    "id": "L083",
+    "text": "I don’t get why the second derivative tells us about concavity.",
+    "label": "together",
+    "tags": [
+     "negation",
+     "hedge"
+    ],
+    "rules": "together",
+    "filter": 0.543,
+    "judge": 0.263
+   },
+   {
+    "id": "L084",
+    "text": "I think I need a hint for this one.",
+    "label": "together",
+    "tags": [
+     "hedge",
+     "hint"
+    ],
+    "rules": "own",
+    "filter": 0.627,
+    "judge": 0.5
+   },
+   {
+    "id": "L085",
+    "text": "Warum ist der Himmel blau?",
+    "label": "together",
+    "tags": [
+     "de",
+     "boundary"
+    ],
+    "rules": "ai",
+    "filter": 0.452,
+    "judge": 0.226
+   },
+   {
+    "id": "L086",
+    "text": "Gib mir einen Tipp für Aufgabe 2, aber nicht die Lösung.",
+    "label": "together",
+    "tags": [
+     "de",
+     "hint",
+     "negation"
+    ],
+    "rules": "together",
+    "filter": 0.575,
+    "judge": 0.501
+   },
+   {
+    "id": "L087",
+    "text": "Kannst du mich zu Gradient Descent abfragen?",
+    "label": "together",
+    "tags": [
+     "de",
+     "quiz"
+    ],
+    "rules": "together",
+    "filter": 0.415,
+    "judge": 0.5
+   },
+   {
+    "id": "L088",
+    "text": "Wie fange ich mit diesem Beweis an?",
+    "label": "together",
+    "tags": [
+     "de"
+    ],
+    "rules": "together",
+    "filter": 0.499,
+    "judge": 0.48
+   },
+   {
+    "id": "L089",
+    "text": "Write me a summary of backpropagation for my exam.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.006,
+    "judge": 0.0
+   },
+   {
+    "id": "L090",
+    "text": "Write me a short summary of how vaccines train the immune system",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.007,
+    "judge": 0.0
+   },
+   {
+    "id": "L091",
+    "text": "Solve exercise 3 for me and give me the final answer.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.066,
+    "judge": 0.0
+   },
+   {
+    "id": "L092",
+    "text": "Make this paragraph sound more academic: the model learns stuff from data.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.722,
+    "judge": 0.0
+   },
+   {
+    "id": "L093",
+    "text": "Write a 500 word essay on the causes of the French revolution.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.008,
+    "judge": 0.0
+   },
+   {
+    "id": "L094",
+    "text": "Translate this into English: Die Zelle teilt sich durch Mitose.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.2,
+    "judge": 0.0
+   },
+   {
+    "id": "L095",
+    "text": "Write a Python function that sorts a list with mergesort.",
+    "label": "ai",
+    "tags": [
+     "code"
+    ],
+    "rules": "ai",
+    "filter": 0.088,
+    "judge": 0.0
+   },
+   {
+    "id": "L096",
+    "text": "Fix my code: for i in range(len(a)+1): print(a[i])",
+    "label": "ai",
+    "tags": [
+     "code"
+    ],
+    "rules": "ai",
+    "filter": 0.536,
+    "judge": 0.0
+   },
+   {
+    "id": "L097",
+    "text": "Summarize chapter 4 in bullet points.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.561,
+    "judge": 0.0
+   },
+   {
+    "id": "L098",
+    "text": "Create flashcards for the whole lecture on enzymes.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.19,
+    "judge": 0.0
+   },
+   {
+    "id": "L099",
+    "text": "Rewrite my introduction so it sounds better.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.659,
+    "judge": 0.0
+   },
+   {
+    "id": "L100",
+    "text": "Do my homework: questions 1 to 5 on the attached sheet.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.601,
+    "judge": 0.0
+   },
+   {
+    "id": "L101",
+    "text": "Generate the solutions for the practice exam.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.425,
+    "judge": 0.0
+   },
+   {
+    "id": "L102",
+    "text": "Write the conclusion of my lab report.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.018,
+    "judge": 0.0
+   },
+   {
+    "id": "L103",
+    "text": "Prove that the square root of 2 is irrational.",
+    "label": "ai",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "together",
+    "filter": 0.79,
+    "judge": 0.0
+   },
+   {
+    "id": "L104",
+    "text": "Calculate the integral of x e^x from 0 to 1.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.876,
+    "judge": 0.0
+   },
+   {
+    "id": "L105",
+    "text": "Draft an email to my professor asking for an extension.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.347,
+    "judge": 0.0
+   },
+   {
+    "id": "L106",
+    "text": "Explain neural networks.",
+    "label": "ai",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "ai",
+    "filter": 0.39,
+    "judge": 0.11
+   },
+   {
+    "id": "L107",
+    "text": "What is the capital of Australia?",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.097,
+    "judge": 0.0
+   },
+   {
+    "id": "L108",
+    "text": "When did World War II end?",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.518,
+    "judge": 0.0
+   },
+   {
+    "id": "L109",
+    "text": "What is the formula for the area of a circle?",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.067,
+    "judge": 0.001
+   },
+   {
+    "id": "L110",
+    "text": "Define entropy.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.399,
+    "judge": 0.0
+   },
+   {
+    "id": "L111",
+    "text": "Tell me everything about photosynthesis.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.305,
+    "judge": 0.0
+   },
+   {
+    "id": "L112",
+    "text": "Explain the French revolution to me.",
+    "label": "ai",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "ai",
+    "filter": 0.216,
+    "judge": 0.024
+   },
+   {
+    "id": "L113",
+    "text": "What is the time complexity of quicksort?",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.086,
+    "judge": 0.002
+   },
+   {
+    "id": "L114",
+    "text": "Give me the definition of a derivative.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.392,
+    "judge": 0.0
+   },
+   {
+    "id": "L115",
+    "text": "List the steps of mitosis.",
+    "label": "ai",
+    "tags": [],
+    "rules": "ai",
+    "filter": 0.422,
+    "judge": 0.0
+   },
+   {
+    "id": "L116",
+    "text": "What does ATP stand for?",
+    "label": "ai",
+    "tags": [
+     "short"
+    ],
+    "rules": "ai",
+    "filter": 0.283,
+    "judge": 0.0
+   },
+   {
+    "id": "L117",
+    "text": "Explain recursion like I am five.",
+    "label": "ai",
+    "tags": [
+     "boundary"
+    ],
+    "rules": "ai",
+    "filter": 0.341,
+    "judge": 0.233
+   },
+   {
+    "id": "L118",
+    "text": "no idea, just tell me",
+    "label": "ai",
+    "tags": [
+     "short"
+    ],
+    "rules": "ai",
+    "filter": 0.107,
+    "judge": 0.0
+   },
+   {
+    "id": "L119",
+    "text": "just give me the answer",
+    "label": "ai",
+    "tags": [
+     "short"
+    ],
+    "rules": "ai",
+    "filter": 0.449,
+    "judge": 0.0
+   },
+   {
+    "id": "L120",
+    "text": "idk, what is it?",
+    "label": "ai",
+    "tags": [
+     "short"
+    ],
+    "rules": "ai",
+    "filter": 0.478,
+    "judge": 0.021
+   },
+   {
+    "id": "L121",
+    "text": "skip the questions and tell me the solution",
+    "label": "ai",
+    "tags": [
+     "negation"
+    ],
+    "rules": "together",
+    "filter": 0.228,
+    "judge": 0.0
+   },
+   {
+    "id": "L122",
+    "text": "I don’t care about the explanation, what is the result?",
+    "label": "ai",
+    "tags": [
+     "negation",
+     "hedge"
+    ],
+    "rules": "together",
+    "filter": 0.319,
+    "judge": 0.0
+   },
+   {
+    "id": "L123",
+    "text": "I think you should just write the summary for me.",
+    "label": "ai",
+    "tags": [
+     "hedge"
+    ],
+    "rules": "own",
+    "filter": 0.018,
+    "judge": 0.0
+   },
+   {
+    "id": "L124",
+    "text": "I believe it would be fastest if you solved it.",
+    "label": "ai",
+    "tags": [
+     "hedge"
+    ],
+    "rules": "own",
+    "filter": 0.708,
+    "judge": 0.0
+   },
+   {
+    "id": "L125",
+    "text": "Could you please write my essay introduction?",
+    "label": "ai",
+    "tags": [
+     "polite"
+    ],
+    "rules": "ai",
+    "filter": 0.022,
+    "judge": 0.0
+   },
+   {
+    "id": "L126",
+    "text": "Would you mind solving question 4 for me?",
+    "label": "ai",
+    "tags": [
+     "polite"
+    ],
+    "rules": "ai",
+    "filter": 0.21,
+    "judge": 0.0
+   },
+   {
+    "id": "L127",
+    "text": "I want to understand recursion, so write me a full explanation with examples.",
+    "label": "ai",
+    "tags": [
+     "hedge",
+     "boundary"
+    ],
+    "rules": "together",
+    "filter": 0.012,
+    "judge": 0.005
+   },
+   {
+    "id": "L128",
+    "text": "I tried but I can’t, so please just do it.",
+    "label": "ai",
+    "tags": [
+     "hedge"
+    ],
+    "rules": "own",
+    "filter": 0.497,
+    "judge": 0.0
+   },
+   {
+    "id": "L129",
+    "text": "My teacher said I should understand this, can you summarize it for me?",
+    "label": "ai",
+    "tags": [
+     "hedge"
+    ],
+    "rules": "ai",
+    "filter": 0.026,
+    "judge": 0.0
+   },
+   {
+    "id": "L130",
+    "text": "In my opinion the best thing is a complete solution, step by step.",
+    "label": "ai",
+    "tags": [
+     "hedge"
+    ],
+    "rules": "together",
+    "filter": 0.193,
+    "judge": 0.0
+   },
+   {
+    "id": "L131",
+    "text": "I’m thinking about my essay, can you write the first paragraph?",
+    "label": "ai",
+    "tags": [
+     "hedge"
+    ],
+    "rules": "together",
+    "filter": 0.029,
+    "judge": 0.0
+   },
+   {
+    "id": "L132",
+    "text": "Can you explain the whole topic of neural networks?",
+    "label": "ai",
+    "tags": [
+     "polite",
+     "boundary"
+    ],
+    "rules": "ai",
+    "filter": 0.081,
+    "judge": 0.189
+   },
+   {
+    "id": "L133",
+    "text": "Schreib mir eine Zusammenfassung von Kapitel 3.",
+    "label": "ai",
+    "tags": [
+     "de"
+    ],
+    "rules": "together",
+    "filter": 0.565,
+    "judge": 0.0
+   },
+   {
+    "id": "L134",
+    "text": "Löse Aufgabe 4 für mich.",
+    "label": "ai",
+    "tags": [
+     "de"
+    ],
+    "rules": "ai",
+    "filter": 0.53,
+    "judge": 0.0
+   },
+   {
+    "id": "L135",
+    "text": "Was ist die Hauptstadt von Australien?",
+    "label": "ai",
+    "tags": [
+     "de"
+    ],
+    "rules": "together",
+    "filter": 0.502,
+    "judge": 0.001
+   },
+   {
+    "id": "L136",
+    "text": "Erklär mir neuronale Netze.",
+    "label": "ai",
+    "tags": [
+     "de",
+     "boundary"
+    ],
+    "rules": "ai",
+    "filter": 0.413,
+    "judge": 0.156
+   }
+  ]
+ }
+}
