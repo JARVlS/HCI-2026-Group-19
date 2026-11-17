@@ -74,6 +74,13 @@ describe('mergeAnalysis', () => {
     expect(r.created).toEqual([expect.objectContaining({ label: 'Biology', kind: 'subject', parentId: null })]);
   });
 
+  it('a chat without a place yet puts new nodes below the subject its first analysis picked', () => {
+    const r = mergeAnalysis(concepts, analysis([judgement(node('Photosynthesis', { newLabel: 'Plants' }))], { newLabel: 'Biology' }), { ...ctx, fallbackParentId: null });
+    const byLabel = Object.fromEntries(r.created.map((c) => [c.label, c]));
+    expect(byLabel.Plants).toMatchObject({ kind: 'topic', parentId: byLabel.Biology.id });
+    expect(byLabel.Photosynthesis.parentId).toBe(byLabel.Plants.id);
+  });
+
   it('clamps scores into 0..1', () => {
     const r = mergeAnalysis(concepts, analysis([judgement({ existingId: 'gd' }, { independence: 3, confidence: -1, correctness: 2 })]), ctx);
     expect(r.attempts[0]).toMatchObject({ independence: 1, confidence: 0, correctness: 1 });

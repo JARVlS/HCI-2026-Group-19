@@ -21,7 +21,7 @@ export function Transcript() {
   useLayoutEffect(() => {
     const el = scroller.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, turn.status]);
 
   useEffect(() => {
     if (!flash) return;
@@ -55,7 +55,8 @@ export function Transcript() {
           <div className="a-empty">
             <p>what do you want to learn today?</p>
             <p className="a-dim">
-              ask anything about neural networks, or press <K>tab</K> for a demo prompt.
+              {state.settings.provider === 'arbor' ? 'ask about anything, the answers come live from claude.' : 'ask anything about neural networks.'} or
+              press <K>tab</K> for a demo prompt.
             </p>
           </div>
         )}

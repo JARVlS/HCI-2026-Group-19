@@ -95,6 +95,8 @@ export type NudgeLevel = 'off' | 'gentle' | 'active';
 /** Design styles: each is its own UI over the same store (see src/designs/). */
 export type Design = 'ascii' | 'classic';
 export type Theme = 'system' | 'light' | 'dark';
+/** Where answers come from: the scripted demo, or Claude through the Arbor backend (ADR-4). */
+export type ProviderChoice = 'scripted' | 'arbor';
 
 export interface Settings {
   enabled: boolean;
@@ -104,4 +106,6 @@ export interface Settings {
   /** Show the squirrel mascot in the panel. */
   mascot: boolean;
   design: Design;
+  /** Applies from the next message; a running reply finishes with the provider it started with. */
+  provider: ProviderChoice;
 }

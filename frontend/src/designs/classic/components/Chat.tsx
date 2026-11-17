@@ -1,4 +1,4 @@
-import { ArrowUp, FlaskConical, Lightbulb, PenLine, Sparkles, X } from 'lucide-react';
+import { ArrowUp, FlaskConical, Lightbulb, PenLine, Sparkles, Square, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDismiss } from '../../../lib/hooks';
 import { MODES, MODE_META, pct } from '../../../lib/modes';
@@ -8,7 +8,8 @@ import { ArborLogo, Glyph } from './Glyph';
 import { Markdown } from './Markdown';
 
 export function ChatView() {
-  const { state, messages, busy, conversation } = useStore();
+  const { state, messages, busy, conversation, retry } = useStore();
+  const turn = state.session.turn;
   const listRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const { flash } = state.ui;
@@ -19,7 +20,7 @@ export function ChatView() {
   useLayoutEffect(() => {
     const el = listRef.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, turn.status]);
 
   useEffect(() => {
     if (!flash) return;
@@ -48,7 +49,10 @@ export function ChatView() {
           {messages.length === 0 && (
             <div className="chat-empty">
               <h2>What do you want to learn today?</h2>
-              <p>Ask anything about neural networks — or pick a demo prompt below.</p>
+              <p>
+                {state.settings.provider === 'arbor' ? 'Ask about anything, the answers come live from Claude' : 'Ask anything about neural networks'} — or pick a
+                demo prompt below.
+              </p>
             </div>
           )}
           {messages.map((m) =>
@@ -68,6 +72,19 @@ export function ChatView() {
                 <i />
                 <i />
               </div>
+            </div>
+          )}
+          {turn.status === 'error' && turn.conversationId === conversation.id && (
+            <div className="msg assistant">
+              <div className="ai-avatar" aria-hidden="true">
+                <Sparkles size={14} />
+              </div>
+              <p className="turn-error" role="alert">
+                {turn.error || 'Something went wrong.'}{' '}
+                <button className="link" onClick={retry}>
+                  Retry
+                </button>
+              </p>
             </div>
           )}
         </div>
@@ -174,6 +191,7 @@ function AssistantMessage({ m, showReflect }: { m: ChatMessage; showReflect: boo
           <Markdown text={m.text} />
           {m.streaming && <span className="caret" aria-hidden="true" />}
         </div>
+        {m.stopped && <p className="ai-note">Stopped.</p>}
         {enabled && concept && showReflect && !m.streaming && !busy && (
           <div className="reflect" aria-label="Arbor suggestion">
             <span className="reflect-label">
@@ -198,7 +216,7 @@ function AssistantMessage({ m, showReflect }: { m: ChatMessage; showReflect: boo
 /* ───────────────────────── Composer ───────────────────────── */
 
 function Composer() {
-  const { state, dispatch, send, classifyDraft, toast, busy, demoPrompts } = useStore();
+  const { state, dispatch, send, stop, classifyDraft, toast, busy, demoPrompts } = useStore();
   const { enabled: arborOn, nudge: nudgeLevel } = state.settings;
   const enabled = arborOn && nudgeLevel !== 'off';
   const [text, setText] = useState('');
@@ -358,6 +376,8 @@ function Composer() {
               submit();
             } else if (e.key === 'Escape' && nudge) {
               setNudge(null);
+            } else if (e.key === 'Escape' && busy) {
+              stop();
             }
           }}
         />
@@ -378,12 +398,20 @@ function Composer() {
           ) : (
             <span />
           )}
-          <button type="submit" className="send" disabled={busy || !text.trim()} aria-label="Send message">
-            <ArrowUp size={17} />
-          </button>
+          {busy ? (
+            <button type="button" className="send" onClick={stop} aria-label="Stop the reply" title="Stop (Esc)">
+              <Square size={13} fill="currentColor" />
+            </button>
+          ) : (
+            <button type="submit" className="send" disabled={!text.trim()} aria-label="Send message">
+              <ArrowUp size={17} />
+            </button>
+          )}
         </div>
       </form>
-      <p className="fineprint">Prototype — the assistant’s answers are scripted.</p>
+      <p className="fineprint">
+        {state.settings.provider === 'arbor' ? 'Prototype — live answers from Claude through the Arbor backend.' : 'Prototype — the assistant’s answers are scripted.'}
+      </p>
     </div>
   );
 }

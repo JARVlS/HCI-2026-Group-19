@@ -89,13 +89,15 @@ export function mergeAnalysis(concepts: Record<Id, Concept>, analysis: TurnAnaly
     subjectId = (findBySlug(label, null) ?? create(label, 'subject', null))?.id;
   }
 
+  // A chat's first analysis picks its subject; new nodes without a known place go below it.
+  const fallbackParentId = ctx.fallbackParentId ?? subjectId ?? null;
   const resolve = (j: ConceptJudgement): Id | undefined => {
     if ('existingId' in j.ref) return alive(pool[j.ref.existingId]) ? j.ref.existingId : undefined;
     const n = j.ref.newNode;
-    let parentId: Id | null = ctx.fallbackParentId;
+    let parentId: Id | null = fallbackParentId;
     if (n.parent.existingId && alive(pool[n.parent.existingId])) parentId = n.parent.existingId;
     else if (n.parent.newLabel) {
-      const p = findBySlug(n.parent.newLabel) ?? create(n.parent.newLabel, 'topic', ctx.fallbackParentId);
+      const p = findBySlug(n.parent.newLabel) ?? create(n.parent.newLabel, 'topic', fallbackParentId);
       if (p) parentId = p.id;
     }
     return (findBySlug(n.label, parentId) ?? create(n.label, n.kind, parentId, n.description))?.id;

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { apiUrl } from '../../lib/api';
 import { useDismiss } from '../../lib/hooks';
 import { MODE_META, MODE_SCORE, mean, pct } from '../../lib/modes';
 import { TIME_MAX, TIME_TICKS, daysAt, formatDays, posOf, retention } from '../../lib/retention';
 import type { Concept, Id, Message } from '../../lib/domain';
 import { useStore } from '../../lib/store';
-import type { Mode, NudgeLevel, Theme } from '../../lib/types';
+import type { Mode, NudgeLevel, ProviderChoice, Theme } from '../../lib/types';
 import { AsciiTreeView } from '../../shared/AsciiTreeView';
 import { Squirrel, type Pose } from './Squirrel';
 import { Check, G, K, Radios, lower, useUi } from './ui';
@@ -62,7 +63,8 @@ function useTween(value: number, ms = 450) {
     const a = from.current;
     let raf = 0;
     const tick = (now: number) => {
-      const k = Math.min(1, (now - start) / ms);
+      // The frame time can be a little earlier than `start`; a negative k would overshoot past `value`.
+      const k = Math.min(1, Math.max(0, (now - start) / ms));
       const x = a + (value - a) * (1 - (1 - k) ** 3);
       from.current = x;
       setV(x);
@@ -177,7 +179,7 @@ function useTips(): Tip[] {
       text: `“${label}” is ${weakest.score === 0 ? 'still all the ai’s' : 'only half yours'}. want me to quiz you on it?`,
       action: busy ? undefined : { label: 'quiz me', run: () => send(`Quiz me on ${label}`) },
     });
-  } else if (leaves.length) {
+  } else if (leaves.length && leaves.every((l) => l.score >= 1)) {
     tips.push({ text: 'every leaf on this tree is yours. i’m impressed.' });
   }
   if (leaves.length)
@@ -436,6 +438,17 @@ export function Scrubber({ days, setDays, width = 26 }: { days: number; setDays:
 
 /* ───────────── Settings ───────────── */
 
+const PROVIDER_DESC: Record<ProviderChoice, string> = {
+  scripted: 'the demo script. offline, the same answers for everyone.',
+  arbor: 'claude through the arbor backend. uses the group’s token budget. new chats start empty.',
+};
+
+/** Where answers come from. A reply already on its way finishes with the old choice. */
+function providerNote(p: ProviderChoice) {
+  const missing = p === 'arbor' && !apiUrl() ? ' this build has no backend url (VITE_API_URL), so live answers fail.' : '';
+  return `${PROVIDER_DESC[p]}${missing} applies from your next message.`;
+}
+
 const NUDGE_DESC: Record<NudgeLevel, string> = {
   off: 'no lint, no veil. your messages keep their labels.',
   gentle: 'a live lint while you type. never in your way.',
@@ -459,6 +472,19 @@ function Settings({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => v
       {open && (
         <div className="a-pop a-settings" role="dialog" aria-label="Arbor settings">
           <p className="a-pop-title">settings</p>
+          <div className="a-set">
+            <span className="a-set-k">answers</span>
+            <Radios<ProviderChoice>
+              label="Where answers come from"
+              value={s.provider}
+              onChange={(v) => set({ provider: v })}
+              options={[
+                { v: 'scripted', label: 'scripted' },
+                { v: 'arbor', label: 'live' },
+              ]}
+            />
+          </div>
+          <p className="a-set-desc a-dim">{providerNote(s.provider)}</p>
           <div className="a-set">
             <span className="a-set-k">nudges</span>
             <Radios<NudgeLevel>

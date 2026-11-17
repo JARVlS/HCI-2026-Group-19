@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { chooseProvider, createProvider } from '../ai/providers';
 import { demoFixture, type DemoFixture } from '../ai/scripted/fixture';
-import { ScriptedProvider } from '../ai/scripted/provider';
 import type { Provider } from '../ai/provider';
 import { classify } from './classify';
 import type { Conversation, Id, Message } from './domain';
@@ -9,7 +9,7 @@ import { crossRoots, projectForest, type CrossRoots } from './project';
 import { activeConversation, activeMessages, isBusy, reducer, type Action, type DomainState, type State } from './state';
 import { dayGroup, type DayGroup } from './time';
 import { isQuizAnswer, retryTurn, sendTurn } from './turn';
-import type { Classification, Grove, Settings, TreeData } from './types';
+import type { Classification, Grove, ProviderChoice, Settings, TreeData } from './types';
 
 export type { State } from './state';
 
@@ -20,28 +20,45 @@ export type StoreAction = Action | { type: 'reset'; empty: boolean };
 
 const SETTINGS_KEY = 'arbor.settings.v1';
 const ONBOARD_KEY = 'arbor.onboarded.v1';
+/**
+ * The provider is saved on its own and only when the user picks one, so a URL parameter is never
+ * remembered and a later change of the build default reaches everyone who never picked.
+ */
+const PROVIDER_KEY = 'arbor.provider.v1';
 
-function loadSettings(): Settings {
-  const defaults: Settings = { enabled: true, nudge: 'active', showTags: true, theme: 'system', mascot: true, design: 'ascii' };
+function stored(key: string): string | null {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? { ...defaults, ...JSON.parse(raw) } : defaults;
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function save(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* storage unavailable: the setting stays in memory */
+  }
+}
+
+/** Saved settings, except `provider`, which `init` chooses. */
+function loadSettings(): Omit<Settings, 'provider'> {
+  const defaults = { enabled: true, nudge: 'active', showTags: true, theme: 'system', mascot: true, design: 'ascii' } as const;
+  try {
+    const raw = stored(SETTINGS_KEY);
+    const { provider: _, ...saved } = raw ? JSON.parse(raw) : {};
+    return { ...defaults, ...saved };
   } catch {
     return defaults;
   }
 }
 
-function hasOnboarded() {
-  try {
-    return localStorage.getItem(ONBOARD_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
+const hasOnboarded = () => stored(ONBOARD_KEY) === '1';
 
 /**
  * URL parameters for demos and user tests, e.g.
- * `?design=ascii&intro=0&view=forest&theme=dark&empty=1&nudge=gentle&arbor=off&mascot=0`.
+ * `?design=ascii&intro=0&view=forest&theme=dark&empty=1&nudge=gentle&arbor=off&mascot=0&provider=arbor`.
  */
 function urlParams() {
   try {
@@ -60,9 +77,13 @@ const domainOf = (f: DemoFixture): DomainState => ({
   attempts: f.attempts,
 });
 
+/** The scripted demo starts with its conversation; a live provider with a new, empty chat next to the demo forest (M2 loads the user's own). */
+const startFixture = (provider: ProviderChoice, empty: boolean) => demoFixture(provider === 'scripted' ? { empty } : { fresh: true });
+
 function init(): State {
   const p = urlParams();
-  const settings = loadSettings();
+  const provider = chooseProvider({ url: p.get('provider'), saved: stored(PROVIDER_KEY), build: import.meta.env.VITE_DEFAULT_PROVIDER });
+  const settings: Settings = { ...loadSettings(), provider };
   const theme = p.get('theme');
   if (theme === 'light' || theme === 'dark' || theme === 'system') settings.theme = theme;
   const nudge = p.get('nudge');
@@ -73,7 +94,7 @@ function init(): State {
   if (p.get('mascot') === '1') settings.mascot = true;
   const design = p.get('design');
   if (design === 'ascii' || design === 'classic') settings.design = design;
-  const fixture = demoFixture({ empty: p.get('empty') === '1' });
+  const fixture = startFixture(provider, p.get('empty') === '1');
   return {
     domain: domainOf(fixture),
     session: { activeConversationId: fixture.activeConversationId, pendingQuiz: null, turn: { status: 'idle' }, demoPrompts: fixture.demoPrompts },
@@ -171,18 +192,17 @@ const StoreContext = createContext<Ctx | null>(null);
 export function StoreProvider({ children, provider: given }: { children: ReactNode; provider?: Provider }) {
   const [store] = useState(() => createStore(init()));
   const state = useSyncExternalStore(store.subscribe, store.getState);
-  const provider = useMemo(() => given ?? new ScriptedProvider(), [given]);
+  // A turn keeps the provider it started with; a new choice in settings applies from the next turn.
+  const choice = state.settings.provider;
+  const provider = useMemo(() => given ?? createProvider(choice), [given, choice]);
   const controller = useRef<AbortController | null>(null);
   const initialSettings = useRef(state.settings);
 
-  // Persist only changes the user makes (not URL-parameter overrides on load).
+  // Persist only changes the user makes (not URL-parameter overrides on load). The provider is saved in `dispatch`.
   useEffect(() => {
     if (state.settings === initialSettings.current) return;
-    try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
-    } catch {
-      /* storage unavailable — settings stay in memory */
-    }
+    const { provider: _, ...rest } = state.settings;
+    save(SETTINGS_KEY, JSON.stringify(rest));
   }, [state.settings]);
 
   useEffect(() => () => controller.current?.abort(), []);
@@ -191,9 +211,10 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
 
   const dispatch = useCallback(
     (a: StoreAction) => {
+      if (a.type === 'settings' && a.patch.provider) save(PROVIDER_KEY, a.patch.provider);
       if (a.type !== 'reset') return store.dispatch(a);
       controller.current?.abort();
-      const f = demoFixture({ empty: a.empty });
+      const f = startFixture(store.getState().settings.provider, a.empty);
       store.dispatch({ type: 'hydrate', domain: domainOf(f), activeConversationId: f.activeConversationId, demoPrompts: f.demoPrompts });
     },
     [store],
@@ -239,11 +260,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
   const toast = useCallback((text: string) => store.dispatch({ type: 'toast', text }), [store]);
 
   const finishOnboarding = useCallback(() => {
-    try {
-      localStorage.setItem(ONBOARD_KEY, '1');
-    } catch {
-      /* ignore */
-    }
+    save(ONBOARD_KEY, '1');
     store.dispatch({ type: 'onboarding', open: false });
   }, [store]);
 
@@ -306,7 +323,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
       busy,
       activeTree,
       ...graph,
-      demoPrompts: state.session.demoPrompts,
+      demoPrompts: provider.demoPrompts ?? state.session.demoPrompts,
       canQuiz,
       send,
       stop,
@@ -316,7 +333,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
       toast,
       finishOnboarding,
     }),
-    [state, dispatch, conversation, messages, busy, activeTree, graph, canQuiz, send, stop, retry, classifyDraft, jumpTo, toast, finishOnboarding],
+    [state, dispatch, conversation, messages, busy, activeTree, graph, provider, canQuiz, send, stop, retry, classifyDraft, jumpTo, toast, finishOnboarding],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

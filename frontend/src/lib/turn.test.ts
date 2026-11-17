@@ -3,7 +3,7 @@ import type { ChatRequest, JsonTask, JsonTasks, Provider } from '../ai/provider'
 import { ProviderError } from '../ai/provider';
 import type { TurnAnalysis } from '../ai/schemas/turnAnalysis';
 import { testStore } from '../test/harness';
-import { retryTurn } from './turn';
+import { DAILY_BUDGET, errorText, PROJECT_BUDGET, retryTurn } from './turn';
 
 /** A provider you script per test: what chat streams, whether it fails, and what analysis says. */
 class FakeProvider implements Provider {
@@ -165,5 +165,28 @@ describe('turn: what the user did meanwhile wins over a late analysis', () => {
     await s.send('I think momentum helps gradient descent');
     expect(s.messages()[0].classification).toMatchObject({ mode: 'ai', overridden: true });
     expect(s.activeTrees()[0].branches.flatMap((b) => b.leaves.map((l) => l.score))).toEqual([0, 0]);
+  });
+});
+
+describe('turn: what a failure says', () => {
+  it('a used-up budget gets a sentence that says which budget', () => {
+    expect(errorText(new ProviderError('Daily token budget used up (200000 of 200000 tokens). It resets at …', 'budget_exceeded'))).toBe(DAILY_BUDGET);
+    expect(errorText(new ProviderError("The project's total token budget is used up (…, all users together).", 'budget_exceeded'))).toBe(PROJECT_BUDGET);
+  });
+
+  it('anything else shows its own message', () => {
+    expect(errorText(new ProviderError('Could not reach the backend (Failed to fetch).', 'network'))).toBe('Could not reach the backend (Failed to fetch).');
+    expect(errorText(new Error(''))).toBe('something went wrong');
+  });
+});
+
+describe('turn: what the provider is told', () => {
+  it('the nudge level (off while Arbor is paused) and study mode', async () => {
+    const { s, fake } = setup();
+    await s.send('What is momentum?');
+    expect(fake.requests[0].context).toMatchObject({ nudge: 'active', studyMode: false });
+    s.deps.dispatch({ type: 'settings', patch: { enabled: false } });
+    await s.send('And what is Adam?');
+    expect(fake.requests[1].context.nudge).toBe('off');
   });
 });
