@@ -34,7 +34,9 @@ DAILY_TOKEN_BUDGET = "200000"
 # All users together, never resets. 900 000 tokens cost at most 10 USD on Sonnet 5 through Bedrock
 # (worst case: every token billed as output at 11 USD per million). Raise it when the money is there.
 TOTAL_TOKEN_BUDGET = "900000"
-ANTHROPIC_BASE_URL = "https://bedrock-mantle.us-east-1.api.aws/anthropic"
+# Region: eu-north-1 (Stockholm) since 17 Nov 2026, so chat text stays in the EU. The account has
+# Sonnet 5 there as well; us-east-1 was the first region tried, not a requirement.
+ANTHROPIC_BASE_URL = "https://bedrock-mantle.eu-north-1.api.aws/anthropic"
 # The fast slot (POST /api/ai/score, G-Eval-style scores from token probabilities; key in the
 # secret FAST_API_KEY). Any OpenAI-compatible chat completions endpoint that returns `logprobs`
 # works (OpenAI, Groq, a self-hosted vLLM or Ollama). This model was picked on 17 Nov 2026 from a
