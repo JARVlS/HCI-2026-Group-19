@@ -64,6 +64,23 @@ async def current_user(
 CurrentUser = Annotated[User, Depends(current_user)]
 
 
+async def optional_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)], env: Env
+) -> User | None:
+    """The caller's user if a valid token came along, else None (never a 401)."""
+    if credentials is None:
+        return None
+    try:
+        return await current_user(credentials, env)
+    except ApiError as e:
+        if e.status == 401:
+            return None
+        raise
+
+
+OptionalUser = Annotated[User | None, Depends(optional_user)]
+
+
 def require_admin(token: Annotated[str | None, Depends(_admin_header)], env: Env) -> None:
     expected = secret(env, "ADMIN_TOKEN")
     if token is None or not hmac.compare_digest(token.encode(), expected.encode()):

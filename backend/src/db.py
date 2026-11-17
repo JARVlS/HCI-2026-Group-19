@@ -53,6 +53,29 @@ async def create_user(db: Any, user_id: str, participant_id: str | None, conditi
     return row
 
 
+# --- accounts -----------------------------------------------------------------------------
+
+async def get_account(db: Any, user_id: str) -> dict | None:
+    return await db.prepare("SELECT user_id, username FROM accounts WHERE user_id = ?").bind(user_id).first()
+
+
+async def find_account(db: Any, username: str) -> dict | None:
+    """The account with this username, case-insensitive (the column is COLLATE NOCASE)."""
+    return await db.prepare(
+        "SELECT user_id, username, password_hash FROM accounts WHERE username = ?"
+    ).bind(username).first()
+
+
+async def create_account(db: Any, user_id: str, username: str, password_hash: str) -> bool:
+    """Insert an account. False if the user already has one or the username is taken (both are
+    UNIQUE, so a race between two sign-ups with one name leaves exactly one row)."""
+    result = await db.prepare(
+        "INSERT INTO accounts (user_id, username, password_hash, created_at) VALUES (?, ?, ?, ?)"
+        " ON CONFLICT DO NOTHING"
+    ).bind(user_id, username, password_hash, iso(now())).run()
+    return int(result["meta"]["changes"]) == 1
+
+
 # --- usage --------------------------------------------------------------------------------
 
 async def tokens_used(db: Any, user_id: str, day: str) -> int:

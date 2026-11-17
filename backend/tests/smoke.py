@@ -196,6 +196,31 @@ def run(base_url: str, admin_token: str) -> None:
         check("unknown route -> 404 not_found", r.status_code == 404 and r.json()["error"]["code"] == "not_found")
     guarded("unknown route", not_found)
 
+    def accounts() -> None:
+        # Password hashing runs in WebCrypto under the Workers runtime (passwords.py), which only
+        # this test exercises; pytest uses hashlib.
+        guest = client.post("/api/session", json={}).json()
+        guest_auth = {"Authorization": f"Bearer {guest['token']}"}
+        creds = {"username": f"smoke-{run_id}", "password": "smoke password"}
+        t0 = time.monotonic()
+        r = client.post("/api/auth/signup", json=creds, headers=guest_auth)
+        signup_s = time.monotonic() - t0
+        check("accounts: signup keeps the guest", r.status_code == 200 and r.json()["userId"] == guest["userId"],
+              f"{r.status_code} {r.text[:120]} in {signup_s:.2f}s")
+        t0 = time.monotonic()
+        r = client.post("/api/auth/login", json={**creds, "username": creds["username"].upper()})
+        login_s = time.monotonic() - t0
+        check("accounts: login (case-insensitive) returns the same token",
+              r.status_code == 200 and r.json()["token"] == guest["token"], f"{r.status_code} in {login_s:.2f}s")
+        r = client.post("/api/auth/login", json={**creds, "password": "wrong password"})
+        check("accounts: wrong password -> 401 invalid_credentials",
+              r.status_code == 401 and r.json()["error"]["code"] == "invalid_credentials", r.text[:120])
+        r = client.post("/api/auth/signup", json=creds)
+        check("accounts: same username again -> 409", r.status_code == 409, r.text[:120])
+        me = client.get("/api/me", headers=guest_auth).json()
+        check("accounts: /api/me names the account", me.get("username") == creds["username"], json.dumps(me))
+    guarded("accounts", accounts)
+
     run_sync(client, run_id, auth, admin_token)
 
 

@@ -30,6 +30,28 @@ class SessionResponse(CamelModel):
     condition: str | None
 
 
+# --- /auth --------------------------------------------------------------------------------
+
+# Letters, digits and . _ - @ +, so an email address works as a username too.
+Username = Annotated[str, Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9._@+-]+$")]
+
+
+class Credentials(CamelModel):
+    username: Username
+    password: str = Field(min_length=8, max_length=256)
+
+
+class AccountResponse(SessionResponse):
+    username: str
+
+
+class MeResponse(CamelModel):
+    user_id: str
+    username: str | None  # None: a guest
+    participant_id: str | None
+    condition: str | None
+
+
 # --- /ai/complete -------------------------------------------------------------------------
 
 class ChatMessage(CamelModel):

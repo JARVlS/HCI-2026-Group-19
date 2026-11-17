@@ -70,6 +70,51 @@ TOKEN=$(curl -s -X POST http://localhost:8787/api/session \
 
 Errors: 422 `invalid_request`, 500 `server_misconfigured` (`SESSION_SECRET` missing).
 
+## Accounts: `POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/me`
+
+Optional accounts on top of the anonymous users (ADR-8, amended 17 Nov 2026). An account is a
+username and a password; a user without one is a guest. All three return or take the same token as
+`POST /api/session`, so every other route works the same for guests and accounts.
+
+Credentials (both routes): `{ "username": string, "password": string }`. Username 3 to 64
+characters from `A-Z a-z 0-9 . _ - @ +` (an email address works, but nothing is sent to it),
+unique ignoring case. Password 8 to 256 characters. Stored as PBKDF2-HMAC-SHA256, 100 000
+iterations, random salt (`src/passwords.py`); the account table is not in the admin export.
+
+### `POST /api/auth/signup`
+
+Optional `Authorization: Bearer <guest token>`. With it, **that guest becomes the account**: same
+`userId`, same token, the chats stay. Without it (or with a token that is no longer valid) a new
+user is created.
+
+Response: `{ "userId", "token", "participantId", "condition", "username" }`
+
+Errors: 409 `username_taken`, 409 `already_registered` (the token's user already has an account;
+log in instead), 422 `invalid_request`.
+
+### `POST /api/auth/login`
+
+No auth. Response as for signup, with the username as it was stored (login ignores case).
+Logging in on a device that had a guest switches the device to the account; the guest's chats stay
+with the guest and are not merged.
+
+Errors: 401 `invalid_credentials` (wrong username and wrong password look the same; a wrong
+username takes as long as a wrong password), 422 `invalid_request`.
+
+No rate limit yet: fine for a course prototype, needed before anything public.
+
+### `GET /api/me`
+
+Bearer token. Response: `{ "userId", "username" | null, "participantId", "condition" }`
+(`username` null: a guest).
+
+There is no logout route: tokens are stateless and do not expire, so logging out means the client
+forgets its token. Rotating `SESSION_SECRET` logs everyone out (guests lose their data with it).
+
+```bash
+curl -s -X POST http://localhost:8787/api/auth/signup -H 'content-type: application/json'   -H "authorization: Bearer $TOKEN" -d '{"username":"leon","password":"correct horse"}'
+```
+
 ## `POST /api/ai/complete`
 
 Relays one call to Claude (ADR-3). The frontend owns prompts and schemas; the server fixes
