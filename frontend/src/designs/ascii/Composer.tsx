@@ -170,16 +170,35 @@ export function Composer() {
         {c && g ? (
           <Gauge c={c} g={g} model={model} text={text} after={willVeil(g.mode) ? 'the answer arrives veiled, so you can guess first' : AFTER[g.mode]} />
         ) : !text && !busy && next ? (
+          // A quiet hint, only visible while the prompt has focus (tab only works there), so it is
+          // never mistaken for the prompt itself. Clicking keeps the focus in the prompt.
           <p className="a-try">
-            <K>tab</K>{' '}
-            <button className="a-try-btn" onClick={() => setText(next)}>
+            <K>tab</K>
+            <span className="a-try-label">demo prompt:</span>
+            <button
+              className="a-try-fill"
+              tabIndex={-1}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setText(next);
+                focusPrompt();
+              }}
+            >
               {lower(next)}
             </button>
           </p>
         ) : null}
       </div>
 
-      <div className={`a-prompt${g ? ` m-${g.mode}` : ''}`}>
+      {/* The whole box is the prompt: a click on its padding or the › lands in the text. */}
+      <div
+        className={`a-prompt${g ? ` m-${g.mode}` : ''}`}
+        onMouseDown={(e) => {
+          if (e.target instanceof HTMLTextAreaElement) return;
+          e.preventDefault();
+          focusPrompt();
+        }}
+      >
         <span className="a-ps1" aria-hidden="true">
           ›
         </span>
@@ -194,7 +213,7 @@ export function Composer() {
             rows={1}
             spellCheck={false}
             autoComplete="off"
-            placeholder={state.session.pendingQuiz ? 'type your answer…' : 'message the assistant…'}
+            placeholder={state.session.pendingQuiz ? 'type your answer here…' : 'type your message here…'}
             aria-label="Message"
             aria-describedby="a-lint"
             onChange={(e) => setText(e.target.value)}
