@@ -140,13 +140,13 @@ function Fields({ role, conn, onChange }: { role: Role; conn: Connection; onChan
   return (
     // A form so the browser knows the key field belongs to this endpoint; nothing is submitted.
     <form className="a-fields" onSubmit={(e) => e.preventDefault()}>
-      <div className="a-field">
+      <div className="a-form-row">
         <label className="a-set-k" htmlFor={id('url')}>
           base url
         </label>
         <input id={id('url')} value={conn.baseUrl} onChange={(e) => onChange({ ...conn, baseUrl: e.target.value })} spellCheck={false} placeholder="https://…/v1" />
       </div>
-      <div className="a-field">
+      <div className="a-form-row">
         <label className="a-set-k" htmlFor={id('key')}>
           key
         </label>
@@ -163,7 +163,7 @@ function Fields({ role, conn, onChange }: { role: Role; conn: Connection; onChan
           ?
         </span>
       </div>
-      <div className="a-field">
+      <div className="a-form-row">
         <label className="a-set-k" htmlFor={id('model')}>
           model
         </label>

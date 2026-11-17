@@ -8,10 +8,11 @@ import react from '@vitejs/plugin-react';
 const PRODUCTION_DEFAULTS: Record<string, string> = {
   VITE_API_URL: 'https://hci-backend.leon-grass.workers.dev',
   // Where answers come from unless the user picks in settings or the URL says ?provider=...
-  // The plan's target is `arbor` (live Claude) as the default outside demo mode. It stays
-  // `scripted` until the group has its own API key and a higher token cap, because with `arbor`
-  // every visitor of the main site spends tokens (decided 17 Nov 2026).
-  VITE_DEFAULT_PROVIDER: 'scripted',
+  // `arbor` (live Claude through the backend) since 17 Nov 2026 (ADR-4, M8): a new visitor gets a
+  // real tutor and an empty chat, not the scripted demo (`?demo=1` still shows that). Every visitor
+  // spends tokens from the backend's budget (TOTAL_TOKEN_BUDGET in backend/wrangler.toml); when it
+  // is used up, answers fail with a clear "budget" message and the demo keeps working.
+  VITE_DEFAULT_PROVIDER: 'arbor',
 };
 
 export default defineConfig(({ mode }) => {

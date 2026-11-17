@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
-import { MODE_META, pct } from '../../lib/modes';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { draftShare, MODE_META, pct } from '../../lib/modes';
 import { useStore } from '../../lib/store';
-import type { Classification, Mode, NudgeLevel, ProviderChoice, Theme } from '../../lib/types';
+import { useAccount } from '../../Welcome';
+import type { Classification, Evidence, Mode, NudgeLevel, ProviderChoice, Theme } from '../../lib/types';
 import { TIME_TICKS } from '../../lib/retention';
 import { Diagnostics, Marked } from './Transcript';
-import { G, K, lower, useUi } from './ui';
+import { G, K, lower, shortReason, useUi } from './ui';
 
-/* The prompt: a thought linter while you type, and a command line when you start with "/". */
+/*
+ * The prompt: a thought linter while you type, and a command line when you start with "/".
+ * The linter never changes the layout while you type (ADR-14): the words it reacts to are
+ * underlined in the text and explain themselves on hover, and the live score sits on one line of
+ * fixed height above the prompt, so it moves up with the prompt as it grows and never jumps.
+ */
 
 /** What sending will do, in the words of the tree (feedforward). */
 const AFTER: Record<Mode, string> = {
@@ -24,7 +30,10 @@ export function Composer() {
   const willVeil = (mode: Mode) => mode === 'ai' && nudge === 'active' && !state.session.pendingQuiz;
   const [text, setText] = useState('');
   const [lens, setLens] = useState<{ text: string; c: Classification } | null>(null);
-  const [hot, setHot] = useState<number | null>(null);
+  /** The underlined word under the mouse: its evidence index and where to show its reason. */
+  const [tip, setTip] = useState<{ i: number; x: number; y: number } | null>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState(0);
   const commands = useCommands();
 
@@ -47,6 +56,8 @@ export function Composer() {
   }, [state.ui.draft, focusPrompt]);
 
   useEffect(() => setSel(0), [word]);
+  // Typing moves the words: the reason under the mouse waits for the next mouse move.
+  useEffect(() => setTip(null), [text]);
 
   // Tell the rest of the UI (modeline, squirrel) what the lens says.
   const live = lint && lens ? lens.c.mode : null;
@@ -101,10 +112,27 @@ export function Composer() {
   };
 
   const c = lint && lens && lens.text === text ? lens.c : null;
+
+  /** The textarea lies over the underlines, so find the underlined word under the mouse by its boxes. */
+  const onHover = (e: MouseEvent<HTMLTextAreaElement>) => {
+    const box = composerRef.current?.getBoundingClientRect();
+    if (!c || !box) return tip && setTip(null);
+    for (const el of backdropRef.current?.querySelectorAll<HTMLElement>('.a-ev[data-i]') ?? []) {
+      for (const r of el.getClientRects()) {
+        if (e.clientX >= r.left - 1 && e.clientX <= r.right + 1 && e.clientY >= r.top - 2 && e.clientY <= r.bottom + 4) {
+          const i = Number(el.dataset.i);
+          if (tip?.i !== i) setTip({ i, x: Math.max(0, Math.min(r.left - box.left, box.width - 340)), y: r.top - box.top });
+          return;
+        }
+      }
+    }
+    if (tip) setTip(null);
+  };
+  const tipEvidence: Evidence | undefined = c && tip ? c.evidence?.[tip.i] : undefined;
   const next = demoPrompts.length ? demoPrompts[(demoPrompts.indexOf(text) + 1) % demoPrompts.length] : null;
 
   return (
-    <div className="a-composer">
+    <div className="a-composer" ref={composerRef}>
       {isCmd && (
         <ul className="a-menu" role="listbox" aria-label="Commands">
           {menu.length ? (
@@ -133,13 +161,26 @@ export function Composer() {
         </ul>
       )}
 
+      <div className="a-gauge-row">
+        {c ? (
+          <Gauge c={c} text={text} after={willVeil(c.mode) ? 'the answer arrives veiled, so you can guess first' : AFTER[c.mode]} />
+        ) : !text && !busy && next ? (
+          <p className="a-try">
+            <K>tab</K>{' '}
+            <button className="a-try-btn" onClick={() => setText(next)}>
+              {lower(next)}
+            </button>
+          </p>
+        ) : null}
+      </div>
+
       <div className={`a-prompt${c ? ` m-${c.mode}` : ''}`}>
         <span className="a-ps1" aria-hidden="true">
           ›
         </span>
         <div className="a-field">
-          <div className="a-backdrop" aria-hidden="true">
-            {c ? <Marked text={text} evidence={c.evidence ?? []} hot={hot} /> : text}
+          <div className="a-backdrop" aria-hidden="true" ref={backdropRef}>
+            {c ? <Marked text={text} evidence={c.evidence ?? []} hot={tipEvidence ? tip!.i : null} /> : text}
             {'​'}
           </div>
           <textarea
@@ -153,33 +194,53 @@ export function Composer() {
             aria-describedby="a-lint"
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKey}
+            onMouseMove={onHover}
+            onMouseLeave={() => setTip(null)}
           />
         </div>
       </div>
 
-      <div id="a-lint" className="a-lint" aria-live="polite">
-        {c ? (
-          <div className={`a-verdict m-${c.mode}`} key={c.mode}>
-            <p className="a-verdict-head">
-              <G mode={c.mode} /> <strong>{lower(MODE_META[c.mode].lens)}</strong>
-              <span className="a-dim"> · {pct(c.confidence)}% sure</span>
-            </p>
-            <Diagnostics text={text} c={c} onHot={setHot} />
-            <p className="a-after">
-              <K>↵</K>{' '}
-              {willVeil(c.mode)
-                ? 'sends · the answer arrives veiled, so you can guess first'
-                : `sends · ${AFTER[c.mode]}`}
-            </p>
-          </div>
-        ) : !text && !busy && next ? (
-          <p className="a-try">
-            <K>tab</K>{' '}
-            <button className="a-try-btn" onClick={() => setText(next)}>
-              {lower(next)}
-            </button>
-          </p>
-        ) : null}
+      {tipEvidence && (
+        <div className={`a-evtip m-${tipEvidence.mode}`} style={{ left: tip!.x, top: tip!.y }} role="tooltip">
+          <span className="a-evtip-word">
+            <G mode={tipEvidence.mode} /> “{lower(text.slice(tipEvidence.start, tipEvidence.end))}”
+          </span>{' '}
+          {shortReason(tipEvidence.reason)}
+        </div>
+      )}
+
+      {/* For screen readers: what the linter says, without a visible block that moves the page. */}
+      <p id="a-lint" className="a-sr" aria-live="polite">
+        {c ? `${MODE_META[c.mode].lens}, ${pct(c.confidence)}% sure. ${c.reasons.join('. ')}` : ''}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The live score: the label, a bar from you to ai, the split, and what sending will do. Hovering
+ * it lists every reason the linter found (the old diagnostics, now in a pop-up above).
+ */
+function Gauge({ c, text, after }: { c: Classification; text: string; after: string }) {
+  const you = pct(draftShare(c.mode, c.confidence));
+  return (
+    <div className={`a-gauge m-${c.mode}`} tabIndex={0} aria-describedby="a-lint">
+      <G mode={c.mode} /> <strong>{lower(MODE_META[c.mode].lens)}</strong>
+      <span className="a-gauge-bar" aria-hidden="true">
+        <span style={{ width: `${you}%` }} />
+      </span>
+      <span className="a-dim">
+        you {you} · ai {100 - you}
+      </span>
+      <span className="a-gauge-after a-dim">
+        <K>↵</K> {after}
+      </span>
+      <div className="a-gauge-pop" role="tooltip">
+        <p className="a-verdict-head">
+          <G mode={c.mode} /> <strong>{lower(MODE_META[c.mode].lens)}</strong>
+          <span className="a-dim"> · {pct(c.confidence)}% sure</span>
+        </p>
+        <Diagnostics text={text} c={c} onHot={() => {}} />
       </div>
     </div>
   );
@@ -204,8 +265,9 @@ const PROVIDER_TOAST: Record<ProviderChoice, string> = {
 };
 
 function useCommands(): Cmd[] {
-  const { state, dispatch, send, stop, retry, busy, toast, messages, mode, newChat, renameChat } = useStore();
+  const { state, dispatch, send, stop, retry, busy, toast, messages, mode, newChat, renameChat, sync } = useStore();
   const ui = useUi();
+  const account = useAccount();
   return useMemo(() => {
     const s = state.settings;
     const set = (patch: Partial<typeof s>) => dispatch({ type: 'settings', patch });
@@ -277,6 +339,21 @@ function useCommands(): Cmd[] {
       s.enabled
         ? { name: 'pause', desc: 'pause arbor: the plain chat, nothing labelled', run: () => set({ enabled: false }) }
         : { name: 'resume', desc: 'resume arbor', run: () => set({ enabled: true }) },
+      // Accounts are a live-mode thing: the demo saves nothing.
+      ...(mode === 'demo'
+        ? []
+        : account.account?.kind === 'account'
+          ? [
+              {
+                name: 'logout',
+                desc: `log out of ${account.account.username} on this browser`,
+                run: () => (sync.pending ? toast('a moment: your last changes are still being saved') : account.logOut()),
+              },
+            ]
+          : [
+              { name: 'signup', desc: 'make an account from this guest: your chats come along', run: () => account.open('signup') },
+              { name: 'login', desc: 'log in to an account (this browser switches to it)', run: () => account.open('login') },
+            ]),
       // The demo's own resets; live chats are saved, so there /new starts afresh.
       ...(mode === 'demo'
         ? [
@@ -295,5 +372,5 @@ function useCommands(): Cmd[] {
       { name: 'concepts', desc: 'the interaction ideas in this design', run: () => ui.setSheet('concepts') },
       { name: 'intro', desc: 'replay the introduction', run: () => dispatch({ type: 'onboarding', open: true }) },
     ] satisfies Cmd[];
-  }, [state.settings, state.session.turn.status, messages, busy, dispatch, send, stop, retry, toast, ui, mode, newChat, renameChat]);
+  }, [state.settings, state.session.turn.status, messages, busy, dispatch, send, stop, retry, toast, ui, mode, newChat, renameChat, account, sync.pending]);
 }

@@ -104,7 +104,9 @@ export function initialState(p: URLSearchParams, storage: KeyValue | null, build
       highlight: [],
       composer: { lens: null, nudge: false },
       flash: null,
-      onboarding: p.get('intro') === '1' || (p.get('intro') !== '0' && stored(storage, ONBOARD_KEY) !== '1'),
+      // The intro opens by itself only in the demo. Live mode starts on an open, empty chat (M8);
+      // the empty chat links to the intro, and `?intro=1` still forces it.
+      onboarding: p.get('intro') === '1' || (provider === 'scripted' && p.get('intro') !== '0' && stored(storage, ONBOARD_KEY) !== '1'),
       toast: null,
       paneTreeId: null,
       chats: false,

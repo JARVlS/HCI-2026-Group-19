@@ -24,7 +24,7 @@ Press `?` in the app for the same list, each with a *try it* button that sets up
 
 | # | Concept | Principle | What happens |
 |---|---|---|---|
-| 01 | **Thought linter** | Explainable feedforward | While you type, the words that make a prompt delegating get a wavy underline (dashed: together, solid: yours, so shape carries the meaning as well as colour), and the reason sits right below, like a spellchecker or compiler diagnostic. |
+| 01 | **Thought linter** | Explainable feedforward | While you type, the words that make a prompt delegating get a wavy underline (dashed: together, solid: yours, so shape carries the meaning as well as colour), and hovering a word shows its reason, like a spellchecker. One line of fixed height above the prompt shows the live score (you ↔ ai) and what sending will do, so nothing moves while you type (ADR-14). |
 | 02 | **Modeline** | Ambient awareness, calm technology | Like vim's `-- INSERT --`, the status bar always says who is thinking right now and lists the keys that work in this moment. Even the caret takes the mode's colour. |
 | 03 | **Predict → reveal** | Desirable difficulty, generation effect | With nudges on *active*, the answer to a prompt the linter reads as delegating arrives veiled (`░░░`): its shape is visible, its words are not. Type a hunch and reveal it, and a decode sweep uncovers the answer with the words you already had highlighted; the prompt becomes *thinking together* (live: the guess is scored instead, see [Fast and slow](#fast-and-slow-how-a-turn-is-judged)). Or just press ↵. It is never blocked. |
 | 04 | **Two views, one tree** | Multiple views, object constancy | `t` switches between the growing plant and a `tree`-command outline. Every leaf keeps its identity and glides to its new place. |
@@ -58,7 +58,7 @@ Pages project settings: root directory `frontend`, build command `npm run build`
 | Variable | Meaning |
 |---|---|
 | `VITE_API_URL` | Base URL of the backend Worker (`https://hci-backend.leon-grass.workers.dev`; locally `http://localhost:8787`) |
-| `VITE_DEFAULT_PROVIDER` | `scripted` or `arbor`: where answers come from until a visitor picks in settings. Stays `scripted` for now, see the comment in `vite.config.ts` |
+| `VITE_DEFAULT_PROVIDER` | `scripted` or `arbor`: where answers come from until a visitor picks in settings. Production builds use `arbor` since 17 Nov 2026 (live Claude, M8; see the comment in `vite.config.ts`). Local `npm run dev` keeps `scripted` unless `.env.development.local` sets it |
 
 ## Live answers (provider `arbor`)
 
@@ -148,6 +148,18 @@ Why a scale and not a yes/no question: a good model answers *did the student thi
 
 **Eval:** `npm run eval:score` sends 40 labelled cases (`eval/score.eval.ts`: 21 messages, 6 guesses, 13 statements to grade) to a running backend (`VITE_API_URL`, default `http://localhost:8787`) and prints one row per case with its score and label. It is not part of `npm test`. On 17 Nov with `zai.glm-4.7`: 37 of 40 in their band. Wrong own claims 72 to 79 % (yours), own reasoning 77 to 100 %, hint and quiz requests about 50 %, plain why and how questions 24 % (together), "explain X" 8 %, delegation 0 %; right statements 92 to 100 %, half right (tides) 46 %, wrong ones and "idk" 0 %. The misses: two worked attempts at 77 and 83 % (expected 85 % and up; still yours) and the vague guess "something with the blood?" at 25 % (together; expected 35 to 80 %). What the wording needs: the tutor's answer *before* the student's statement (tutor answers often end with a question, and the model rated that one instead).
 
+## Accounts and the welcome screen
+
+A first visit in live mode starts at the welcome screen (`src/Welcome.tsx`): **log in**, **sign up**, or **continue as guest**. Nothing loads before the choice. A guest is the anonymous session from before (a token in localStorage, `arbor.session.v1`); visitors who already had one skip the screen. An account is a username and password on top of that (ADR-8 amended, `backend/docs/api.md`):
+
+- **Sign up as a guest keeps your chats:** the guest becomes the account (same user, same token). In the ASCII style: settings → *account* → *sign up*, or `/signup`.
+- **Log in** switches this browser to the account; the chats you made as a guest stay with the guest. `/login`, or settings → *account*.
+- **Log out** forgets the token on this device and returns to the welcome screen (`/logout`, settings → *account*). It waits until your last changes are saved.
+- No email: nobody can reset a forgotten password. The rules (3 to 64 characters `A-Z a-z 0-9 . _ - @ +`, password at least 8) are checked in the form first (`src/lib/account.ts`).
+- The intro no longer opens by itself in live mode: a fresh user lands on an empty, open chat with no trees. The empty chat links to *how arbor works*; `?intro=1` forces the intro.
+
+Until migration `0003_accounts.sql` is applied to the backend database, sign up and log in answer with "accounts are not on the backend yet"; *continue as guest* works either way.
+
 ## Demo and live: what is saved where
 
 | | Demo (provider `scripted`) | Live (provider `arbor`, or `own`) |
@@ -155,7 +167,7 @@ Why a scale and not a yes/no question: a good model answers *did the student thi
 | Data | the scripted fixture: the "neural networks" chat and the demo forest | your own chats, concepts, trees and labels |
 | Saved | nothing; a reload starts the demo again | on the backend (D1), through `PUT /api/sync` |
 | Requests to the backend | none at all | session, load, save, and with `arbor` the model calls (`own` sends those to your endpoint) |
-| Turn on | build default, `?provider=scripted`, or `?demo=1` (forces it for the visit, whatever is saved) | `?provider=arbor` or *answers: live* in settings; `?provider=own` or *answers: own model* |
+| Turn on | `?provider=scripted`, *answers: scripted* in settings, or `?demo=1` (forces it for the visit, whatever is saved) | the build default (`arbor`), `?provider=arbor` or *answers: live* in settings; `?provider=own` or *answers: own model* |
 
 Switching between `arbor` and `own` keeps your chats on screen: the next message goes to the other models.
 
@@ -209,6 +221,7 @@ The classic style's sidebar opens these chats too, and its *New chat* button sta
 | `?intro=0` / `?intro=1` | skip / force the onboarding |
 | `?provider=arbor\|own\|scripted` | live Claude and your saved chats, your own model and your saved chats, or the scripted demo, for this visit (not saved) |
 | `?demo=1` | the scripted demo for this visit, whatever is saved or in `?provider`: no request to the backend at all |
+| `?welcome=1` | show the welcome screen (log in, sign up, continue as guest) again; live mode only |
 | `?empty=1` | start the demo from an empty chat (the tree grows from a seed); scripted only |
 | `?nudge=off\|gentle\|active` | nudge level |
 | `?arbor=off` | extension paused (baseline condition for A/B tests) |
@@ -292,7 +305,8 @@ Learning-science background for the interventions: the *generation effect* (a fi
 
 ```
 src/
-  App.tsx                 one store, then the chosen design (lazy-loaded, so only its CSS is on the page)
+  App.tsx                 the welcome screen on a first live visit, then one store and the chosen design (lazy-loaded, so only its CSS is on the page)
+  Welcome.tsx, welcome.css  log in, sign up, continue as guest (also as an overlay from settings and /signup, /login)
   lib/                    shared by every design; pure modules have a *.test.ts next to them
     store.tsx             React side of the store: context and memoized projections (chat list, grown in, crowns)
     app.ts                the store without React: initial state from URL + storage, turns, chats, demo vs live mode
@@ -308,6 +322,7 @@ src/
     graph.ts              merging an analysis into the concept graph (slug dedup, new-node cap)
     planner.ts            which trees exist; splits big trees (the M3 optimization plugs in here)
     evidence.ts           quoted evidence → character offsets
+    account.ts            guest or account, sign up, log in, log out (tokens in localStorage)
     classify.ts           rule-based "who's thinking" linter with explanations and evidence spans
     retention.ts          illustrative forgetting model
     time.ts               ISO date helpers
@@ -332,7 +347,7 @@ src/
       App.tsx             layout, global keys, browser line, toast
       Transcript.tsx      the log: evidence, why + relabel, predict → reveal, make it yours, failed/stopped replies, the trees a chat grew
       Chats.tsx           chat list (c, /chats) and a leaf's messages: one keyboard-first picker sheet
-      Composer.tsx        thought linter, slash commands, demo prompts
+      Composer.tsx        thought linter (underlines, hover reasons, the score line), slash commands, demo prompts
       Pane.tsx            balance, trail, squirrel, tree, forgetting scrubber, settings
       Forest.tsx          semantic zoom: forest of glyph crowns, roots, tree detail
       Links.tsx           drawn links between messages and leaves

@@ -10,7 +10,7 @@ import { G, K, Radios, lower, lowerProse, shortReason, typing, useUi } from './u
 /* The conversation as a two-column log: who · what. */
 
 export function Transcript() {
-  const { state, messages, busy, conversation, mode } = useStore();
+  const { state, dispatch, messages, busy, conversation, mode } = useStore();
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const { flash } = state.ui;
@@ -66,6 +66,14 @@ export function Transcript() {
               or
               press <K>tab</K> for a demo prompt.
             </p>
+            {mode !== 'demo' && (
+              <p className="a-dim">
+                new here?{' '}
+                <button className="a-try-btn" onClick={() => dispatch({ type: 'onboarding', open: true })}>
+                  how arbor works
+                </button>
+              </p>
+            )}
           </div>
         )}
         {messages.map((m, i) =>
@@ -192,7 +200,7 @@ export function Marked({ text, evidence, hot }: { text: string; evidence: Eviden
   for (const e of spans) {
     if (e.start > at) out.push(text.slice(at, e.start));
     out.push(
-      <span key={e.i} className={`a-ev m-${e.mode}${hot === e.i ? ' hot' : ''}`}>
+      <span key={e.i} data-i={e.i} className={`a-ev m-${e.mode}${hot === e.i ? ' hot' : ''}`}>
         {text.slice(e.start, e.end)}
       </span>,
     );

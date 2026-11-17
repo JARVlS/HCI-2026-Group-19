@@ -6,6 +6,7 @@ import { thinkingShare } from '../../lib/scores';
 import { TIME_MAX, TIME_TICKS, daysAt, formatDays, posOf, retention } from '../../lib/retention';
 import type { Concept, Id, Message } from '../../lib/domain';
 import { useStore } from '../../lib/store';
+import { useAccount } from '../../Welcome';
 import type { Mode, NudgeLevel, ProviderChoice, Theme } from '../../lib/types';
 import { AsciiTreeView } from '../../shared/AsciiTreeView';
 import { useLeafJump } from './Chats';
@@ -461,8 +462,9 @@ const NUDGE_DESC: Record<NudgeLevel, string> = {
 };
 
 function Settings({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
-  const { state, dispatch, toast, mode } = useStore();
+  const { state, dispatch, toast, mode, sync } = useStore();
   const { setSheet, setDays } = useUi();
+  const { account, open: openAccount, logOut } = useAccount();
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(ref, open, () => setOpen(false));
   const s = state.settings;
@@ -498,6 +500,36 @@ function Settings({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => v
               </button>
             )}
           </p>
+          {mode !== 'demo' && (
+            <>
+              <div className="a-set">
+                <span className="a-set-k">account</span>
+                {account?.kind === 'account' ? (
+                  <span>
+                    <strong>{account.username}</strong>{' '}
+                    <button className="a-btn" onClick={() => (sync.pending ? toast('a moment: your last changes are still being saved') : logOut())}>
+                      log out
+                    </button>
+                  </span>
+                ) : (
+                  <span>
+                    guest{' '}
+                    <button className="a-btn" onClick={() => (openAccount('signup'), close())}>
+                      sign up
+                    </button>{' '}
+                    <button className="a-btn" onClick={() => (openAccount('login'), close())}>
+                      log in
+                    </button>
+                  </span>
+                )}
+              </div>
+              <p className="a-set-desc a-dim">
+                {account?.kind === 'account'
+                  ? 'your chats follow you to every browser where you log in.'
+                  : 'your chats are saved for this browser. sign up to keep them and log in anywhere.'}
+              </p>
+            </>
+          )}
           <div className="a-set">
             <span className="a-set-k">nudges</span>
             <Radios<NudgeLevel>
