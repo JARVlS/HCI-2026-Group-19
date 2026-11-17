@@ -156,14 +156,12 @@ async function reply(deps: TurnDeps, user: Message, veil: boolean, signal: Abort
     }
   } finally {
     // A guess revealed while the reply streamed is scored as soon as the reply is over.
-    const replyId: Id | null = assistantId;
-    if (replyId) guessed = scoreGuess(deps, replyId);
+    guessed = scoreGuess(deps, assistantId);
     await apply();
   }
   // With the analysis applied, an own claim it found gradable is graded against the complete
   // reply. A veiled reply is graded through its guess instead.
-  const replyId: Id | null = assistantId;
-  const graded = complete && !veil && replyId ? gradeClaim(deps, user.id, replyId) : null;
+  const graded = complete && !veil ? gradeClaim(deps, user.id, assistantId) : null;
   await Promise.all([thinking, guessed, graded]);
 }
 
@@ -189,7 +187,8 @@ function scoreThinking(deps: TurnDeps, user: Message, upto: Message[]) {
 }
 
 /** An own claim the analysis found gradable: is it right, judged against the complete reply? */
-function gradeClaim(deps: TurnDeps, userMessageId: Id, replyId: Id) {
+function gradeClaim(deps: TurnDeps, userMessageId: Id, replyId: Id | null) {
+  if (!replyId) return null;
   const { domain } = deps.getState();
   const user = findMessage(domain, userMessageId)?.msg;
   const reply = findMessage(domain, replyId)?.msg;
@@ -205,8 +204,8 @@ function gradeClaim(deps: TurnDeps, userMessageId: Id, replyId: Id) {
  * answer, so then there is no "right". Runs once per guess, from whichever comes last: the end of
  * the reply or the reveal.
  */
-export function scoreGuess(deps: TurnDeps, replyId: Id): Promise<unknown> | null {
-  if (!deps.provider.score) return null;
+export function scoreGuess(deps: TurnDeps, replyId: Id | null): Promise<unknown> | null {
+  if (!replyId || !deps.provider.score) return null;
   const { domain } = deps.getState();
   const found = findMessage(domain, replyId);
   if (!found) return null;
