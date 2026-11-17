@@ -6,6 +6,7 @@ a dict with `meta.changes`, `.first()` a dict or None, `.all()` a dict with `res
 `await db.batch([...])` a list of `run()` results.
 """
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -13,6 +14,13 @@ from typing import Any
 def iso(dt: datetime) -> str:
     """Storage format for timestamps: UTC, millisecond precision, `Z` suffix (sortable as text)."""
     return dt.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def to_json(value: Any) -> str:
+    """Storage format for the *_json columns of the synced tables: compact, non-ASCII kept.
+    NaN and Infinity raise ValueError (a 422 during validation): stored, they would break every
+    later read, because responses are strict JSON."""
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
 def now() -> datetime:
@@ -82,13 +90,41 @@ async def insert_events(db: Any, rows: list[tuple]) -> int:
     return sum(int(result["meta"]["changes"]) for result in results)
 
 
+# --- synced entities (the SQL is built in entities.py) --------------------------------------
+
+async def write_batch(db: Any, statements: list[tuple[str, tuple]]) -> None:
+    """All writes of one request as ONE db.batch() call (ADR-5): a single transaction, so a
+    failing statement rolls back the whole request. statements: (sql, params) pairs."""
+    await db.batch([db.prepare(sql).bind(*params) for sql, params in statements])
+
+
+async def read_batch(db: Any, queries: list[tuple[str, tuple]]) -> list[list[dict]]:
+    """Several SELECTs as one db.batch() call: one round trip and one consistent snapshot.
+    Returns the rows of each query, in order."""
+    results = await db.batch([db.prepare(sql).bind(*params) for sql, params in queries])
+    return [list(result["results"]) for result in results]
+
+
 # --- admin export -------------------------------------------------------------------------
 
 # table -> (columns, ORDER BY). Fixed strings only: the table name never reaches SQL from input.
+# Every column of each table (tests/test_admin.py checks this against the migrations).
 EXPORTS: dict[str, tuple[tuple[str, ...], str]] = {
     "events": (("id", "user_id", "condition", "type", "payload_json", "client_ts", "server_ts"), "server_ts, id"),
     "usage": (("user_id", "day", "task", "input_tokens", "output_tokens"), "day, user_id, task"),
     "users": (("id", "participant_id", "condition", "created_at"), "created_at, id"),
+    "conversations": (("id", "user_id", "subject_id", "title", "study_mode", "continued_from", "carry_summary",
+                       "created_at", "updated_at"), "created_at, id"),
+    "messages": (("id", "user_id", "conversation_id", "role", "text", "classification_json", "meta_json",
+                  "created_at"), "created_at, id"),
+    "attempts": (("id", "user_id", "conversation_id", "message_id", "concept_id", "mode", "independence",
+                  "correctness", "confidence", "source", "reasons_json", "evidence_json", "superseded_by",
+                  "created_at"), "created_at, id"),
+    "concepts": (("id", "user_id", "parent_id", "kind", "label", "slug", "aliases_json", "description",
+                  "created_by", "created_at", "updated_at", "deleted_at"), "created_at, id"),
+    "concept_edges": (("id", "user_id", "from_id", "to_id", "kind", "created_at"), "created_at, id"),
+    "trees": (("id", "user_id", "root_concept_id", "title", "grove_id", "split_from", "created_at", "updated_at",
+               "deleted_at"), "created_at, id"),
 }
 
 

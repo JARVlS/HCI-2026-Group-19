@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from errors import ApiError
-from routes import admin, ai, events, health, session
+from routes import admin, ai, events, health, session, sync
 from schemas import ErrorResponse
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    for module in (health, session, ai, events, admin):
+    for module in (health, session, ai, events, sync, admin):
         app.include_router(module.router, prefix="/api")
     app.add_exception_handler(ApiError, _api_error)
     app.add_exception_handler(RequestValidationError, _validation_error)

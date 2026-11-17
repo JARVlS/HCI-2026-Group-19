@@ -52,7 +52,8 @@ def test_unhandled_error_is_500_without_internals():
 def test_docs_and_openapi(client):
     assert client.get("/api/docs").status_code == 200
     paths = client.get("/api/openapi.json").json()["paths"]
-    assert set(paths) == {"/api/health", "/api/session", "/api/ai/complete", "/api/events", "/api/admin/export"}
+    assert set(paths) == {"/api/health", "/api/session", "/api/ai/complete", "/api/events", "/api/admin/export",
+                          "/api/state", "/api/conversations/{conversation_id}/messages", "/api/sync"}
 
 
 def test_cors_preflight_allows_authorization(client):

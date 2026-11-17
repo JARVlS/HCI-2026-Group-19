@@ -1,9 +1,11 @@
 """Request and response bodies. JSON field names are camelCase on the wire (ADR-2)."""
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
+
+import db
 
 Task = Literal["chat", "analyze", "tree", "quiz"]
 
@@ -93,6 +95,145 @@ class EventsRequest(CamelModel):
 class EventsResponse(CamelModel):
     ok: bool
     stored: int
+
+
+# --- /sync, /state, /conversations/:id/messages ----------------------------------------------
+# The entities mirror frontend/src/lib/domain.ts. Fields marked `?` there are optional here
+# (missing and null mean the same) and are left out of responses when empty; fields typed
+# `X | null` there are required here and always present in responses.
+
+# Limits of PUT /api/sync (docs/api.md, "Limits"). D1 itself allows 100 bound parameters per
+# statement (we bind at most 14, one statement per row) and 2 MB per row (the limits below keep
+# a row under 1 MB even with 4-byte characters).
+MAX_SYNC_ROWS = 500  # rows per request, all lists together; more is a 413 too_many_rows
+MAX_MESSAGE_TEXT = 200_000  # characters of a message's `text`
+MAX_FIELD_CHARS = 20_000  # any other text field, and every JSON field serialized
+MAX_ID_CHARS = 100
+
+
+def _json_size(value: Any, what: str = "") -> Any:
+    size = len(db.to_json(value))
+    if size > MAX_FIELD_CHARS:
+        raise ValueError(f"{what}serializes to {size} characters, at most {MAX_FIELD_CHARS} are allowed")
+    return value
+
+
+Id = Annotated[str, Field(min_length=1, max_length=MAX_ID_CHARS)]
+Text = Annotated[str, Field(max_length=MAX_FIELD_CHARS)]
+# Any ISO time with a zone; stored and returned as UTC text (`2026-11-16T09:00:00.000Z`), so
+# times compare correctly as strings (last write wins on updatedAt).
+Timestamp = Annotated[AwareDatetime, AfterValidator(db.iso)]
+Score = Annotated[float, Field(ge=0, le=1)]  # ADR-2: 0..1 everywhere, never 0..100
+JsonSized = AfterValidator(_json_size)
+Mode = Literal["own", "together", "ai"]
+
+
+class Concept(CamelModel):
+    id: Id
+    label: Text
+    slug: Text
+    aliases: Annotated[list[str], JsonSized]
+    kind: Literal["subject", "topic", "concept"]
+    parent_id: Id | None
+    description: Text | None = None
+    created_by: Literal["seed", "llm", "user"]
+    created_at: Timestamp
+    updated_at: Timestamp
+    deleted_at: Timestamp | None = None
+
+
+class ConceptEdge(CamelModel):
+    id: Id
+    from_id: Id
+    to_id: Id
+    kind: Literal["prerequisite", "related"]
+    created_at: Timestamp
+
+
+class KnowledgeTree(CamelModel):
+    id: Id
+    root_concept_id: Id
+    title: Text
+    grove_id: Id | None
+    split_from: Id | None = None
+    created_at: Timestamp
+    updated_at: Timestamp
+    deleted_at: Timestamp | None = None
+
+
+class Conversation(CamelModel):
+    id: Id
+    title: Text
+    subject_id: Id | None
+    study_mode: bool
+    continued_from: Id | None = None
+    carry_summary: Text | None = None
+    created_at: Timestamp
+    updated_at: Timestamp
+
+
+class Message(CamelModel):
+    """Only the core is validated. The frontend's Message keeps growing (conceptIds, veiled, guess,
+    provider, model, analysis, ...), so every other field is accepted as it is, stored in
+    meta_json and returned flattened. `streaming` is a UI state and is dropped."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Id
+    conversation_id: Id
+    role: Literal["user", "assistant"]
+    text: str = Field(max_length=MAX_MESSAGE_TEXT)
+    classification: Annotated[dict[str, Any], JsonSized] | None = None
+    created_at: Timestamp
+
+    @model_validator(mode="after")
+    def _meta(self) -> "Message":
+        self.__pydantic_extra__.pop("streaming", None)
+        _json_size(self.__pydantic_extra__, "the message's other fields (meta) ")
+        return self
+
+
+class ConceptAttempt(CamelModel):
+    id: Id
+    conversation_id: Id
+    message_id: Id
+    concept_id: Id
+    mode: Mode
+    independence: Score
+    correctness: Score | None
+    confidence: Score
+    reasons: Annotated[list[str], JsonSized]
+    # Evidence spans ({start, end, mode, reason}) are kept as they come: the shape is the frontend's.
+    evidence: Annotated[list[dict[str, Any]], JsonSized]
+    source: Literal["prompt", "reveal", "quiz", "override"]
+    superseded_by: Id | None = None
+    created_at: Timestamp
+
+
+class SyncRequest(CamelModel):
+    concepts: list[Concept] = []
+    edges: list[ConceptEdge] = []
+    trees: list[KnowledgeTree] = []
+    conversations: list[Conversation] = []
+    messages: list[Message] = []
+    attempts: list[ConceptAttempt] = []
+
+
+class SyncResponse(CamelModel):
+    ok: bool
+    server_time: str
+
+
+class StateResponse(CamelModel):
+    concepts: list[Concept]
+    edges: list[ConceptEdge]
+    trees: list[KnowledgeTree]
+    conversations: list[Conversation]
+    attempts: list[ConceptAttempt]
+
+
+class MessagesResponse(CamelModel):
+    messages: list[Message]
 
 
 # --- errors (for the OpenAPI docs) ---------------------------------------------------------
