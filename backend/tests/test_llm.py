@@ -49,6 +49,20 @@ def test_json_task_body(task):
     assert not NEVER_SENT & set(body)
 
 
+def test_effort_none_is_left_out():
+    settings = Settings.from_env(make_env(EFFORT_CHAT="none", EFFORT_ANALYZE="none"))
+    assert (settings.effort_chat, settings.effort_analyze) == (None, None)
+    assert "output_config" not in llm.build_body(request(), settings)
+    body = llm.build_body(request(task="analyze", schema=SCHEMA), settings)
+    assert body["output_config"] == {"format": {"type": "json_schema", "schema": SCHEMA}}
+
+
+def test_effort_none_per_slot():
+    settings = Settings.from_env(make_env(EFFORT_CHAT="none", EFFORT_ANALYZE="high"))
+    assert "output_config" not in llm.build_body(request(), settings)
+    assert llm.build_body(request(task="quiz", schema=SCHEMA), settings)["output_config"]["effort"] == "high"
+
+
 def test_headers_and_url():
     assert llm.request_headers("k") == {"x-api-key": "k", "anthropic-version": "2026-10-21",
                                          "content-type": "application/json"}

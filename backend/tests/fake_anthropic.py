@@ -1,7 +1,8 @@
-"""A tiny stand-in for the Anthropic Messages API, for tests and the local smoke test.
+"""A tiny stand-in for the Anthropic Messages API, for tests and the local smoke test. It also
+plays the fast slot's OpenAI-compatible chat completions API (POST /v1/chat/completions).
 
-The builder functions (message_json, stream_events, example_for) are used by the unit tests.
-Run as a script, it serves POST /v1/messages on a local port (stdlib only):
+The builder functions (message_json, stream_events, example_for, completion_json) are used by the
+unit tests. Run as a script, it serves both APIs on a local port (stdlib only):
 
     uv run python tests/fake_anthropic.py --port 8790
 
@@ -9,15 +10,19 @@ Like the real API (version 2026-10-21) it rejects temperature/top_p/top_k and fo
 with a 400. Markers in the last user message pick special behaviour:
     [refuse]        stop_reason "refusal"
     [max-tokens]    stop_reason "max_tokens"
-    [upstream-500]  HTTP 500 api_error
+    [upstream-500]  HTTP 500 api_error (both APIs)
     [stream-error]  streaming: an `error` event after two deltas
     [expensive]     reports 250000 output tokens (to exhaust the daily budget)
+    [no-logprobs]   chat completions: an answer without logprobs
+    [off-topic]     chat completions: the first token is mostly "Sure", not "1" or "2"
 Chat answers echo the last user message word by word; JSON tasks get a minimal object that
-matches the json_schema. Streams wait --delay seconds between text deltas.
+matches the json_schema. Streams wait --delay seconds between text deltas. Chat completions
+answer one token with the top logprobs in SCORE_TOP (for the options "1" and "2").
 """
 
 import argparse
 import json
+import math
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -102,6 +107,37 @@ def stream_events(parts: list[str], *, stop_reason: str = "end_turn", input_toke
     return events
 
 
+# The fake fast model's first token: "1" and " 1" both count for option "1", so with the options
+# "1" and "2" the score is {"1": 0.8 / 0.95, "2": 0.15 / 0.95} with mass 0.95.
+SCORE_TOP = {"1": 0.6, " 1": 0.2, "2": 0.15, "Sure": 0.05}
+OFF_TOPIC_TOP = {"Sure": 0.9, "1": 0.06, "2": 0.04}
+
+
+def completion_json(top: dict[str, float] | None, *, prompt_tokens: int = 40, completion_tokens: int = 1,
+                    model: str = "fake-fast-model") -> dict[str, Any]:
+    """An OpenAI-style chat completion of one token. `top` maps tokens to the probabilities of the
+    first token's top_logprobs (the likeliest one is the answer); None leaves logprobs out."""
+    content = max(top, key=top.get) if top else "1"
+    logprobs = None
+    if top is not None:
+        items = [{"token": token, "logprob": math.log(p), "bytes": list(token.encode())}
+                 for token, p in sorted(top.items(), key=lambda kv: -kv[1])]
+        logprobs = {"content": [{**items[0], "top_logprobs": items}] if items else []}
+    return {
+        "id": "chatcmpl-fake",
+        "object": "chat.completion",
+        "model": model,
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": content},
+                     "logprobs": logprobs, "finish_reason": "length"}],
+        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
+                  "total_tokens": prompt_tokens + completion_tokens},
+    }
+
+
+def openai_error(kind: str, message: str) -> dict[str, Any]:
+    return {"error": {"message": message, "type": kind, "param": None, "code": None}}
+
+
 def _error_body(kind: str, message: str) -> dict[str, Any]:
     return {"type": "error", "error": {"type": kind, "message": message}}
 
@@ -120,7 +156,23 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _chat_completions(self) -> None:
+        if not self.headers.get("authorization", "").startswith("Bearer "):
+            return self._json(401, openai_error("invalid_request_error", "Missing bearer token"))
+        body = json.loads(self.rfile.read(int(self.headers["content-length"])))
+        if body.get("top_logprobs", 0) > 20:  # OpenAI's limit
+            return self._json(400, openai_error("invalid_request_error", "top_logprobs must be at most 20"))
+        prompt = body["messages"][-1]["content"]
+        if "[upstream-500]" in prompt:
+            return self._json(500, openai_error("server_error", "Internal server error"))
+        top = None if "[no-logprobs]" in prompt else OFF_TOPIC_TOP if "[off-topic]" in prompt else SCORE_TOP
+        if not body.get("logprobs"):
+            top = None
+        self._json(200, completion_json(top, model=body["model"]))
+
     def do_POST(self) -> None:  # noqa: N802 (stdlib name)
+        if self.path == "/v1/chat/completions":
+            return self._chat_completions()
         if self.path != "/v1/messages":
             return self._json(404, _error_body("not_found_error", "Not found"))
         if not self.headers.get("x-api-key"):

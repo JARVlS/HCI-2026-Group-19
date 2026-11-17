@@ -39,8 +39,17 @@ def _positive_int(env: Any, name: str) -> int:
     return int(text)
 
 
+def _effort(env: Any, name: str) -> str | None:
+    """`none` means: send no effort at all. Some models (Claude Haiku 4.5) answer HTTP 400
+    "This model does not support the effort parameter" to any value."""
+    text = _text(env, name)
+    return None if text == "none" else text
+
+
 def secret(env: Any, name: str) -> str:
-    """A required secret (ANTHROPIC_API_KEY, SESSION_SECRET, ADMIN_TOKEN). Never log the value."""
+    """A required secret (ANTHROPIC_API_KEY, SESSION_SECRET, ADMIN_TOKEN, FAST_API_KEY). Never log
+    the value. Routes read only the secrets they use, so a Worker without FAST_API_KEY keeps
+    serving everything except the score route."""
     return _text(env, name)
 
 
@@ -48,28 +57,33 @@ def secret(env: Any, name: str) -> str:
 class Settings:
     model_chat: str
     model_analyze: str
-    effort_chat: str
-    effort_analyze: str
+    effort_chat: str | None  # None: no effort is sent
+    effort_analyze: str | None
     max_tokens_chat: int
     max_tokens_json: int
     max_input_chars: int
     daily_token_budget: int
     total_token_budget: int
     anthropic_base_url: str
+    # The fast slot (POST /api/ai/score): an OpenAI-compatible chat completions API with logprobs.
+    model_fast: str
+    fast_base_url: str
 
     @classmethod
     def from_env(cls, env: Any) -> "Settings":
         return cls(
             model_chat=_text(env, "MODEL_CHAT"),
             model_analyze=_text(env, "MODEL_ANALYZE"),
-            effort_chat=_text(env, "EFFORT_CHAT"),
-            effort_analyze=_text(env, "EFFORT_ANALYZE"),
+            effort_chat=_effort(env, "EFFORT_CHAT"),
+            effort_analyze=_effort(env, "EFFORT_ANALYZE"),
             max_tokens_chat=_positive_int(env, "MAX_TOKENS_CHAT"),
             max_tokens_json=_positive_int(env, "MAX_TOKENS_JSON"),
             max_input_chars=_positive_int(env, "MAX_INPUT_CHARS"),
             daily_token_budget=_positive_int(env, "DAILY_TOKEN_BUDGET"),
             total_token_budget=_positive_int(env, "TOTAL_TOKEN_BUDGET"),
             anthropic_base_url=_text(env, "ANTHROPIC_BASE_URL").rstrip("/"),
+            model_fast=_text(env, "MODEL_FAST"),
+            fast_base_url=_text(env, "FAST_BASE_URL").rstrip("/"),
         )
 
 

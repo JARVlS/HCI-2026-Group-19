@@ -34,19 +34,22 @@ def build_body(req: CompleteRequest, settings: Settings) -> dict[str, Any]:
 
     Never sent: `temperature`/`top_p`/`top_k` (API version 2026-10-21 rejects them with a 400)
     and `thinking` (both models think adaptively by default; `effort` controls how much).
+    An effort set to `none` (None here) is left out, for models that reject the parameter.
     Structured output uses JSON outputs (`output_config.format`), not forced tool use, because
     forced `tool_choice` returns a 400 on claude-sonnet-5-5.
     """
     chat = req.task == "chat"
-    output_config: dict[str, Any] = {"effort": settings.effort_chat if chat else settings.effort_analyze}
+    effort = settings.effort_chat if chat else settings.effort_analyze
+    output_config: dict[str, Any] = {} if effort is None else {"effort": effort}
     if not chat:
         output_config["format"] = {"type": "json_schema", "schema": req.output_schema}
     body: dict[str, Any] = {
         "model": model_for(req.task, settings),
         "max_tokens": settings.max_tokens_chat if chat else settings.max_tokens_json,
         "messages": [{"role": m.role, "content": m.content} for m in req.messages],
-        "output_config": output_config,
     }
+    if output_config:
+        body["output_config"] = output_config
     if req.system:
         body["system"] = req.system
     if req.stream:
@@ -67,7 +70,8 @@ def refusal_error() -> ApiError:
 
 
 def upstream_error(status: int, body_text: str, api_key: str) -> ApiError:
-    """Error for a non-200 upstream response: status plus Anthropic's error.type and message."""
+    """Error for a non-200 upstream response: status plus the error.type and message. Anthropic
+    and OpenAI-style APIs (the fast slot) both answer {"error": {"type", "message"}}."""
     try:
         error = json.loads(body_text).get("error") or {}
         detail = f"{error.get('type', 'unknown')}: {error.get('message', '')}"

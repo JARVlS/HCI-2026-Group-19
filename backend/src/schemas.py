@@ -37,10 +37,24 @@ class ChatMessage(CamelModel):
     content: str = Field(min_length=1)
 
 
-class CompleteRequest(CamelModel):
-    task: Task
+class PromptRequest(CamelModel):
+    """What every model call takes: a system prompt (may be "") and messages ending with the user."""
+
     system: str
     messages: list[ChatMessage] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _last_message_is_user(self) -> "PromptRequest":
+        if self.messages[-1].role != "user":
+            raise ValueError("the last message must have role 'user'")
+        return self
+
+    def input_chars(self) -> int:
+        return len(self.system) + sum(len(m.content) for m in self.messages)
+
+
+class CompleteRequest(PromptRequest):
+    task: Task
     # JSON schema for analyze/tree/quiz. Named output_schema in Python because `schema`
     # shadows a BaseModel attribute; on the wire it is `schema`.
     output_schema: dict[str, Any] | None = Field(default=None, alias="schema")
@@ -48,8 +62,6 @@ class CompleteRequest(CamelModel):
 
     @model_validator(mode="after")
     def _check_task_rules(self) -> "CompleteRequest":
-        if self.messages[-1].role != "user":
-            raise ValueError("the last message must have role 'user'")
         if self.task == "chat" and self.output_schema is not None:
             raise ValueError("task 'chat' does not take a schema")
         if self.task != "chat" and self.output_schema is None:
@@ -57,9 +69,6 @@ class CompleteRequest(CamelModel):
         if self.stream and self.task != "chat":
             raise ValueError("only task 'chat' can stream")
         return self
-
-    def input_chars(self) -> int:
-        return len(self.system) + sum(len(m.content) for m in self.messages)
 
 
 class Usage(CamelModel):
@@ -76,6 +85,32 @@ class CompleteResponse(CamelModel):
     usage: Usage
     model: str
     truncated: bool  # chat only: true when the answer hit max_tokens
+
+
+# --- /ai/score ----------------------------------------------------------------------------
+
+# One answer the model may give, e.g. "1" or "yes". No whitespace: tokens are matched after
+# stripping it, so " 1" counts for "1".
+ScoreOption = Annotated[str, Field(min_length=1, max_length=8, pattern=r"^\S+$")]
+
+
+class ScoreRequest(PromptRequest):
+    """The prompt tells the model to answer with exactly one of `options`."""
+
+    options: list[ScoreOption] = Field(min_length=2, max_length=5)
+
+    @model_validator(mode="after")
+    def _distinct_options(self) -> "ScoreRequest":
+        if len(set(self.options)) != len(self.options):
+            raise ValueError("options must be distinct")
+        return self
+
+
+class ScoreResponse(CamelModel):
+    probabilities: dict[str, float]  # option -> its share of `mass`; they sum to 1
+    mass: float  # how much of the model's first token was one of the options (0.5 to 1)
+    usage: Usage
+    model: str
 
 
 # --- /events ------------------------------------------------------------------------------

@@ -9,10 +9,11 @@ from fastapi.responses import StreamingResponse
 
 import db
 import llm
+import scoring
 from auth import CurrentUser
-from config import AppSettings, Env, secret
+from config import AppSettings, Env, Settings, secret
 from errors import ApiError
-from schemas import CompleteRequest, CompleteResponse, Usage
+from schemas import CompleteRequest, CompleteResponse, PromptRequest, ScoreRequest, ScoreResponse, Usage
 from upstream import Upstream, UpstreamResponse, get_upstream
 
 logger = logging.getLogger(__name__)
@@ -21,17 +22,9 @@ router = APIRouter(tags=["ai"])
 _SSE_DOC = {"content": {"text/event-stream": {}}, "description": "chat with stream: true (SSE)"}
 
 
-@router.post("/ai/complete", response_model=CompleteResponse, responses={200: _SSE_DOC})
-async def complete(
-    body: CompleteRequest,
-    user: CurrentUser,
-    settings: AppSettings,
-    env: Env,
-    upstream: Annotated[Upstream, Depends(get_upstream)],
-) -> Any:
-    """Relay one call to Claude. The server picks model, max_tokens and effort per task and
-    enforces the per-user daily token budget and the project's total token budget. See docs/api.md for the SSE format."""
-    api_key = secret(env, "ANTHROPIC_API_KEY")
+async def _check_limits(body: PromptRequest, user_id: str, settings: Settings, env: Any) -> str:
+    """The checks before every model call: input size, the user's daily budget and the project's
+    total budget. Returns today's UTC day, under which the call's tokens are recorded."""
     if body.input_chars() > settings.max_input_chars:
         raise ApiError(
             413, "input_too_large",
@@ -39,7 +32,7 @@ async def complete(
         )
     start = db.now()
     day = start.date().isoformat()
-    used = await db.tokens_used(env.DB, user.id, day)
+    used = await db.tokens_used(env.DB, user_id, day)
     if used >= settings.daily_token_budget:
         reset = (start + timedelta(days=1)).date().isoformat()
         raise ApiError(
@@ -54,6 +47,21 @@ async def complete(
             f"The project's total token budget is used up ({total} of {settings.total_token_budget} tokens,"
             " all users together). It does not reset; the team has to raise TOTAL_TOKEN_BUDGET.",
         )
+    return day
+
+
+@router.post("/ai/complete", response_model=CompleteResponse, responses={200: _SSE_DOC})
+async def complete(
+    body: CompleteRequest,
+    user: CurrentUser,
+    settings: AppSettings,
+    env: Env,
+    upstream: Annotated[Upstream, Depends(get_upstream)],
+) -> Any:
+    """Relay one call to Claude. The server picks model, max_tokens and effort per task and
+    enforces the per-user daily token budget and the project's total token budget. See docs/api.md for the SSE format."""
+    api_key = secret(env, "ANTHROPIC_API_KEY")
+    day = await _check_limits(body, user.id, settings, env)
 
     model = llm.model_for(body.task, settings)
     response = await upstream.post(
@@ -78,6 +86,35 @@ async def complete(
     await record(usage)  # also for refusals and truncated answers: those tokens were billed
     output, truncated = llm.parse_message(body.task, data)
     return CompleteResponse(output=output, usage=usage, model=model, truncated=truncated)
+
+
+@router.post("/ai/score", response_model=ScoreResponse)
+async def score(
+    body: ScoreRequest,
+    user: CurrentUser,
+    settings: AppSettings,
+    env: Env,
+    upstream: Annotated[Upstream, Depends(get_upstream)],
+) -> ScoreResponse:
+    """G-Eval-style score on the fast model: the prompt asks for exactly one of `options`, and the
+    answer is the probability of each option as the model's first token. Same limits and budgets
+    as /ai/complete; the tokens count under task `score`. See docs/api.md."""
+    api_key = secret(env, "FAST_API_KEY")
+    day = await _check_limits(body, user.id, settings, env)
+
+    response = await upstream.post(
+        scoring.completions_url(settings), scoring.request_headers(api_key),
+        json.dumps(scoring.build_body(body, settings)),
+    )
+    if response.status != 200:  # nothing was generated, so nothing is recorded
+        raise llm.upstream_error(response.status, await response.text(), api_key)
+
+    data = json.loads(await response.text())
+    usage = scoring.usage_from(data.get("usage") or {})
+    if usage.total > 0:  # also when the answer cannot be scored: those tokens were billed
+        await db.add_usage(env.DB, user.id, day, "score", usage.input_tokens, usage.output_tokens)
+    probabilities, mass = scoring.option_probabilities(data, body.options)
+    return ScoreResponse(probabilities=probabilities, mass=mass, usage=usage, model=settings.model_fast)
 
 
 def _sse(event: str, data: dict[str, Any]) -> str:

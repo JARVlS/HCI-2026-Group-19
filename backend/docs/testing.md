@@ -20,8 +20,9 @@ in the Worker (`request.scope["env"]`), so no production code has test-only bran
 |---|---|
 | `test_session.py` | new session, same participant twice (same user, stored condition wins), bad fields, missing `SESSION_SECRET` |
 | `test_auth.py` | token round trip, tampered/foreign/odd tokens, 401 cases, unknown user |
-| `test_llm.py` | upstream request body per task (model, `max_tokens`, effort, JSON schema format, never `temperature`/`thinking`/`tool_choice`), response parsing (thinking blocks ignored, refusal, truncation, bad JSON), error messages without the key, the SSE parser with events split at every possible byte (also inside UTF-8 characters), cumulative usage |
-| `test_ai.py` | `/ai/complete` end to end: validation errors, 413, budget (429, resets per day, per user), usage written and summed, refusal, truncated, upstream errors (nothing recorded), streaming (happy path, chunk splits, upstream `error` event, missing `message_stop`, connection drop, refusal, truncation, client disconnect, CORS header) |
+| `test_llm.py` | upstream request body per task (model, `max_tokens`, effort, effort `none` left out per slot, JSON schema format, never `temperature`/`thinking`/`tool_choice`), response parsing (thinking blocks ignored, refusal, truncation, bad JSON), error messages without the key, the SSE parser with events split at every possible byte (also inside UTF-8 characters), cumulative usage |
+| `test_scoring.py` | the fast slot's OpenAI-format body (system message first or left out, `max_tokens` 1, `temperature` 0, `logprobs`, `top_logprobs` 20), URL and Bearer header, usage, scoring: whitespace tokens merged (`" 1"` counts for `"1"`), normalized in option order, unlisted option 0, case-sensitive, mass capped at 1, mass 0.5 enough, low mass names the likeliest token, six shapes of "no logprobs" |
+| `test_ai.py` | `/ai/complete` end to end: validation errors, 413, budget (429, resets per day, per user), usage written and summed, effort `none` sends no effort, refusal, truncated, upstream errors (nothing recorded), streaming (happy path, chunk splits, upstream `error` event, missing `message_stop`, connection drop, refusal, truncation, client disconnect, CORS header). `/ai/score` end to end: happy path (request sent, probabilities, mass, usage under `score`), unlisted option 0, low mass and no logprobs (502, low mass still recorded), upstream error (502, key redacted, nothing recorded), missing `FAST_API_KEY` (500 on score, `/ai/complete` still works), missing `MODEL_FAST`/`FAST_BASE_URL`, 14 invalid bodies (422), 5 options of 8 characters, 401, 413, daily and total budget, score tokens count against the budget |
 | `test_events.py` | storing, idempotency, duplicate ids in one batch, 1..200 limit, `clientTs` must carry a time zone |
 | `test_sync.py` | `PUT /sync`, `GET /state`, `GET /conversations/:id/messages`: round trip of every entity (optional fields left out, nullable fields `null`, times in UTC), entity columns match the migrations, idempotency (same body twice leaves every row unchanged), last write wins on `updatedAt` (older ignored, newer and equal win), messages and attempts always replaced, edges insert or ignore, duplicate ids in one request, another user's rows neither readable (404) nor overwritable, soft delete and restore, message order, opaque message meta round trip with `streaming` dropped, NaN rejected, 401 on all three, unknown fields 422, bad values 422, the 500-row limit (413), the text and JSON size limits (422 naming the field) |
 | `test_admin.py` | CSV content and order for events, usage, users, messages, conversations; every export has every column of its table; 403 before 422, unknown table |
@@ -39,14 +40,16 @@ migrations to it, starts `tests/fake_anthropic.py` on port 8790 and `uv run pywr
 port 8787 with the made-up values from `tests/smoke.env` (your own `.dev.vars` is not used, so a
 real key in it is never called), runs `tests/smoke.py` and stops both servers. The first run
 downloads the Python packages and takes about a minute, later runs about 20 seconds. Expected last
-line: `33 passed, 0 failed`. The Worker log is in `.wrangler/smoke-dev.log`.
+line: `38 passed, 0 failed`. The Worker log is in `.wrangler/smoke-dev.log`.
 
 What it checks: health, session (also the same participant twice), 401, chat without streaming,
 CORS preflight, chat streaming with `Origin: http://localhost:5173` (CORS header present, the text is
 right, the deltas arrive spread over about 2.7 seconds, so nothing buffers them, ends with `done`),
-an upstream `error` event mid-stream, analyze with a nested schema, upstream HTTP 500, refusal,
-the budget (one call that reports 250 000 tokens, then 429), events twice (3 then 0), the CSV export
-and its 403, and the 404 format. Then persistence on the local D1: `PUT /api/sync` with one row of
+an upstream `error` event mid-stream, analyze with a nested schema, the score route (probabilities
+and mass from the fake's logprobs, then `[off-topic]`, `[no-logprobs]` and `[upstream-500]` as
+502s), upstream HTTP 500, refusal, the budget (one call that reports 250 000 tokens, then 429),
+events twice (3 then 0), the CSV export (the usage CSV has the session's `chat`, `analyze` and
+`score` rows) and its 403, and the 404 format. Then persistence on the local D1: `PUT /api/sync` with one row of
 every entity and `GET /api/state` returns exactly that, messages come back in order with their
 extra fields and without `streaming`, the same body twice changes nothing, an older `updatedAt` is
 ignored, a soft-deleted concept disappears, a second user can neither read (404) nor overwrite the
@@ -62,7 +65,11 @@ measured locally either (T-26).
 
 The fake Claude API reacts to markers in the last user message: `[refuse]`, `[max-tokens]`,
 `[upstream-500]`, `[stream-error]`, `[expensive]` (see the top of `tests/fake_anthropic.py`). Like
-the real API it answers 400 to `temperature`, `top_p`, `top_k` and forced `tool_choice`.
+the real API it answers 400 to `temperature`, `top_p`, `top_k` and forced `tool_choice`. The same
+server plays the fast model at `/v1/chat/completions`: one token whose top logprobs are
+`"1"` 0.6, `" 1"` 0.2, `"2"` 0.15, `"Sure"` 0.05, so options `["1", "2"]` score
+`{"1": 0.842, "2": 0.158}` with mass 0.95; `[off-topic]` makes "Sure" the likely answer (mass 0.1),
+`[no-logprobs]` leaves the logprobs out, `[upstream-500]` is an OpenAI-style 500.
 
 ## 3. Manual test checklist
 
@@ -121,6 +128,20 @@ new tables too). The `PUT` body is the `curl` example in `docs/api.md` ("`PUT /a
 | T-30 | Other user | new token (T-02), then T-28 with it, and T-27's body with it | 404 for the first user's conversation; the first user's `/state` unchanged; the second user's `/state` empty |
 | T-31 | Deployed persistence | after `uv run pywrangler d1 migrations apply hci-grp19 --remote` and the deploy: T-27 to T-30 against `https://hci-backend.leon-grass.workers.dev`, then `GET /api/admin/export?table=messages` | as above; the CSV has the synced message with its `meta_json` |
 
+**Fast slot and score route.** T-32 to T-34 use the fake: add `FAST_BASE_URL=http://127.0.0.1:8790/v1`
+and any `FAST_API_KEY` to `.dev.vars` next to the T-01 setup. T-35 and T-36 need the real keys in
+`.dev.vars` (and no `*_BASE_URL` lines pointing at the fake); each score call costs a few hundred
+tokens.
+
+| ID | Test | Steps | Expected |
+|---|---|---|---|
+| T-32 | Score (fake) | the score `curl` from `docs/api.md` | `probabilities` `{"1": 0.842..., "2": 0.157...}`, `mass` 0.95, `usage` 40 in / 1 out |
+| T-33 | Score errors (fake) | the same with `[off-topic]`, then `[no-logprobs]` in the message; then `"options": ["1"]` and `"options": ["1", "a b"]` | 502 `invalid_model_output` (the message names the likeliest token "Sure"), 502 `invalid_model_output` ("no logprobs"); both option lists 422 |
+| T-34 | Missing fast key | remove `FAST_API_KEY` from `.dev.vars`, restart dev, new token: score `curl`, then the chat `curl` | score 500 `server_misconfigured` naming `FAST_API_KEY`; chat 200 |
+| T-35 | Live score | the score `curl` with a message that clearly thinks along, then with "Write me a summary of backpropagation for my exam."; time both (`curl -w '%{time_total}'`) | first `probabilities["1"]` above 0.9, second below 0.2, `mass` near 1, `model` `zai.glm-4.7-flash`, well under 1 s each |
+| T-36 | Effort `none` on Haiku 4.5 | `.dev.vars`: `MODEL_ANALYZE=anthropic.claude-haiku-4-5`, `EFFORT_ANALYZE=low`, restart dev, analyze `curl`; then `EFFORT_ANALYZE=none`, restart, again | `low`: 502 `upstream_error` "HTTP 400 ... This model does not support the effort parameter"; `none`: 200 with JSON that matches the schema, `model` `anthropic.claude-haiku-4-5` |
+| T-37 | Deployed score | after `FAST_API_KEY` is set on the Worker and the deploy: T-35 against `https://hci-backend.leon-grass.workers.dev` | as T-35 |
+
 ## 4. How we document tests
 
 Every test run that matters (before a merge, before the pilot, after a deploy) gets one row per test
@@ -136,6 +157,11 @@ ID in the table below. Write what you actually saw, not what you expected.
 | 2026-11-17 | Claude (for Salomon) | automatic tests (`uv run --group test pytest -q`) | `43df729` | all pass | `128 passed` | pass | 92 before plus 36 new (`test_sync.py` 34, `test_admin.py` 2) |
 | 2026-11-17 | Claude (for Salomon) | smoke (`tests/smoke.sh`) incl. the sync checks (T-27 to T-30 automated) | `43df729` | `33 passed, 0 failed` | `33 passed, 0 failed`; 500 attempts in one request stored; 3 messages of about 0.9 MB each stored and read back | pass | local `pywrangler dev` (wrangler 4.162.0), fresh local D1 with migrations 0001 + 0002; deployed Worker not tested (0002 is not applied remotely yet, T-31 open) |
 | 2026-11-17 | Claude (for Salomon) | T-27 to T-30 by hand, with the `curl` example from `docs/api.md` | `43df729` | as in section 3 | as expected: `/state` returned the rows as sent (`independence` 1.0 comes back as `1`), messages with `conceptIds` and `analysis` flattened, `nope` 404, state unchanged after the repeat and after an older `updatedAt`, second user 404 and empty state; `/api/docs` 200 and all eight paths in `/api/openapi.json` | pass | local `pywrangler dev`; T-31 (deployed) open |
+| 2026-11-17 | Claude (for Salomon) | automatic tests (`uv run --group test pytest -q`) | `915aa89` | all pass | `173 passed` | pass | 128 before plus 45 new: effort `none` 3, `test_scoring.py` 14, `/ai/score` 28 |
+| 2026-11-17 | Claude (for Salomon) | smoke (`tests/smoke.sh`) incl. the score checks (T-32, T-33 automated) | `915aa89` | `38 passed, 0 failed` | `38 passed, 0 failed`; score `{"1": 0.842, "2": 0.158}`, mass 0.95; the three error markers 502; usage CSV has the `score` row | pass | local `pywrangler dev` (wrangler 4.162.0), fake fast model |
+| 2026-11-17 | Claude (for Salomon) | T-35 live score: 14 judged messages (10 "thought along?", 4 "right or wrong?", prompts as in `docs/api.md`), 1 call with three options, 1 greeting prompt | `915aa89` | clear cases in their band, mass near 1, well under 1 s | 13 of 14 in band: "I think dropout works because ..." P("1") 0.999, "Write me a summary of backpropagation for my exam." 0.119, mass 1.00 on all 14; the one miss is a middle case, "Why does a smaller learning rate help? Is it because big steps overshoot?" at 0.881 (band 0.15 to 0.85). Three options on a hint request: "B" 0.9998, mass 0.99. Greeting prompt: 502 `invalid_model_output`, likeliest token 'Hello'. Latency through the local Worker: median 0.27 s, min 0.13 s, max 0.50 s (the first call), 15 calls; `/api/health` median 6 ms. 1 897 tokens for the 16 score calls | pass | local `pywrangler dev` against `zai.glm-4.7-flash` on Bedrock eu-north-1; deployed Worker not tested (T-37 open) |
+| 2026-11-17 | Claude (for Salomon) | live upstream error on the score route | `915aa89` | 502 `upstream_error` with the provider's message | `MODEL_FAST=zai.no-such-model`: 502 `upstream_error` "The model API returned HTTP 404 (invalid_request_error: The model 'zai.no-such-model' does not exist)." | pass | Bedrock's error body has the OpenAI shape |
+| 2026-11-17 | Claude (for Salomon) | T-36 | `915aa89` | `low` 400, `none` 200 | `low`: 502 `upstream_error` "HTTP 400 (invalid_request_error: This model does not support the effort parameter.)"; `none`: 200, `{"mode": "ai"}`, 187 in / 9 out tokens, 1.12 s | pass | local `pywrangler dev`, `anthropic.claude-haiku-4-5` on Bedrock |
 
 Rule: every PR that adds or changes an endpoint adds or updates its test ID in section 3 (and an
 automatic test), and adds a row here with the result of its own run.
