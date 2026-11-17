@@ -647,13 +647,19 @@ animated tree). Decisions taken on the way (change them here if the team disagre
 - [x] Auth dependency (HMAC token), CORS allows `Authorization`.
 
 **FE**
-- [ ] `lib/session.ts` (create or restore a token), `lib/sync.ts` (debounced queue, retry with
+- [x] `lib/session.ts` (create or restore a token), `lib/sync.ts` (debounced queue, retry with
       backoff, localStorage mirror so a reload never loses a turn), hydrate on boot.
-      *17 Nov:* `lib/session.ts` built with M3 (create or restore, a new session once after a 401);
-      `sync.ts` and hydrate not yet.
+      *17 Nov:* `lib/session.ts` built with M3 (create or restore, a new session once after a 401).
+      `sync.ts` diffs every state change by reference into rows (a reply only once complete, a
+      failed reply never; a removed tree once more with `deletedAt`; a chat from its first message
+      on), 0.8 s debounce or at once when a turn ends, ≤ 500 rows per request, backoff up to 30 s,
+      `online` and `pagehide` (keepalive) flush; a 4xx keeps the rows and shows them. `live.ts` loads
+      `GET /api/state` with the queue on top; messages per chat when opened. The device mirrors only
+      the queue, so live mode needs the backend at start (error + retry, never the demo).
+      `lib/app.ts` holds the store without React, so all of this is tested without a DOM.
 - [x] `api.ts`: auth header, typed errors, `apiStream()` for SSE. *17 Nov:* built with M3; one base
       URL (`VITE_API_URL`), `ApiError(status, code, message)`, SSE events split across chunks.
-- [ ] **Chat history and revisit** (ASCII design, keyboard-first):
+- [x] **Chat history and revisit** (ASCII design, keyboard-first):
       - chat list: `/chats` (or `c`), grouped today / this week / earlier, each row showing its
         trees' glyph crowns; `/new` starts a chat; titles are auto-set from the first turn and
         editable with `/title`.
@@ -663,11 +669,21 @@ animated tree). Decisions taken on the way (change them here if the team disagre
         opens that chat and `jumpTo`s the message, in any chat, not just the live one. This
         replaces the "past chats are read-only" toast.
       - chat → trees: the transcript header shows the trees this chat grew (`treesOfConversation`).
-- [ ] Demo mode `?demo=1` keeps the scripted fixtures for offline demos.
+      *17 Nov:* built as one picker sheet (`designs/ascii/Chats.tsx`) for the chat list and a leaf's
+      messages; a leaf with one message jumps straight to it. Titles: the first message, cut at a
+      word boundary (no model call). An empty chat is not saved and is dropped when you leave it.
+      Classic: its sidebar opens real chats and starts new ones (no new UI).
+- [x] Demo mode `?demo=1` keeps the scripted fixtures for offline demos.
+      *17 Nov:* demo = provider `scripted` (still the build default): fixture, nothing saved, no
+      request at all (tested). `?demo=1` forces it over `?provider` and the saved choice. Live =
+      `arbor`: no demo forest any more. Switching the provider switches the world at once.
 
 *Acceptance:* create two chats about the same subject, reload, and both come back. Their tree
 lists both under "grown in"; a leaf touched in both offers both messages and jumps correctly into
 either chat. Offline edits sync after reconnect.
+*17 Nov (FE):* all of it checked in a browser against the M2 backend under `pywrangler dev` with
+live Claude, also a reload while the backend is unreachable (error, retry, nothing lost). Needs
+the M2 backend and migration `0002` deployed before live mode works on the deployed site.
 
 ### M2b Navigation model and radial menu (FE, Nov 23–27) ⇢ M1 (needs views from M2 as they land)
 - [ ] `lib/nav.ts` (ADR-13): `View`, hash routing, `navigate()`, back/forward. Migrate
