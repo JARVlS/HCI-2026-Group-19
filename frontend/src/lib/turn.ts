@@ -16,7 +16,8 @@ import type { Classification } from './types';
  *   linter label → `user` → provider.chat (streamed deltas, AbortController) → `assistantDone`
  *   and, in parallel, provider.json('analyze') → merge into the graph → `analysisDone`.
  * The analysis is applied once the reply has started (or ended), so leaves grow when the answer
- * appears, as in the prototype. Persistence (enqueue sync) joins in M2.
+ * appears, as in the prototype. Saving is not done here: in live mode `sync.ts` sees every state
+ * change and queues what changed (M2).
  *
  * All effects go through `deps`, so tests run it with a fake provider and a plain reducer.
  */

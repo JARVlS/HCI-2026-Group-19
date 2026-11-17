@@ -1559,3 +1559,108 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* ───────────── Chats and revisits (M2) ───────────── */
+/* The picker sheet: the chat list (c, /chats) and a leaf's messages. */
+.a-picker {
+  width: min(100%, 96ch);
+}
+.a-pick {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}
+.a-pick:focus-visible {
+  outline: none;
+}
+.a-pick li[role='option'] {
+  display: grid;
+  grid-template-columns: 2ch minmax(16ch, 1.5fr) minmax(0, 1fr) 7ch;
+  gap: 0 2ch;
+  margin: 0 -1ch;
+  padding: 1px 1ch;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.a-pick li.on {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--text);
+}
+.a-pick-group {
+  margin-top: 10px;
+}
+.a-pick-group:first-child {
+  margin-top: 0;
+}
+.a-pick-mark {
+  color: var(--you);
+  font-weight: 700;
+}
+.a-pick-title,
+.a-pick-crowns,
+.a-pick-snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.a-pick li.here .a-pick-title {
+  font-weight: 700;
+}
+.a-pick-when {
+  text-align: right;
+}
+.a-crown + .a-crown::before {
+  content: ' · ';
+  color: var(--text-3);
+}
+
+/* Chat → trees, under the chat's title. */
+.a-grew {
+  margin: -14px 0 20px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.a-grew-tree:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.a-loading {
+  padding: 40px 0;
+  text-align: center;
+}
+
+/* Tree → chats, in the forest's tree detail. */
+.a-grown {
+  margin-bottom: 14px;
+}
+.a-grown ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.a-grown li {
+  display: grid;
+  grid-template-columns: 2ch minmax(0, 1fr) auto;
+  gap: 0 1ch;
+  margin: 0 -1ch;
+  padding: 1px 1ch;
+}
+.a-grown li:hover {
+  background: var(--surface-2);
+}
+.a-grown-chat {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.a-grown-chat:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Modeline: is everything saved? (live mode) */
+.a-ml-sync.is-bad {
+  color: var(--ai);
+}

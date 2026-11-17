@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { MODE_SCORE, mean } from '../../lib/modes';
 import { TIME_MAX, TIME_TICKS } from '../../lib/retention';
 import { useStore } from '../../lib/store';
+import { ChatList, LeafRefs } from './Chats';
 import { Composer } from './Composer';
 import { Concepts } from './Concepts';
 import { Forest } from './Forest';
@@ -46,6 +47,7 @@ function Shell() {
       else if (key === '?') ui.setSheet(ui.sheet ? null : 'concepts');
       else if (key === 't' && !state.ui.forest.open) ui.setView(ui.view === 'tree' ? 'outline' : 'tree');
       else if (key === 'f') dispatch({ type: 'forest', open: !state.ui.forest.open });
+      else if (key === 'c' && !state.ui.forest.open) dispatch({ type: 'chats', open: true });
       else if (key === ']') ui.setDays(stops.find((d) => d > ui.days) ?? TIME_MAX);
       else if (key === '[') ui.setDays([...stops].reverse().find((d) => d < ui.days) ?? 0);
       else if (key === 'Escape') {
@@ -74,6 +76,8 @@ function Shell() {
       <Modeline />
       <Links />
       <Concepts />
+      <ChatList />
+      <LeafRefs />
       <Toast />
     </div>
   );

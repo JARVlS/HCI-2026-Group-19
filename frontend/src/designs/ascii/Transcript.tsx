@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { prefersReducedMotion } from '../../lib/hooks';
-import { MODE_META, pct } from '../../lib/modes';
+import { MODE_META, mean, pct } from '../../lib/modes';
 import { useStore } from '../../lib/store';
 import type { ChatMessage, Classification, Evidence, Mode } from '../../lib/types';
 import { Md, parseMd } from './Md';
@@ -9,7 +9,7 @@ import { G, K, Radios, lower, shortReason, typing, useUi } from './ui';
 /* The conversation as a two-column log: who · what. */
 
 export function Transcript() {
-  const { state, messages, busy, conversation } = useStore();
+  const { state, messages, busy, conversation, mode } = useStore();
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const { flash } = state.ui;
@@ -34,6 +34,7 @@ export function Transcript() {
   }, [flash]);
 
   const prompts = messages.filter((m) => m.role === 'user').length;
+  const load = state.session.chatLoad[conversation.id];
 
   return (
     <div
@@ -51,11 +52,14 @@ export function Transcript() {
             {prompts} prompt{prompts === 1 ? '' : 's'}
           </span>
         </header>
-        {messages.length === 0 && (
+        <GrewTrees />
+        {load === 'loading' && <p className="a-dim a-loading">loading this chat…</p>}
+        {load && load !== 'loading' && <LoadError error={load.error} />}
+        {messages.length === 0 && !load && (
           <div className="a-empty">
             <p>what do you want to learn today?</p>
             <p className="a-dim">
-              {state.settings.provider === 'arbor' ? 'ask about anything, the answers come live from claude.' : 'ask anything about neural networks.'} or
+              {mode === 'live' ? 'ask about anything, the answers come live from claude. your chats are saved.' : 'ask anything about neural networks.'} or
               press <K>tab</K> for a demo prompt.
             </p>
           </div>
@@ -67,6 +71,47 @@ export function Transcript() {
         {turn.status === 'error' && turn.conversationId === conversation.id && !turn.assistantMessageId && <TurnError error={turn.error} />}
       </div>
     </div>
+  );
+}
+
+/** Chat → trees: the trees this chat grew; each opens in the forest. */
+function GrewTrees() {
+  const { state, dispatch, grownTrees } = useStore();
+  if (!state.settings.enabled || !grownTrees.length) return null;
+  return (
+    <p className="a-grew">
+      <span className="a-dim">grew </span>
+      {grownTrees.map((t, i) => (
+        <span key={t.id}>
+          {i > 0 && <span className="a-dim"> · </span>}
+          <button className="a-grew-tree" onClick={() => dispatch({ type: 'forest', open: true, focus: t.id })} title={`open “${lower(t.title)}” in the forest`}>
+            <G score={mean(t.branches.flatMap((b) => b.leaves.map((l) => l.score)))} /> {lower(t.title)}
+          </button>
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/** This chat's messages did not load: say why, offer to try again (r or the button). */
+function LoadError({ error }: { error: string }) {
+  const { retryLoad } = useStore();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (typing(e) || e.metaKey || e.ctrlKey || e.altKey || e.key !== 'r') return;
+      e.preventDefault();
+      retryLoad();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [retryLoad]);
+  return (
+    <p className="a-failed" role="alert">
+      <span className="a-fail-mark">!</span> could not load this chat<span className="a-dim"> · {lower(error)}</span> ·{' '}
+      <button className="a-btn" onClick={retryLoad}>
+        <u>r</u>etry
+      </button>
+    </p>
   );
 }
 

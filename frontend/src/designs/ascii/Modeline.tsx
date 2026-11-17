@@ -9,8 +9,8 @@ import { K, useUi } from './ui';
  * periphery, and lists the keys that work in this moment (recognition over recall).
  */
 export function Modeline() {
-  const { state, messages, busy } = useStore();
-  const { days, view, sheet } = useUi();
+  const { state, messages, busy, mode } = useStore();
+  const { days, view, sheet, refs } = useUi();
   const { settings } = state;
   const { composer, forest } = state.ui;
   const [focus, setFocus] = useState<'prompt' | 'guess' | 'tree' | 'other'>('other');
@@ -38,6 +38,7 @@ export function Modeline() {
 
   let badge: { cls: string; text: string };
   if (!settings.enabled) badge = { cls: 'idle', text: 'paused' };
+  else if (state.ui.chats) badge = { cls: 'idle', text: 'chats' };
   else if (forest.open) badge = { cls: 'idle', text: 'forest' };
   else if (veiled) badge = { cls: 'veil', text: '▒ veiled' };
   else if (busy) badge = { cls: 'idle', text: 'ai writing' };
@@ -48,7 +49,9 @@ export function Modeline() {
   else badge = { cls: 'idle', text: 'arbor' };
 
   let keys: ReactNode;
-  if (sheet) keys = <><K>esc</K> close</>;
+  if (state.ui.chats) keys = <><K>↑↓</K> move · <K>↵</K> open · <K>n</K> new chat · <K>esc</K> close</>;
+  else if (refs) keys = <><K>↑↓</K> move · <K>↵</K> open that chat at the message · <K>esc</K> close</>;
+  else if (sheet) keys = <><K>esc</K> close</>;
   else if (busy && !forest.open) keys = <><K>esc</K> stop</>;
   else if (state.session.turn.status === 'error' && focus !== 'prompt') keys = <><K>r</K> retry · <K>i</K> type</>;
   else if (forest.open) keys = <><K>esc</K> back · <K>[ ]</K> time</>;
@@ -62,7 +65,7 @@ export function Modeline() {
   else if (focus === 'tree')
     keys = (
       <>
-        <K>↑↓</K> move · <K>↵</K> jump to message · <K>q</K> quiz me
+        <K>↑↓</K> move · <K>↵</K> jump to its message (or pick one) · <K>q</K> quiz me
       </>
     );
   else
@@ -80,11 +83,27 @@ export function Modeline() {
       <span className="a-ml-keys">{keys}</span>
       <span className="a-ml-right">
         {days > 0 && <span className="a-ml-time">time {formatDays(days)}</span>}
+        {mode === 'live' && <SyncState />}
         {settings.enabled && you !== null && <span>you {you}%</span>}
         <span className="a-ml-global">
-          <K>t</K> {view === 'tree' ? 'outline' : 'tree'} <K>f</K> forest <K>[ ]</K> time <K>?</K> concepts
+          <K>t</K> {view === 'tree' ? 'outline' : 'tree'} <K>f</K> forest <K>c</K> chats <K>[ ]</K> time <K>?</K> concepts
         </span>
       </span>
     </footer>
   );
+}
+
+/** Live mode: whether everything is saved. Quiet when it is; says how many changes wait, and why. */
+function SyncState() {
+  const { sync } = useStore();
+  if (sync.rejected) {
+    return (
+      <span className="a-ml-sync is-bad" title={sync.error ?? ''}>
+        ! {sync.rejected} not saved
+      </span>
+    );
+  }
+  if (sync.offline) return <span className="a-ml-sync is-bad" title={sync.error ?? ''}>offline · {sync.pending} unsaved</span>;
+  if (sync.pending) return <span className="a-ml-sync" title={sync.error ?? ''}>saving…</span>;
+  return <span className="a-ml-sync">saved</span>;
 }

@@ -46,7 +46,7 @@ export function BrowserChrome() {
 
 /** The host chat app's own sidebar. Arbor adds one small glyph per chat. */
 export function HostSidebar() {
-  const { state, dispatch, toast, chats, forestTrees } = useStore();
+  const { state, dispatch, toast, chats, forestTrees, mode, openChat, newChat } = useStore();
   const enabled = state.settings.enabled;
   const scoreOf = (treeId: string | null) => {
     const t = treeId ? forestTrees.find((x) => x.id === treeId) : undefined;
@@ -55,9 +55,11 @@ export function HostSidebar() {
 
   const open = (id: string, treeId: string | null) => {
     if (chats.some((g) => g.items.some((c) => c.id === id && c.active))) return;
+    // Live chats (and demo chats with a transcript) open; the demo's past chats are only their trees.
+    if (mode === 'live' || state.domain.messagesByConv[id]) return openChat(id);
     if (!enabled || !treeId) return toast('Prototype: only the current chat is live.');
     dispatch({ type: 'forest', open: true, focus: treeId });
-    toast('Prototype: past chats open in your Arbor forest.');
+    toast('Prototype: past demo chats open in your Arbor forest.');
   };
 
   return (
@@ -66,7 +68,7 @@ export function HostSidebar() {
         <span className="host-logo" aria-hidden="true" />
         Chat
       </div>
-      <button className="host-new" onClick={() => toast('Prototype: only the current chat is live.')}>
+      <button className="host-new" onClick={newChat}>
         <SquarePen size={15} /> New chat
       </button>
       <nav className="host-history">

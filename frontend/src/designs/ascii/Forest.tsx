@@ -7,6 +7,7 @@ import { useStore } from '../../lib/store';
 import { shortDate } from '../../lib/time';
 import type { TreeData } from '../../lib/types';
 import { AsciiTreeView } from '../../shared/AsciiTreeView';
+import { useLeafJump } from './Chats';
 import { Scrubber } from './Pane';
 import { G, K, Radios, lower, typing, useUi } from './ui';
 
@@ -81,7 +82,7 @@ function useForestData(days: number) {
 
 export function Forest() {
   const { state, dispatch, activeTree, groves } = useStore();
-  const { days, setDays } = useUi();
+  const { days, setDays, refs } = useUi();
   const { infos, byId } = useForestData(days);
   const startFocus = state.ui.forest.focus && byId.has(state.ui.forest.focus) ? state.ui.forest.focus : null;
   const [level, setLevel] = useState<'forest' | 'tree'>(startFocus ? 'tree' : 'forest');
@@ -148,6 +149,7 @@ export function Forest() {
   // Keys: Esc / − steps out a level, + zooms into the focused tree, / searches.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (refs) return; // a leaf's list of messages is open on top and handles its own keys
       if (e.key === 'Escape') {
         if (typing(e) && query) return setQuery('');
         e.preventDefault();
@@ -168,7 +170,7 @@ export function Forest() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [zoomOut, zoomIn, level, hover, query]);
+  }, [zoomOut, zoomIn, level, hover, query, refs]);
 
   // Pinch / ctrl+wheel: in over a tree zooms into it, out steps back.
   useEffect(() => {
@@ -606,7 +608,8 @@ function Roots({ from, wrap }: { from: TreeInfo; wrap: React.RefObject<HTMLDivEl
 /* ───────────── Tree level ───────────── */
 
 function TreeDetail({ info }: { info: TreeInfo }) {
-  const { state, dispatch, send, jumpTo, toast, canQuiz } = useStore();
+  const { state, dispatch, send, toast, canQuiz } = useStore();
+  const jump = useLeafJump();
   const keep = useMemo(() => new Map(info.leaves.map((l) => [l.id, l.keep])), [info]);
   const order = [...info.leaves].sort((a, b) => a.keep - b.keep || a.score - b.score);
   const highlight = useMemo(() => new Set(state.ui.highlight), [state.ui.highlight]);
@@ -615,8 +618,7 @@ function TreeDetail({ info }: { info: TreeInfo }) {
     if (info.live && canQuiz(l.id)) {
       dispatch({ type: 'forest', open: false });
       send(`Quiz me on ${l.label.toLowerCase()}`);
-    } else if (info.live) toast('no quiz for this leaf yet. ask for one in the chat.');
-    else toast('prototype: past chats are read-only. this would reopen that chat with a quiz.');
+    } else toast('no quiz for this leaf yet. ask for one in the chat.');
   };
 
   return (
@@ -627,10 +629,11 @@ function TreeDetail({ info }: { info: TreeInfo }) {
           retention={keep}
           highlight={highlight}
           onHover={(id) => dispatch({ type: 'highlight', ids: id ? [id] : [] })}
-          onJump={(mid) => (info.live ? jumpTo(mid) : toast('prototype: past chats are read-only.'))}
+          onJump={jump}
         />
       </div>
       <aside className="a-detail-list" aria-label="Concepts, most faded first">
+        <GrownIn treeId={info.tree.id} />
         <p className="a-row">
           <span>revisit</span>
           <span className="a-dim">most faded first</span>
@@ -660,9 +663,9 @@ function TreeDetail({ info }: { info: TreeInfo }) {
                   <button className="a-btn" onClick={() => quiz(l)}>
                     quiz
                   </button>
-                  {info.live && l.messageId && (
-                    <button className="a-btn" onClick={() => jumpTo(l.messageId!)}>
-                      jump
+                  {l.messageId && (
+                    <button className="a-btn" onClick={() => jump(l.messageId!, l.id)}>
+                      {l.count > 1 ? 'messages' : 'jump'}
                     </button>
                   )}
                 </span>
@@ -676,5 +679,37 @@ function TreeDetail({ info }: { info: TreeInfo }) {
         </p>
       </aside>
     </div>
+  );
+}
+
+/** Tree → chats: the chats this tree was grown in; enter (or click) opens one. */
+function GrownIn({ treeId }: { treeId: string }) {
+  const { grownIn, openChat, state } = useStore();
+  const chats = grownIn(treeId);
+  if (!chats.length) return null;
+  const active = state.session.activeConversationId;
+  return (
+    <section className="a-grown" aria-label="Chats this tree was grown in">
+      <p className="a-row">
+        <span>grown in</span>
+        <span className="a-dim">
+          {chats.length} chat{chats.length === 1 ? '' : 's'} · most recent first
+        </span>
+      </p>
+      <ul>
+        {chats.map((c) => (
+          <li key={c.id}>
+            <G score={mean(c.scores)} />
+            <button className="a-grown-chat" onClick={() => openChat(c.id)} title="open this chat">
+              {lower(c.title)}
+              {c.id === active && <span className="a-dim"> · open now</span>}
+            </button>
+            <span className="a-dim">
+              {c.scores.length} {c.scores.length === 1 ? 'leaf' : 'leaves'} · {lower(shortDate(c.lastAt))}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

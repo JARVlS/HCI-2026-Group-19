@@ -276,8 +276,12 @@ export function createApp(opts: AppOptions) {
         // The demo's past chats are only their trees: the fixture has no transcript for them.
         if (!isLive() && !s.domain.messagesByConv[id]) return toast('demo: past chats have no transcript. their trees are in the forest.');
         abort();
+        store.dispatch({ type: 'conversationOpen', id });
+      } else {
+        // Already open: show it, but keep its pane as it is.
+        store.dispatch({ type: 'chats', open: false });
+        store.dispatch({ type: 'forest', open: false });
       }
-      store.dispatch({ type: 'conversationOpen', id });
       if (isLive()) await live.loadMessages(id);
       const after = store.getState();
       if (!messageId || after.session.activeConversationId !== id || after.session.chatLoad[id]) return;

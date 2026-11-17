@@ -224,6 +224,20 @@ describe('live mode', () => {
     expect(activeMessages(second.state())).toHaveLength(2);
   });
 
+  it('a jump inside the open chat keeps its pane as it is (no reopen)', async () => {
+    fakeServer();
+    const a = app('?provider=arbor');
+    a.start();
+    await settle();
+    await send(a, 'I think vaccines train the immune system');
+    const chat = a.state().session.activeConversationId;
+    const [user] = activeMessages(a.state());
+    a.dispatch({ type: 'paneTree', id: 'picked-in-the-pane' });
+    a.dispatch({ type: 'forest', open: true });
+    await a.openChat(chat, user.id);
+    expect(a.state().ui).toMatchObject({ paneTreeId: 'picked-in-the-pane', forest: { open: false }, flash: { id: user.id } });
+  });
+
   it('/title renames the open chat and saves it; an empty chat left behind is dropped', async () => {
     const server = fakeServer();
     const a = app('?provider=arbor');

@@ -30,7 +30,8 @@ interface Props {
   /** Leaves to light up (brushing from the chat, or the hovered leaf). */
   highlight: Set<string>;
   onHover: (leafId: string | null) => void;
-  onJump: (messageId: string) => void;
+  /** Click or enter on a leaf: its latest message, and the leaf (to list all of its messages). */
+  onJump: (messageId: string, leafId: string) => void;
   /** 'tree' (default) or a `tree`-command outline of the same nodes. */
   view?: 'tree' | 'outline';
   /** Leaf id → share likely remembered (0..1). Omit to show no fading. */
@@ -389,7 +390,7 @@ export function AsciiTreeView({ tree, highlight, onHover, onJump, view = 'tree',
               onMouseLeave={leave}
               onFocus={() => enter(n)}
               onBlur={leave}
-              onClick={() => n.messageId && onJump(n.messageId)}
+              onClick={() => n.messageId && onJump(n.messageId, n.id)}
             >
               {n.side > 0 ? (
                 <>
@@ -512,7 +513,7 @@ function NodeCard({
           `${G} ${MODE_META[scoreToMode(node.score)].label.toLowerCase()}`,
           `${branch?.label.toLowerCase() ?? ''} · ${node.count} message${node.count === 1 ? '' : 's'}`,
           ...fading,
-          node.messageId ? '→ click to jump to it' : '',
+          node.messageId ? (node.count > 1 ? `→ click to pick one of the ${node.count}` : '→ click to jump to it') : '',
         ].filter(Boolean)
       : [`${G} ${pct(node.score)}% your thinking`, `${node.count} concept${node.count === 1 ? '' : 's'} on this branch`];
   const max = layout.cols;
