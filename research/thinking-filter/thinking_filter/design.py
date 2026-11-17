@@ -62,9 +62,14 @@ def prefixes(text: str) -> dict[str, str]:
     return {"1/3": text[:ends[max(1, round(n / 3)) - 1]], "2/3": text[:ends[max(1, round(2 * n / 3)) - 1]]}
 
 
+def round1(item: dict) -> bool:
+    """Samples are drawn from round 1 only, so round 2 reuses their judge labels and stays comparable."""
+    return item.get("round", 1) == 1
+
+
 def word_by_word_sample(items: list[dict]) -> list[int]:
-    """150 items for the word-by-word curves."""
-    return stratified_sample(items, 150, seed=7)
+    """150 round-1 items for the word-by-word curves."""
+    return stratified_sample(items, 150, seed=7, eligible=lambda i: round1(items[i]))
 
 
 def prefix_sample(items: list[dict]) -> list[int]:

@@ -6,7 +6,7 @@
  *   node bridge.ts < request.json > response.json
  *
  * request:  {"op": "score_prompt", "inputs": [ScoreInput, ...]}  -> [{"system", "user"}, ...]
- *           {"op": "rules", "texts": ["...", ...]}                -> [{"mode", "confidence", "share"}, ...]
+ *           {"op": "rules", "texts": ["...", ...]}                -> [{"mode", "confidence", "reasons", "share"}, ...]
  *           {"op": "constants"}                                   -> {"OWN_FROM", "AI_UP_TO", "THINKING_SCALE"}
  */
 import { readFileSync } from 'node:fs';
@@ -27,7 +27,7 @@ function run(req: { op: string; inputs?: unknown[]; texts?: string[] }): unknown
     case 'rules':
       return req.texts!.map((text) => {
         const c = classify(text);
-        return { mode: c.mode, confidence: c.confidence, share: draftShare(c.mode, c.confidence) };
+        return { mode: c.mode, confidence: c.confidence, reasons: c.reasons, share: draftShare(c.mode, c.confidence) };
       });
     case 'constants':
       return { OWN_FROM, AI_UP_TO, THINKING_SCALE };

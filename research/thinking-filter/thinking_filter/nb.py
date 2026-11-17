@@ -25,7 +25,7 @@ TOKEN = re.compile(r"[^\W_]+(?:'[^\W_]+)*")
 LENGTH_BUCKETS = [(2, "1-2"), (5, "3-5"), (10, "6-10"), (20, "11-20")]  # more: "21+"
 
 FEATURE_SPEC = """\
-A draft becomes features in five steps (the TypeScript port must give the same list, in this order):
+A draft becomes features in these steps (the TypeScript port must give the same list, in this order):
 1. Normalise: replace U+2019 and U+2018 (curly single quotes) with U+0027 ('), then lower-case the whole
    text (JavaScript toLowerCase() / Python str.lower()). No other normalisation (no NFC, no trimming).
 2. Tokens: every match of /[\\p{L}\\p{N}]+(?:'[\\p{L}\\p{N}]+)*/gu in the normalised text, left to right
@@ -37,7 +37,16 @@ A draft becomes features in five steps (the TypeScript port must give the same l
 5. If there is at least one token, "#len:" + the token-count bucket: 1-2 -> "1-2", 3-5 -> "3-5",
    6-10 -> "6-10", 11-20 -> "11-20", more -> "21+".
 6. "@tutor_asked" if the tutor's last message (without trailing whitespace) ends with "?".
+7-9. From the word rules: c = classify(text) of frontend/src/lib/classify.ts on the same draft (the
+   linter, no quiz context). 7: "rule:" + c.mode. 8: "rule:" + c.mode + ":sure" if c.confidence >= 0.7.
+   9: for every entry of c.reasons, in order: "rule:" + the reason with every "\u201c...\u201d" part
+   (curly double quotes and what is between them) removed, then every "()" removed, lower-cased,
+   whitespace runs collapsed to one space, trimmed. Example: "Starts with \u201cWrite\u201d \u2014 asks
+   the AI to produce it" -> "rule:starts with \u2014 asks the ai to produce it". If classify.ts changes
+   its labels or reasons, refit (tests/test_weights_vectors.py fails until then).
 A feature that is not a key of `counts` is skipped by belief(); repeated features count every time.
+The features of a draft are recomputed from the whole draft at every word: the rule features (and
+"?$", the length band) can disappear again, so the belief is never multiplied in step by step.
 belief() reads `prior`, `totals`, `alpha`, `beta` and V = the number of keys of `counts` as they are in
 the file; update() keeps `totals` equal to the column sums of `counts`.
 """
@@ -45,15 +54,28 @@ the file; update() keeps `totals` equal to the column sums of `counts`.
 
 @dataclass
 class Spec:
-    """Which feature groups are on (chosen by cross-validation, see evaluate.py)."""
+    """Which feature groups are on (chosen by cross-validation, see cv.py)."""
     bigrams: bool = True
     start: bool = True
     qmark: bool = True
     length: bool = True
     context: bool = True
+    # From the word rules (classify() in frontend/src/lib/classify.ts, run on the same draft):
+    rule_label: bool = False  # "rule:" + its label
+    rule_sure: bool = False  # "rule:<label>:sure" when its confidence is at least RULE_SURE
+    rule_reasons: bool = False  # "rule:" + reason_key(reason) for every reason it gives
 
 
-SHIPPED = Spec()
+# Chosen by cv.py (round 2, 17 Nov 2026): every word group and the three rule groups.
+SHIPPED = Spec(rule_label=True, rule_sure=True, rule_reasons=True)
+RULE_SURE = 0.7
+QUOTED = re.compile("\u201c[^\u201d]*\u201d")  # “…”: the matched words inside a reason
+
+
+def reason_key(reason: str) -> str:
+    """A reason of classify() without the words it quotes, so one rule gives one feature:
+    remove every “…” part, then every "()", lower-case, collapse whitespace."""
+    return " ".join(QUOTED.sub("", reason).replace("()", "").lower().split())
 
 
 def normalise(text: str) -> str:
@@ -75,7 +97,9 @@ def tutor_asked(tutor: str | None) -> bool:
     return bool(tutor) and tutor.rstrip().endswith("?")
 
 
-def features(text: str, asked: bool, spec: Spec = SHIPPED) -> list[str]:
+def features(text: str, asked: bool, linter: dict | None = None, spec: Spec = SHIPPED) -> list[str]:
+    """`linter`: classify(text) of the same draft ({mode, confidence, reasons}), needed when the spec
+    uses rule features."""
     toks = tokens(text)
     out = list(toks)
     if spec.bigrams:
@@ -90,6 +114,15 @@ def features(text: str, asked: bool, spec: Spec = SHIPPED) -> list[str]:
         out.append("#len:" + length_bucket(len(toks)))
     if spec.context and asked:
         out.append("@tutor_asked")
+    if spec.rule_label or spec.rule_sure or spec.rule_reasons:
+        if linter is None:
+            raise ValueError("this feature spec needs classify() of the draft")
+        if spec.rule_label:
+            out.append("rule:" + linter["mode"])
+        if spec.rule_sure and linter["confidence"] >= RULE_SURE:
+            out.append(f"rule:{linter['mode']}:sure")
+        if spec.rule_reasons:
+            out += ["rule:" + reason_key(r) for r in linter["reasons"]]
     return out
 
 

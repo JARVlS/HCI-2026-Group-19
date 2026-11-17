@@ -8,6 +8,7 @@ Metrics mirror frontend/eval/metrics.ts (rows: the set's label, columns: predict
 together, ai; kappa plain and linearly weighted).
 """
 import json
+import re
 import subprocess
 import sys
 
@@ -27,6 +28,23 @@ def export() -> None:
     cases = [{"id": f"L{i:03d}", "text": c["text"], "label": c["label"], "tags": c.get("tags", [])} for i, c in enumerate(json.loads(out), 1)]
     write_json(LINTER_SET, {"source": f"{SOURCE} at {COMMIT}", "labels": "Claude's draft, not yet rated by the team", "cases": cases})
     print(f"wrote {LINTER_SET}: {len(cases)} cases", file=sys.stderr)
+
+
+# Words too common to say two prompts are about the same thing.
+STOP = set("a an the of to in on for and or is are was were be it its it's this that me my i you your we us our do does did "
+           "can could would will just please pls plz so if what why how when who which with at by from as about not no yes there "
+           "their they he she his her them these those than then but also like".split())
+
+
+def content_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[^\W_]+", text.replace("\u2019", "'").lower()) if w not in STOP}
+
+
+def near_matches(texts: list[str], prompts: list[str], threshold: float = 0.75) -> set[int]:
+    """Indices of texts that contain at least `threshold` of the content words of one of `prompts`
+    (prompts with at least 3 content words)."""
+    ps = [c for c in map(content_words, prompts) if len(c) >= 3]
+    return {i for i, t in enumerate(texts) if any(len(c & content_words(t)) / len(c) >= threshold for c in ps)}
 
 
 def load() -> list[dict]:

@@ -22,8 +22,10 @@ JUDGE_MODEL = "zai.glm-4.7"
 CLAUDE_MODEL = "anthropic.claude-sonnet-5"
 ANTHROPIC_VERSION = "2026-10-21"
 
-JUDGE_MAX_CALLS = 3000
-CLAUDE_MAX_TOKENS = 250_000
+# Cumulative budgets over all runs, as counted in cache/ledger.jsonl. Round 1: 3,000 judge calls and
+# 250,000 Claude tokens (used 1,602 and 243,087). Round 2: at most 900 calls and 70,000 tokens more.
+JUDGE_MAX_CALLS = 1_602 + 900
+CLAUDE_MAX_TOKENS = 243_087 + 70_000
 TOP_LOGPROBS = 20  # as backend/src/scoring.py
 MIN_MASS = 0.5  # as backend/src/scoring.py: below this the judge mostly answered something else
 

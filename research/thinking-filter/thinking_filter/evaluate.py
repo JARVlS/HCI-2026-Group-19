@@ -16,7 +16,7 @@ from collections import Counter, defaultdict
 import numpy as np
 
 from . import design, frontend, linter_set, nb
-from .cv import training_set
+from .cv import featurize, training_set
 from .files import HABIT, LABELS, OUT, RESULTS, SONNET, SYNTHETIC, WEIGHTS, read_jsonl, write_json
 
 C = frontend.constants()
@@ -58,9 +58,11 @@ def r(x: float, d: int = 3) -> float:
     return round(float(x), d)
 
 
-def untempered(m: nb.Model) -> nb.Model:
-    """The same counts with alpha 1 (no tempering): the alternative weighed in the report."""
-    return nb.Model(alpha=1.0, beta=m.beta, prior=m.prior, counts=m.counts, totals=m.totals)
+def calibrated(m: nb.Model) -> nb.Model:
+    """The same counts with the Brier-optimal ("calibrated") alpha and beta of selection.json: the
+    alternative weighed in the report."""
+    c = json.loads((OUT / "selection.json").read_text())["calibrated"]
+    return nb.Model(alpha=c["alpha"], beta=c["beta"], prior=m.prior, counts=m.counts, totals=m.totals)
 
 
 def label_flips(labels_per_word: list[str]) -> int:
@@ -184,11 +186,19 @@ def shipped_params() -> dict:
 
 
 def feats_of(it: dict, text: str | None = None) -> list[str]:
-    return nb.features(it["text"] if text is None else text, nb.tutor_asked(it["tutor"]))
+    """Features of an item's text (or of a draft of it). The word rules' results are memoised: callers
+    prefetch them for many texts at once with frontend.word_rules()."""
+    return featurize([(it["text"] if text is None else text, nb.tutor_asked(it["tutor"]))])[0]
+
+
+def prefetch_prefixes(texts: list[str]) -> None:
+    """Run the word rules once on every word-end prefix of these texts."""
+    frontend.word_rules([t[:e] for t in texts for e in design.chunk_ends(t)])
 
 
 def fold_models(items: list[dict], q: np.ndarray, p: dict) -> tuple[list[int], list[nb.Model]]:
     fold = design.folds(items)
+    frontend.word_rules([it["text"] for it in items])
     fl = [feats_of(it) for it in items]
     models = []
     for k in range(design.FOLDS):
@@ -230,6 +240,9 @@ def filter_eval(items, q, fold, models) -> tuple[dict, dict]:
         "by_kind": per_group(lambda it: it["kind"]),
         "by_reply": per_group(lambda it: "reply" if it["tutor"] else "first message"),
         "by_hard": per_group(lambda it: "hard kind" if it["hard"] else "other kind"),
+        "by_lang": per_group(lambda it: it.get("lang", "en")),
+        "by_round": per_group(lambda it: f"round {it.get('round', 1)}"),
+        "combined": combinations(pct, est, rules),
         "certainty": {"mean": r(certs.mean()), "tertiles": [r(t) for t in tert],
                       "mae_low_mid_high": [r(errs[certs <= tert[0]].mean()), r(errs[(certs > tert[0]) & (certs <= tert[1])].mean()), r(errs[certs > tert[1]].mean())]},
         "worst": [{"id": items[i]["id"], "kind": items[i]["kind"], "text": items[i]["text"], "judge": r(pct[i]), "filter": r(est[i]), "rules": r(rule_share[i])} for i in worst],
@@ -242,8 +255,29 @@ def filter_eval(items, q, fold, models) -> tuple[dict, dict]:
     return out, {"est": est, "pct": pct}
 
 
+def combinations(judge_pct: list[float], est: list[float], rules: list[dict], labels: list[str] | None = None) -> dict:
+    """Two simple ways to use filter and rules together, as reference points: the mean of the two
+    estimates, and the rules' label when the linter is at least 70 % sure, else the filter's."""
+    mean = [(e + x["share"]) / 2 for e, x in zip(est, rules)]
+    switch_est = [x["share"] if x["confidence"] >= nb.RULE_SURE else e for e, x in zip(est, rules)]
+    switch_lab = [x["mode"] if x["confidence"] >= nb.RULE_SURE else lab(e) for e, x in zip(est, rules)]
+    sure = float(np.mean([x["confidence"] >= nb.RULE_SURE for x in rules]))
+    if labels is not None:  # a set with its own labels (Leon's): label agreement only
+        return {"mean": [lab(m) for m in mean], "switch": switch_lab, "share_rules_sure": r(sure)}
+    out = {"mean of filter and draftShare": label_stats(judge_pct, mean),
+           "rules if linter >= 0.7 sure, else filter": label_stats(judge_pct, pred_labels=switch_lab) | {"mae": float(np.mean(np.abs(np.array(switch_est) - np.array(judge_pct))))},
+           "share_rules_sure": r(sure)}
+    for v in out.values():
+        if isinstance(v, dict):
+            for k in ("mae", "rmse", "agree", "kappa"):
+                if k in v:
+                    v[k] = r(v[k])
+    return out
+
+
 def word_by_word(items, fold, models) -> dict:
     sample = design.word_by_word_sample(items)
+    prefetch_prefixes([items[i]["text"] for i in sample])
     settle, frac, n_words, gap3, gap23, cert_at = [], [], [], [], [], defaultdict(list)
     examples, labs, labs1, steps, steps1 = [], [], [], [], []
     for i in sample:
@@ -252,7 +286,7 @@ def word_by_word(items, fold, models) -> dict:
         m = models[fold[i]]
         bels = [nb.belief(feats_of(it, it["text"][:e]), m) for e in ends]
         ests = [nb.estimate(b) for b in bels]
-        ests1 = [nb.estimate(nb.belief(feats_of(it, it["text"][:e]), untempered(m))) for e in ends]
+        ests1 = [nb.estimate(nb.belief(feats_of(it, it["text"][:e]), calibrated(m))) for e in ends]
         labs.append([lab(x) for x in ests])
         labs1.append([lab(x) for x in ests1])
         steps += [abs(a - b) for a, b in zip(ests, ests[1:])]
@@ -280,8 +314,8 @@ def word_by_word(items, fold, models) -> dict:
         "settle_fraction_median": r(np.median(frac)),
         "abs_gap_to_final_at_1/3": r(np.mean(gap3)), "abs_gap_to_final_at_2/3": r(np.mean(gap23)),
         "certainty_mean": {k: r(np.mean(v)) for k, v in cert_at.items()},
-        "mean_abs_step_per_word": {"filter": r(np.mean(steps)), "filter alpha 1": r(np.mean(steps1))},
-        "label_flips": {"filter": flip_stats(labs), "filter alpha 1": flip_stats(labs1),
+        "mean_abs_step_per_word": {"filter": r(np.mean(steps)), "filter calibrated": r(np.mean(steps1))},
+        "label_flips": {"filter": flip_stats(labs), "filter calibrated": flip_stats(labs1),
                         "rules": flip_stats(rules_per_word([items[i]["text"] for i in sample]))},
         "examples": examples,
     }
@@ -289,6 +323,7 @@ def word_by_word(items, fold, models) -> dict:
 
 def prefixes_check(items, labels, fold, models) -> dict:
     sample = design.prefix_sample(items)
+    frontend.word_rules([t for i in sample for t in (*design.prefixes(items[i]["text"]).values(), items[i]["text"])])
     rows = []
     for i in sample:
         it = items[i]
@@ -366,7 +401,8 @@ def habit() -> dict:
     """A student with one unusual style: how fast does the filter (fit on all synthetic items) adapt?"""
     rows = read_jsonl(HABIT)
     labels = {x["id"]: x for x in read_jsonl(LABELS) if x["prefix"] is None and x["cond"] == "without"}
-    seq_all = [(nb.features(h["text"], False), labels[h["id"]]["probs"]) for h in rows if "probs" in labels[h["id"]]]
+    kept = [h for h in rows if "probs" in labels[h["id"]]]
+    seq_all = list(zip(featurize([(h["text"], False) for h in kept]), [labels[h["id"]]["probs"] for h in kept]))
     base = nb.load(WEIGHTS)
     pct = [sum(a * b for a, b in zip(d, nb.LEVEL_WEIGHTS)) for _, d in seq_all]
     curves = {w: [] for w in [0] + WEIGHTS_ONLINE}
@@ -401,22 +437,45 @@ def habit() -> dict:
 LEON_BAYES = {"n": 136, "accuracy": 0.57, "kappa": 0.35, "weighted_kappa": 0.41, "source": "frontend/eval/results/linter-2026-11-17.md (058f289)"}
 
 
+def leak_sensitivity(cases: list[dict]) -> dict:
+    """Refit without the synthetic items that share most content words with one of Leon's prompts
+    (common textbook topics, not copies; none is equal), then score his set again."""
+    items, q = training_set()
+    near = linter_set.near_matches([it["text"] for it in items], [c["text"] for c in cases])
+    keep = [i for i in range(len(items)) if i not in near]
+    p = shipped_params()
+    fl = featurize([(items[i]["text"], nb.tutor_asked(items[i]["tutor"])) for i in keep])
+    m = nb.rounded(nb.fit(fl, [list(q[i]) for i in keep], p["alpha"], p["beta"], p["min_docs"], p["top_k"]))
+    pred = [lab(nb.estimate(nb.belief(f, m))) for f in featurize([(c["text"], False) for c in cases])]
+    s = linter_set.summary([c["label"] for c in cases], pred, [c["tags"] for c in cases])
+    return {"near_items_dropped": len(near), "examples": [items[i]["text"][:80] for i in sorted(near)[:5]],
+            "accuracy": s["accuracy"], "kappa": s["kappa"], "weighted_kappa": s["weighted_kappa"]}
+
+
 def linter_set_check(labels: dict) -> dict:
     """Leon's 136 prompts with his three draft labels: the word rules, his naive Bayes (quoted), this
     filter (trained on the synthetic set only) and the judge, in one table."""
     cases = linter_set.load()
     gold, tags, texts = [c["label"] for c in cases], [c["tags"] for c in cases], [c["text"] for c in cases]
     m = nb.load(WEIGHTS)
-    est = [nb.estimate(nb.belief(nb.features(t, False), m)) for t in texts]
-    est1 = [nb.estimate(nb.belief(nb.features(t, False), untempered(m))) for t in texts]
+    feats = featurize([(t, False) for t in texts])
+    est = [nb.estimate(nb.belief(f, m)) for f in feats]
+    est1 = [nb.estimate(nb.belief(f, calibrated(m))) for f in feats]
     judge = [labels[(c["id"], "without", None)]["percent"] for c in cases]
-    rules = [x["mode"] for x in frontend.word_rules(texts)]
-    preds = {"rules": rules, "filter": [lab(e) for e in est], "filter alpha 1": [lab(e) for e in est1], "judge": [lab(p) for p in judge]}
-    filt_words = [[lab(nb.estimate(nb.belief(nb.features(t[:e], False), m))) for e in design.chunk_ends(t)] for t in texts]
+    rule_out = frontend.word_rules(texts)
+    rules = [x["mode"] for x in rule_out]
+    combos = combinations([], est, rule_out, labels=gold)
+    preds = {"rules": rules, "filter": [lab(e) for e in est], "filter calibrated": [lab(e) for e in est1],
+             "mean of filter and draftShare": combos["mean"], "rules if linter >= 0.7 sure, else filter": combos["switch"],
+             "judge": [lab(p) for p in judge]}
+    prefetch_prefixes(texts)
+    filt_words = [[lab(nb.estimate(nb.belief(feats_of({"text": t, "tutor": None}, t[:e]), m))) for e in design.chunk_ends(t)] for t in texts]
     return {
         "labels": "Claude's draft labels, not yet rated by the team",
         "judges": {k: linter_set.summary(gold, v, tags) for k, v in preds.items()} | {"naive Bayes (Leon, leave-one-out)": LEON_BAYES},
         "typing_flips": {"rules": flip_stats(rules_per_word(texts)), "filter": flip_stats(filt_words)},
+        "share_rules_sure": combos["share_rules_sure"],
+        "leak_sensitivity": leak_sensitivity(cases),
         "filter_vs_judge_percent_mae": r(np.mean(np.abs(np.array(est) - np.array(judge)))),
         "cases": [{"id": c["id"], "text": c["text"], "label": c["label"], "tags": c["tags"], "rules": rules[i],
                    "filter": r(est[i]), "judge": r(judge[i])} for i, c in enumerate(cases)],

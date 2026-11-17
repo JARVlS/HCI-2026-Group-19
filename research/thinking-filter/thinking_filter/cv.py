@@ -13,18 +13,27 @@ from dataclasses import asdict, replace
 
 import numpy as np
 
-from . import design, nb
+from . import design, frontend, linter_set, nb
 from .files import LABELS, OUT, SYNTHETIC, WEIGHTS, read_jsonl, write_json
 
 ALPHAS = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.7, 1.0]
 BETAS = [0.03, 0.1, 0.3, 1.0, 2.0]
 GROUPS = ["bigrams", "start", "qmark", "length", "context"]
+# Round 2: the word rules as evidence. Kept only if they help both in cross-validation and on Leon's
+# 136 prompts (which makes that set partly a development set for this one decision).
+RULE_VARIANTS = {"rules: label": {"rule_label": True}, "rules: label + reasons": {"rule_label": True, "rule_reasons": True},
+                 "rules: label + sure + reasons": {"rule_label": True, "rule_sure": True, "rule_reasons": True}}
 MAX_BYTES = 150_000
 # The objective is the Brier score of the belief against the judge's distribution (sum over the five
 # levels of the squared difference, mean over items). Like cross-entropy it is a proper scoring rule,
 # so it calibrates the belief (and alpha), but a few confident mistakes do not dominate it; cross-
 # entropy alone picks alpha 0.2 and drops the word pairs at a clear cost in error and label agreement
-# (see out/report.md).
+# (see out/report.md). That objective picks the features and the vocabulary.
+# Round 2: the shipped alpha and beta serve the instant tier, whose output is the label. They are the
+# best by cross-validated label agreement with the judge, and among settings within LABEL_TOLERANCE of
+# that the one with the lowest Brier score (the least overconfident). alpha stays at most 1 (plain
+# naive Bayes, no sharpening). The Brier-optimal ("calibrated") setting is kept in selection.json.
+LABEL_TOLERANCE = 0.005
 
 
 def training_set() -> tuple[list[dict], np.ndarray]:
@@ -40,6 +49,20 @@ def training_set() -> tuple[list[dict], np.ndarray]:
             kept.append(it)
             q.append(lab["probs"])
     return kept, np.array(q)
+
+
+def featurize(drafts: list[tuple[str, bool]], spec: nb.Spec = nb.SHIPPED) -> list[list[str]]:
+    """Features of many drafts (text, tutor asked). The word rules run once for all of them when the
+    spec uses rule features (in the browser they run anyway)."""
+    if spec.rule_label or spec.rule_sure or spec.rule_reasons:
+        linters = frontend.word_rules([t for t, _ in drafts])
+    else:
+        linters = [None] * len(drafts)
+    return [nb.features(t, a, lin, spec) for (t, a), lin in zip(drafts, linters)]
+
+
+def item_features(items: list[dict], spec: nb.Spec = nb.SHIPPED) -> list[list[str]]:
+    return featurize([(it["text"], nb.tutor_asked(it["tutor"])) for it in items], spec)
 
 
 class Encoded:
@@ -96,7 +119,7 @@ def fold_beliefs(enc: Encoded, test: np.ndarray, counts, keep, prior, alpha: flo
 def cv_grid(items: list[dict], q: np.ndarray, spec: nb.Spec, min_docs: int = 1, top_k: int | None = None,
             alphas=ALPHAS, betas=BETAS) -> dict:
     """Out-of-fold beliefs for every alpha x beta; returns the best by Brier score, with the other measures."""
-    enc = Encoded([nb.features(it["text"], nb.tutor_asked(it["tutor"]), spec) for it in items])
+    enc = Encoded(item_features(items, spec))
     fold = np.array(design.folds(items))
     w = np.array(nb.LEVEL_WEIGHTS)
     pct = q @ w
@@ -131,10 +154,21 @@ def measures(bel: np.ndarray, q: np.ndarray, pct: np.ndarray, w: np.ndarray) -> 
     }
 
 
-def size_of(items, q, spec, min_docs, top_k, alpha, beta) -> tuple[int, int]:
-    m = nb.rounded(nb.fit([nb.features(it["text"], nb.tutor_asked(it["tutor"]), spec) for it in items], q.tolist(),
-                          alpha, beta, min_docs, top_k))
-    return len(json.dumps(nb.to_json(m, "size-probe"), ensure_ascii=False, separators=(",", ":")).encode()), len(m.counts)
+def fit_all(items, q, spec, min_docs, top_k, alpha, beta) -> nb.Model:
+    return nb.rounded(nb.fit(item_features(items, spec), q.tolist(), alpha, beta, min_docs, top_k))
+
+
+def size_of(m: nb.Model) -> int:
+    return len(json.dumps(nb.to_json(m, "size-probe"), ensure_ascii=False, separators=(",", ":")).encode())
+
+
+def on_linter_set(m: nb.Model, spec: nb.Spec) -> dict:
+    """Accuracy and kappa on Leon's 136 prompts (first messages, so no tutor question)."""
+    cases = linter_set.load()
+    feats = featurize([(c["text"], False) for c in cases], spec)
+    pred = ["own" if e >= 0.67 else "ai" if e <= 0.2 else "together" for e in (nb.estimate(nb.belief(f, m)) for f in feats)]
+    s = linter_set.summary([c["label"] for c in cases], pred, [c["tags"] for c in cases])
+    return {"accuracy": s["accuracy"], "kappa": s["kappa"], "weighted_kappa": s["weighted_kappa"]}
 
 
 SHOWN = ("brier", "ce", "mae", "rmse", "label_agree", "top_p", "top_hit", "alpha", "beta")
@@ -150,46 +184,79 @@ def main() -> None:
     print(f"training items: {len(items)} (label condition for replies: {design.TRAIN_CONDITION})", file=sys.stderr)
     entropy = float(-(q * np.log(np.clip(q, 1e-300, None))).sum(1).mean())
 
-    # 1+2. Feature groups and vocabulary cap together (which groups help depends on the pruning:
-    # word pairs seen once are noise, word pairs seen twice or more help). Specs: all, all but one
-    # group, unigrams only; caps: minimum document count x the most informative features.
+    # 1+2. Feature groups, rule features and vocabulary cap together (which groups help depends on the
+    # pruning: word pairs seen once are noise). Caps: minimum document count x most informative features.
     full = nb.Spec()
-    specs = {"all": full, **{f"all but {g}": replace(full, **{g: False}) for g in GROUPS}, "unigrams only": nb.Spec(False, False, False, False, False)}
+    specs = {"all": full, **{f"all but {g}": replace(full, **{g: False}) for g in GROUPS},
+             "unigrams only": nb.Spec(False, False, False, False, False),
+             **{name: replace(full, **flags) for name, flags in RULE_VARIANTS.items()}}
     rows = []
     for name, spec in specs.items():
-        for min_docs, top_k in itertools.product([1, 2, 3], [None, 3000, 2000, 1500, 1000, 600, 300]):
+        for min_docs, top_k in itertools.product([2, 3, 4], [None, 3000, 2000, 1000]):
             r = cv_grid(items, q, spec, min_docs, top_k)
             if top_k is not None and max(r["vocab_per_fold"]) < top_k:
                 continue  # the cap does not bite: same as top_k None
-            size, v = size_of(items, q, spec, min_docs, top_k, r["alpha"], r["beta"])
-            rows.append({"features": name, "min_docs": min_docs, "top_k": top_k, **{k: r[k] for k in SHOWN}, "bytes": size, "vocab": v})
-            print(f"  {name:16s} min_docs {min_docs} top_k {top_k!s:5s} vocab {v:5d} {size / 1000:6.1f} KB  {brief(r)}", file=sys.stderr)
-    pick = min((r for r in rows if r["bytes"] <= MAX_BYTES), key=lambda r: r["brier"])
+            m = fit_all(items, q, spec, min_docs, top_k, r["alpha"], r["beta"])
+            rows.append({"features": name, "min_docs": min_docs, "top_k": top_k, **{k: r[k] for k in SHOWN}, "bytes": size_of(m), "vocab": len(m.counts)})
+            print(f"  {name:30s} min_docs {min_docs} top_k {top_k!s:5s} vocab {len(m.counts):5d} {rows[-1]['bytes'] / 1000:6.1f} KB  {brief(r)}", file=sys.stderr)
+    fitting = [r for r in rows if r["bytes"] <= MAX_BYTES]
+    best_of = {name: min((r for r in fitting if r["features"] == name), key=lambda r: r["brier"]) for name in specs}
+    # Rule features must help on both: in cross-validation (Brier and labels) and on Leon's set (kappa).
+    for name in ["all", *RULE_VARIANTS]:
+        b = best_of[name]
+        b["linter_set"] = on_linter_set(fit_all(items, q, specs[name], b["min_docs"], b["top_k"], b["alpha"], b["beta"]), specs[name])
+        print(f"  best {name:30s} {brief(b)}  Leon's set: {b['linter_set']}", file=sys.stderr)
+    base = best_of["all"]
+    helping = [n for n in RULE_VARIANTS if best_of[n]["brier"] < base["brier"] and best_of[n]["label_agree"] >= base["label_agree"]
+               and best_of[n]["linter_set"]["kappa"] >= base["linter_set"]["kappa"]]
+    candidates = [r for r in fitting if r["features"] not in RULE_VARIANTS or r["features"] in helping]
+    pick = min(candidates, key=lambda r: r["brier"])
     spec = specs[pick["features"]]
+    print(f"  rule variants that help on both: {helping or 'none'}", file=sys.stderr)
     print(f"  picked {pick['features']}, min_docs {pick['min_docs']}, top_k {pick['top_k']}: vocab {pick['vocab']}, {pick['bytes'] / 1000:.1f} KB", file=sys.stderr)
 
     # 3. Final alpha and beta on a finer grid; alpha 1 (no tempering) kept for comparison.
-    fine = cv_grid(items, q, spec, pick["min_docs"], pick["top_k"],
-                   alphas=[round(x, 3) for x in np.arange(0.1, 1.001, 0.05)], betas=[0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0])
+    fine, instant = tune(items, q, spec, pick["min_docs"], pick["top_k"])
     untempered = min((g for g in fine["grid"] if g["alpha"] == 1.0), key=lambda g: g["brier"])
     by_ce = min(fine["grid"], key=lambda g: g["ce"])
-    print(f"  final:      {brief(fine)}", file=sys.stderr)
-    print(f"  alpha 1:    {brief(untempered)}", file=sys.stderr)
-    print(f"  best by ce: {brief(by_ce)}", file=sys.stderr)
+    # The same tuning without the rule features: does the shipped filter need them?
+    b = best_of["all"]
+    _, plain = tune(items, q, specs["all"], b["min_docs"], b["top_k"])
+    plain = {k: plain[k] for k in SHOWN} | {"linter_set": on_linter_set(fit_all(items, q, specs["all"], b["min_docs"], b["top_k"], plain["alpha"], plain["beta"]), specs["all"])}
+    print(f"  calibrated (best Brier): {brief(fine)}", file=sys.stderr)
+    print(f"  without rule features, tuned for labels: {brief(plain)}  Leon's set: {plain['linter_set']}", file=sys.stderr)
+    print(f"  shipped (labels):        {brief(instant)}", file=sys.stderr)
+    print(f"  alpha 1:                 {brief(untempered)}", file=sys.stderr)
+    print(f"  best by ce:              {brief(by_ce)}", file=sys.stderr)
 
-    model = nb.rounded(nb.fit([nb.features(it["text"], nb.tutor_asked(it["tutor"]), spec) for it in items], q.tolist(),
-                              fine["alpha"], fine["beta"], pick["min_docs"], pick["top_k"]))
     if asdict(spec) != asdict(nb.SHIPPED):
         raise SystemExit(f"nb.SHIPPED must be set to the chosen feature groups {asdict(spec)} before writing the weights")
-    nb.save(model, WEIGHTS, version="2026-11-17")
+    model = fit_all(items, q, spec, pick["min_docs"], pick["top_k"], instant["alpha"], instant["beta"])
+    shipped_leon = on_linter_set(model, spec)
+    print(f"  shipped on Leon's set: {shipped_leon}", file=sys.stderr)
+    nb.save(model, WEIGHTS, version=VERSION)
     print(f"wrote {WEIGHTS}: vocab {len(model.counts)}, {WEIGHTS.stat().st_size / 1000:.1f} KB", file=sys.stderr)
 
     write_json(OUT / "selection.json", {
         "items": len(items), "label_entropy": entropy, "train_condition": design.TRAIN_CONDITION, "objective": "brier",
-        "search": rows, "picked": pick, "chosen_spec": asdict(spec),
-        "final": {k: fine[k] for k in (*SHOWN, "min_docs", "top_k", "vocab_per_fold")},
-        "alpha_1": {k: untempered[k] for k in SHOWN}, "best_by_ce": {k: by_ce[k] for k in SHOWN},
+        "search": rows, "best_per_features": best_of, "rule_variants_helping_on_both": helping,
+        "picked": pick, "chosen_spec": asdict(spec),
+        "final": {k: instant[k] for k in SHOWN} | {k: fine[k] for k in ("min_docs", "top_k", "vocab_per_fold")} | {"linter_set": shipped_leon},
+        "without_rule_features": plain,
+        "calibrated": {k: fine[k] for k in SHOWN}, "alpha_1": {k: untempered[k] for k in SHOWN}, "best_by_ce": {k: by_ce[k] for k in SHOWN},
     })
+
+
+def tune(items, q, spec, min_docs, top_k) -> tuple[dict, dict]:
+    """(the Brier-optimal grid result, the setting shipped for the instant tier: best label agreement,
+    and within LABEL_TOLERANCE of it the lowest Brier)."""
+    fine = cv_grid(items, q, spec, min_docs, top_k, alphas=[round(x, 3) for x in np.arange(0.1, 1.001, 0.05)],
+                   betas=[0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0])
+    top_labels = max(g["label_agree"] for g in fine["grid"])
+    return fine, min((g for g in fine["grid"] if g["label_agree"] >= top_labels - LABEL_TOLERANCE), key=lambda g: g["brier"])
+
+
+VERSION = "2026-11-17.2"
 
 
 if __name__ == "__main__":

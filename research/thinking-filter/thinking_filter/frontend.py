@@ -26,9 +26,16 @@ def score_prompts(inputs: list[dict]) -> list[dict]:
     return _run({"op": "score_prompt", "inputs": inputs})
 
 
+_rules_memo: dict[str, dict] = {}
+
+
 def word_rules(texts: list[str]) -> list[dict]:
-    """[{mode, confidence, share}] from the frontend's classify() and draftShare()."""
-    return _run({"op": "rules", "texts": texts})
+    """[{mode, confidence, reasons, share}] from the frontend's classify() and draftShare(), one bridge
+    call for all texts not seen before in this process."""
+    new = list(dict.fromkeys(t for t in texts if t not in _rules_memo))
+    if new:
+        _rules_memo.update(zip(new, _run({"op": "rules", "texts": new})))
+    return [_rules_memo[t] for t in texts]
 
 
 def constants() -> dict:

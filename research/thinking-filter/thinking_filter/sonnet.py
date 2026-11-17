@@ -14,7 +14,7 @@ SCHEMA = {"type": "object", "properties": {"rating": {"type": "integer"}}, "requ
 
 
 def sample(items: list[dict]) -> list[int]:
-    return design.stratified_sample(items, SAMPLE, seed=5)
+    return design.stratified_sample(items, SAMPLE, seed=5, eligible=lambda i: design.round1(items[i]))
 
 
 def main() -> None:
