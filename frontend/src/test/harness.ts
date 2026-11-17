@@ -1,18 +1,26 @@
 import { demoFixture } from '../ai/scripted/fixture';
 import { ScriptedProvider } from '../ai/scripted/provider';
 import type { Provider } from '../ai/provider';
+import { newConversation } from '../lib/chats';
 import { classify } from '../lib/classify';
 import { treeOfConcept, treesOfConversation } from '../lib/links';
 import { projectForest } from '../lib/project';
 import { activeMessages, reducer, type Action, type State } from '../lib/state';
 import { isQuizAnswer, sendTurn, type TurnDeps } from '../lib/turn';
 
-/** A store without React: the reducer plus a synchronous getState, as `turn.ts` expects. */
+/**
+ * A store without React: the reducer plus a synchronous getState, as `turn.ts` expects.
+ * Default: the scripted demo world. `fresh`: what a first live visit starts with, one new empty chat.
+ */
 export function testStore(opts: { empty?: boolean; fresh?: boolean; provider?: Provider; now?: number } = {}) {
-  const f = demoFixture({ empty: opts.empty, fresh: opts.fresh, now: opts.now ?? Date.parse('2026-11-07T12:00:00Z') });
+  const now = opts.now ?? Date.parse('2026-11-07T12:00:00Z');
+  const chat = newConversation('chat-1', new Date(now).toISOString());
+  const f = opts.fresh
+    ? { conversations: { [chat.id]: chat }, messagesByConv: { [chat.id]: [] }, concepts: {}, edges: [], trees: [], attempts: [], activeConversationId: chat.id, demoPrompts: [] }
+    : demoFixture({ empty: opts.empty, now });
   let state: State = {
     domain: { conversations: f.conversations, messagesByConv: f.messagesByConv, concepts: f.concepts, edges: f.edges, trees: f.trees, attempts: f.attempts },
-    session: { activeConversationId: f.activeConversationId, pendingQuiz: null, turn: { status: 'idle' }, demoPrompts: f.demoPrompts },
+    session: { activeConversationId: f.activeConversationId, pendingQuiz: null, turn: { status: 'idle' }, demoPrompts: f.demoPrompts, boot: 'ready', chatLoad: {} },
     ui: {
       panelOpen: true,
       forest: { open: false, focus: null },
@@ -23,6 +31,7 @@ export function testStore(opts: { empty?: boolean; fresh?: boolean; provider?: P
       onboarding: false,
       toast: null,
       paneTreeId: null,
+      chats: false,
     },
     settings: { enabled: true, nudge: 'active', showTags: true, theme: 'system', mascot: true, design: 'ascii', provider: 'scripted' },
   };

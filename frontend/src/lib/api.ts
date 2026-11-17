@@ -26,6 +26,10 @@ export interface CallOptions {
   /** Sent as `Authorization: Bearer <token>`. */
   token?: string;
   signal?: AbortSignal;
+  /** Default: GET without a body, POST with one. */
+  method?: 'PUT';
+  /** Let the request finish after the page is gone (`PUT /api/sync` on pagehide; bodies up to 64 KB). */
+  keepalive?: boolean;
 }
 
 const reason = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -35,8 +39,8 @@ async function errorOf(res: Response): Promise<ApiError> {
   return new ApiError(res.status, body?.error?.code ?? 'http_error', body?.error?.message ?? `HTTP ${res.status}`);
 }
 
-/** GET without a body, POST with one. Resolves only for a 2xx answer. An abort rejects with the AbortError. */
-async function request(path: string, body: unknown, { token, signal }: CallOptions): Promise<Response> {
+/** GET without a body, POST (or `method`) with one. Resolves only for a 2xx answer. An abort rejects with the AbortError. */
+async function request(path: string, body: unknown, { token, signal, method, keepalive }: CallOptions): Promise<Response> {
   const base = apiUrl();
   if (!base) throw new ApiError(0, 'no_backend', 'This build has no backend URL (VITE_API_URL is empty).');
   const headers: Record<string, string> = {};
@@ -45,10 +49,11 @@ async function request(path: string, body: unknown, { token, signal }: CallOptio
   let res: Response;
   try {
     res = await fetch(`${base}${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: method ?? (body === undefined ? 'GET' : 'POST'),
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
+      keepalive: keepalive || undefined,
     });
   } catch (e) {
     if (signal?.aborted) throw e;

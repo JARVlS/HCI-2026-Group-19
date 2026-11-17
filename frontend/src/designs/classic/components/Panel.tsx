@@ -388,8 +388,8 @@ const NUDGE_OPTS: { v: NudgeLevel; label: string; desc: string }[] = [
   { v: 'active', label: 'Active', desc: 'Before you delegate, Arbor offers to add your own take first.' },
 ];
 const PROVIDER_OPTS: { v: ProviderChoice; label: string; desc: string }[] = [
-  { v: 'scripted', label: 'Scripted', desc: 'The demo script: offline, the same answers for everyone.' },
-  { v: 'arbor', label: 'Live', desc: 'Claude through the Arbor backend. Uses the group’s token budget; new chats start empty.' },
+  { v: 'scripted', label: 'Scripted', desc: 'The demo script: offline, the same answers for everyone, nothing saved.' },
+  { v: 'arbor', label: 'Live', desc: 'Claude through the Arbor backend. Your chats are saved and come back; uses the group’s token budget.' },
 ];
 const DESIGN_OPTS: { v: Design; label: string }[] = [
   { v: 'classic', label: 'Classic' },
@@ -402,7 +402,7 @@ const THEME_OPTS: { v: Theme; label: string }[] = [
 ];
 
 function SettingsMenu({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
-  const { state, dispatch, toast } = useStore();
+  const { state, dispatch, toast, mode } = useStore();
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(ref, open, () => setOpen(false));
   const s = state.settings;
@@ -425,7 +425,7 @@ function SettingsMenu({ open, setOpen }: { open: boolean; setOpen: (o: boolean) 
           </div>
           <p className="pop-desc">
             {PROVIDER_OPTS.find((o) => o.v === s.provider)?.desc}
-            {s.provider === 'arbor' && !apiUrl() && ' This build has no backend URL (VITE_API_URL), so live answers fail.'} Applies from your next message.
+            {s.provider === 'arbor' && !apiUrl() && ' This build has no backend URL (VITE_API_URL), so live answers fail.'}
           </p>
 
           <p className="pop-sub">Nudges</p>
@@ -484,28 +484,32 @@ function SettingsMenu({ open, setOpen }: { open: boolean; setOpen: (o: boolean) 
           >
             <Info size={14} /> Replay introduction
           </button>
-          <div className="pop-sep" />
-          <p className="pop-sub">Demo</p>
-          <button
-            className="menu-item"
-            onClick={() => {
-              dispatch({ type: 'reset', empty: false });
-              setOpen(false);
-              toast('Demo reset to the starting conversation.');
-            }}
-          >
-            <RotateCcw size={14} /> Reset conversation
-          </button>
-          <button
-            className="menu-item"
-            onClick={() => {
-              dispatch({ type: 'reset', empty: true });
-              setOpen(false);
-              toast('Started from an empty chat — watch the tree grow from a seed.');
-            }}
-          >
-            <RotateCcw size={14} /> Start from an empty chat
-          </button>
+          {mode === 'demo' && (
+            <>
+              <div className="pop-sep" />
+              <p className="pop-sub">Demo</p>
+              <button
+                className="menu-item"
+                onClick={() => {
+                  dispatch({ type: 'reset', empty: false });
+                  setOpen(false);
+                  toast('Demo reset to the starting conversation.');
+                }}
+              >
+                <RotateCcw size={14} /> Reset conversation
+              </button>
+              <button
+                className="menu-item"
+                onClick={() => {
+                  dispatch({ type: 'reset', empty: true });
+                  setOpen(false);
+                  toast('Started from an empty chat — watch the tree grow from a seed.');
+                }}
+              >
+                <RotateCcw size={14} /> Start from an empty chat
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

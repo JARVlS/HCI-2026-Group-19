@@ -26,6 +26,9 @@ interface Ui {
   setWhy: (id: string | null) => void;
   link: LinkSource;
   setLink: (l: LinkSource) => void;
+  /** Leaf whose messages are listed to pick from (leaf → message, in any chat). */
+  refs: string | null;
+  setRefs: (leafId: string | null) => void;
   /** Put text in the composer and focus it. */
   fill: (text: string) => void;
   focusPrompt: () => void;
@@ -40,6 +43,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [why, setWhy] = useState<string | null>(null);
   const [link, setLink] = useState<LinkSource>(null);
+  const [refs, setRefs] = useState<string | null>(null);
 
   const focusPrompt = useCallback(() => {
     requestAnimationFrame(() => {
@@ -52,8 +56,8 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const fill = useCallback((text: string) => dispatch({ type: 'draft', text }), [dispatch]);
 
   const value = useMemo(
-    () => ({ days, setDays, view, setView, sheet, setSheet, why, setWhy, link, setLink, fill, focusPrompt }),
-    [days, view, sheet, why, link, fill, focusPrompt],
+    () => ({ days, setDays, view, setView, sheet, setSheet, why, setWhy, link, setLink, refs, setRefs, fill, focusPrompt }),
+    [days, view, sheet, why, link, refs, fill, focusPrompt],
   );
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>;
 }

@@ -1,138 +1,27 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { chooseProvider, createProvider } from '../ai/providers';
-import { demoFixture, type DemoFixture } from '../ai/scripted/fixture';
 import type { Provider } from '../ai/provider';
-import { classify } from './classify';
-import type { Conversation, Id, Message } from './domain';
-import { treeOfConcept, treesOfConversation } from './links';
+import { createApp, save, SETTINGS_KEY, type StoreAction } from './app';
+import type { Conversation, Id, ISO, Message } from './domain';
+import { conversationsOfTree, treeOfConcept, treesOfConversation } from './links';
+import { remoteBackend } from './live';
 import { crossRoots, projectForest, type CrossRoots } from './project';
-import { activeConversation, activeMessages, isBusy, reducer, type Action, type DomainState, type State } from './state';
+import { session } from './session';
+import { activeConversation, activeMessages, isBusy, type State } from './state';
+import type { SyncStatus } from './sync';
 import { dayGroup, type DayGroup } from './time';
-import { isQuizAnswer, retryTurn, sendTurn } from './turn';
-import type { Classification, Grove, ProviderChoice, Settings, TreeData } from './types';
+import type { Classification, Grove, TreeData } from './types';
 
 export type { State } from './state';
-
-/** Everything a design may dispatch: the reducer's actions, plus `reset` (reloads the demo fixture). */
-export type StoreAction = Action | { type: 'reset'; empty: boolean };
-
-/* ───────────── Initial state ───────────── */
-
-const SETTINGS_KEY = 'arbor.settings.v1';
-const ONBOARD_KEY = 'arbor.onboarded.v1';
-/**
- * The provider is saved on its own and only when the user picks one, so a URL parameter is never
- * remembered and a later change of the build default reaches everyone who never picked.
- */
-const PROVIDER_KEY = 'arbor.provider.v1';
-
-function stored(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function save(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* storage unavailable: the setting stays in memory */
-  }
-}
-
-/** Saved settings, except `provider`, which `init` chooses. */
-function loadSettings(): Omit<Settings, 'provider'> {
-  const defaults = { enabled: true, nudge: 'active', showTags: true, theme: 'system', mascot: true, design: 'ascii' } as const;
-  try {
-    const raw = stored(SETTINGS_KEY);
-    const { provider: _, ...saved } = raw ? JSON.parse(raw) : {};
-    return { ...defaults, ...saved };
-  } catch {
-    return defaults;
-  }
-}
-
-const hasOnboarded = () => stored(ONBOARD_KEY) === '1';
-
-/**
- * URL parameters for demos and user tests, e.g.
- * `?design=ascii&intro=0&view=forest&theme=dark&empty=1&nudge=gentle&arbor=off&mascot=0&provider=arbor`.
- */
-function urlParams() {
-  try {
-    return new URLSearchParams(window.location.search);
-  } catch {
-    return new URLSearchParams();
-  }
-}
-
-const domainOf = (f: DemoFixture): DomainState => ({
-  conversations: f.conversations,
-  messagesByConv: f.messagesByConv,
-  concepts: f.concepts,
-  edges: f.edges,
-  trees: f.trees,
-  attempts: f.attempts,
-});
-
-/** The scripted demo starts with its conversation; a live provider with a new, empty chat next to the demo forest (M2 loads the user's own). */
-const startFixture = (provider: ProviderChoice, empty: boolean) => demoFixture(provider === 'scripted' ? { empty } : { fresh: true });
-
-function init(): State {
-  const p = urlParams();
-  const provider = chooseProvider({ url: p.get('provider'), saved: stored(PROVIDER_KEY), build: import.meta.env.VITE_DEFAULT_PROVIDER });
-  const settings: Settings = { ...loadSettings(), provider };
-  const theme = p.get('theme');
-  if (theme === 'light' || theme === 'dark' || theme === 'system') settings.theme = theme;
-  const nudge = p.get('nudge');
-  if (nudge === 'off' || nudge === 'gentle' || nudge === 'active') settings.nudge = nudge;
-  if (p.get('arbor') === 'off') settings.enabled = false;
-  if (p.get('arbor') === 'on') settings.enabled = true;
-  if (p.get('mascot') === '0') settings.mascot = false;
-  if (p.get('mascot') === '1') settings.mascot = true;
-  const design = p.get('design');
-  if (design === 'ascii' || design === 'classic') settings.design = design;
-  const fixture = startFixture(provider, p.get('empty') === '1');
-  return {
-    domain: domainOf(fixture),
-    session: { activeConversationId: fixture.activeConversationId, pendingQuiz: null, turn: { status: 'idle' }, demoPrompts: fixture.demoPrompts },
-    ui: {
-      panelOpen: p.get('panel') !== '0',
-      forest: { open: p.get('view') === 'forest', focus: p.get('tree') },
-      draft: { text: '', nonce: 0 },
-      highlight: [],
-      composer: { lens: null, nudge: false },
-      flash: null,
-      onboarding: p.get('intro') === '1' || (p.get('intro') !== '0' && !hasOnboarded()),
-      toast: null,
-      paneTreeId: null,
-    },
-    settings,
-  };
-}
-
-/** A synchronous store: `getState()` is current right after `dispatch`, which `turn.ts` relies on. */
-function createStore(initial: State) {
-  let state = initial;
-  const listeners = new Set<() => void>();
-  return {
-    getState: () => state,
-    dispatch(a: Action) {
-      const next = reducer(state, a);
-      if (next === state) return;
-      state = next;
-      listeners.forEach((l) => l());
-    },
-    subscribe(l: () => void) {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-  };
-}
+export type { StoreAction } from './app';
 
 /* ───────────── Derived data ───────────── */
+
+/** A tree a chat grew, as its crown: the scores of the leaves that chat touched. */
+export interface Crown {
+  treeId: Id;
+  title: string;
+  scores: number[];
+}
 
 export interface ChatListItem {
   id: Id;
@@ -140,7 +29,18 @@ export interface ChatListItem {
   updatedAt: string;
   /** The tree this chat grew most recently (for its glyph), if any. */
   treeId: Id | null;
+  /** Every tree this chat grew. */
+  crowns: Crown[];
   active: boolean;
+}
+
+/** A chat a tree was grown in. */
+export interface GrownIn {
+  id: Id;
+  title: string;
+  lastAt: ISO;
+  /** Scores of the leaves of the tree that this chat touched. */
+  scores: number[];
 }
 
 function groveRowsOf(groves: Grove[]): string[][] {
@@ -149,11 +49,31 @@ function groveRowsOf(groves: Grove[]): string[][] {
   return k ? [ids.slice(0, k), ids.slice(k)] : [ids];
 }
 
+function browserStorage() {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function urlParams() {
+  try {
+    return new URLSearchParams(window.location.search);
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
 /* ───────────── Context ───────────── */
 
 interface Ctx {
   state: State;
   dispatch: (a: StoreAction) => void;
+  /** demo: the scripted world, nothing saved · live: the user's own chats, saved (IMPLEMENTATION_PLAN.md M2). */
+  mode: 'demo' | 'live';
+  /** Live mode: what is not saved yet. */
+  sync: SyncStatus;
   /** The active chat and its messages. */
   conversation: Conversation;
   messages: Message[];
@@ -161,8 +81,10 @@ interface Ctx {
   busy: boolean;
   /** The tree the pane shows: the active chat's most recent tree (or the one picked in the pane). */
   activeTree: TreeData;
-  /** Every tree the active chat grew, most recent first. */
+  /** Every tree the active chat grew, most recent first (or its subject's latest tree, if it grew none yet). */
   activeTrees: TreeData[];
+  /** Only the trees the active chat really grew, most recent first. */
+  grownTrees: TreeData[];
   /** Every tree, for the forest. */
   forestTrees: TreeData[];
   /** Roots between trees (shared concepts, splits, chats), matched by concept id. */
@@ -171,6 +93,8 @@ interface Ctx {
   groveRows: string[][];
   /** All chats, most recent first, grouped like a chat app's sidebar. */
   chats: { label: DayGroup; items: ChatListItem[] }[];
+  /** The chats a tree was grown in, most recent first. */
+  grownIn: (treeId: Id) => GrownIn[];
   demoPrompts: string[];
   /** Can the assistant quiz the user on this concept? */
   canQuiz: (conceptId: Id) => boolean;
@@ -182,7 +106,17 @@ interface Ctx {
   retry: () => void;
   /** Classify with the current conversation context (e.g. a pending quiz). */
   classifyDraft: (text: string) => Classification;
+  /** Scroll to a message of the active chat and flash it. */
   jumpTo: (messageId: string) => void;
+  /** Open a chat (any chat) and, given a message, jump to it. */
+  openChat: (id: Id, messageId?: Id) => void;
+  newChat: () => void;
+  /** Rename the active chat. */
+  renameChat: (title: string) => void;
+  /** Load a chat's messages without opening it (live mode). */
+  loadChat: (id: Id) => void;
+  /** Try a failed load again. */
+  retryLoad: () => void;
   toast: (text: string) => void;
   finishOnboarding: () => void;
 }
@@ -190,80 +124,35 @@ interface Ctx {
 const StoreContext = createContext<Ctx | null>(null);
 
 export function StoreProvider({ children, provider: given }: { children: ReactNode; provider?: Provider }) {
-  const [store] = useState(() => createStore(init()));
+  const [app] = useState(() =>
+    createApp({
+      params: urlParams(),
+      storage: browserStorage(),
+      backend: remoteBackend(session),
+      build: import.meta.env.VITE_DEFAULT_PROVIDER,
+      provider: given,
+      page: typeof window === 'undefined' ? null : { win: window, doc: document },
+    }),
+  );
+  const { store } = app;
   const state = useSyncExternalStore(store.subscribe, store.getState);
-  // A turn keeps the provider it started with; a new choice in settings applies from the next turn.
-  const choice = state.settings.provider;
-  const provider = useMemo(() => given ?? createProvider(choice), [given, choice]);
-  const controller = useRef<AbortController | null>(null);
+  const sync = useSyncExternalStore(app.queue.subscribe, app.queue.status);
   const initialSettings = useRef(state.settings);
+
+  useEffect(() => app.start(), [app]);
 
   // Persist only changes the user makes (not URL-parameter overrides on load). The provider is saved in `dispatch`.
   useEffect(() => {
     if (state.settings === initialSettings.current) return;
     const { provider: _, ...rest } = state.settings;
-    save(SETTINGS_KEY, JSON.stringify(rest));
+    save(browserStorage(), SETTINGS_KEY, JSON.stringify(rest));
   }, [state.settings]);
 
-  useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => () => app.stop(), [app]);
 
-  const deps = useMemo(() => ({ provider, dispatch: store.dispatch, getState: store.getState }), [provider, store]);
-
-  const dispatch = useCallback(
-    (a: StoreAction) => {
-      if (a.type === 'settings' && a.patch.provider) save(PROVIDER_KEY, a.patch.provider);
-      if (a.type !== 'reset') return store.dispatch(a);
-      controller.current?.abort();
-      const f = startFixture(store.getState().settings.provider, a.empty);
-      store.dispatch({ type: 'hydrate', domain: domainOf(f), activeConversationId: f.activeConversationId, demoPrompts: f.demoPrompts });
-    },
-    [store],
-  );
-
-  const classifyDraft = useCallback(
-    (text: string) => {
-      const pq = store.getState().session.pendingQuiz;
-      return classify(text, { pendingQuiz: isQuizAnswer(provider, text, pq) ? pq : null });
-    },
-    [store, provider],
-  );
-
-  const run = useCallback(
-    (go: (signal: AbortSignal) => Promise<void>) => {
-      const c = new AbortController();
-      controller.current = c;
-      void go(c.signal).finally(() => {
-        if (controller.current === c) controller.current = null;
-      });
-    },
-    [],
-  );
-
-  const send = useCallback(
-    (text: string, cls?: Classification, opts?: { veil?: boolean }) => {
-      if (isBusy(store.getState().session.turn) || !text.trim()) return;
-      run((signal) => sendTurn(deps, { text, classification: cls ?? classifyDraft(text), veil: opts?.veil }, signal));
-    },
-    [store, deps, classifyDraft, run],
-  );
-
-  const stop = useCallback(() => controller.current?.abort(), []);
-  const retry = useCallback(() => {
-    if (store.getState().session.turn.status === 'error') run((signal) => retryTurn(deps, signal));
-  }, [store, deps, run]);
-
-  const jumpTo = useCallback((messageId: string) => {
-    store.dispatch({ type: 'forest', open: false });
-    store.dispatch({ type: 'flash', id: messageId });
-  }, [store]);
-
-  const toast = useCallback((text: string) => store.dispatch({ type: 'toast', text }), [store]);
-
-  const finishOnboarding = useCallback(() => {
-    save(ONBOARD_KEY, '1');
-    store.dispatch({ type: 'onboarding', open: false });
-  }, [store]);
-
+  const choice = state.settings.provider;
+  // `app.provider()` follows the setting, so `choice` keys the memo.
+  const provider = useMemo(() => app.provider(), [app, choice]);
   const canQuiz = useCallback((id: Id) => (provider.canQuiz ? provider.canQuiz(id) : true), [provider]);
 
   // Projections. They depend only on the domain entities, so streaming text does not recompute them.
@@ -282,24 +171,46 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
           .slice(0, 1)
           .map((t) => t.id);
     const forestTrees = projectForest(trees, concepts, attempts, { conversationId: activeId, liveTreeIds: home });
-    const activeTrees = home.map((id) => forestTrees.find((t) => t.id === id)!).filter(Boolean);
+    const byId = new Map(forestTrees.map((t) => [t.id, t]));
+    const activeTrees = home.flatMap((id) => byId.get(id) ?? []);
+    const grownTrees = touched.flatMap((id) => byId.get(id) ?? []);
     const groves: Grove[] = Object.values(concepts)
       .filter((c) => c.kind === 'subject' && !c.deletedAt && trees.some((t) => t.groveId === c.id))
       .map((c) => ({ id: c.id, label: c.label }));
     if (trees.some((t) => !t.groveId)) groves.push({ id: 'other', label: 'Other' });
+
+    // Leaf scores by concept, and per chat the leaves it touched in each tree (its crowns).
+    const score = new Map<Id, number>();
+    const crowns = new Map<Id, Crown[]>();
+    for (const t of forestTrees) {
+      const mine = new Map<Id, number[]>();
+      for (const l of t.branches.flatMap((b) => b.leaves)) {
+        score.set(l.id, l.score);
+        for (const c of new Set((l.refs ?? []).map((r) => r.conversationId))) mine.set(c, [...(mine.get(c) ?? []), l.score]);
+      }
+      for (const [c, scores] of mine) crowns.set(c, [...(crowns.get(c) ?? []), { treeId: t.id, title: t.title, scores }]);
+    }
+
     const chats = new Map<DayGroup, ChatListItem[]>();
     for (const c of Object.values(conversations).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) {
       const g = dayGroup(c.updatedAt);
       const treeId = treesOfConversation(c.id, { attempts, membership })[0] ?? (c.id === activeId ? (home[0] ?? null) : null);
-      chats.set(g, [...(chats.get(g) ?? []), { id: c.id, title: c.title, updatedAt: c.updatedAt, treeId, active: c.id === activeId }]);
+      chats.set(g, [...(chats.get(g) ?? []), { id: c.id, title: c.title, updatedAt: c.updatedAt, treeId, crowns: crowns.get(c.id) ?? [], active: c.id === activeId }]);
     }
+    const grownIn = (treeId: Id): GrownIn[] =>
+      conversationsOfTree(treeId, { attempts, membership }).flatMap((g) => {
+        const c = conversations[g.conversationId];
+        return c ? [{ id: c.id, title: c.title, lastAt: g.lastAt, scores: g.conceptIds.flatMap((id) => score.get(id) ?? []) }] : [];
+      });
     return {
       forestTrees,
       activeTrees,
+      grownTrees,
       roots: crossRoots(forestTrees, edges, trees, attempts, conversations),
       groves,
       groveRows: groveRowsOf(groves),
       chats: [...chats.entries()].map(([label, items]) => ({ label, items })),
+      grownIn,
     };
   }, [concepts, attempts, trees, edges, conversations, activeId]);
 
@@ -317,7 +228,9 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
   const value = useMemo<Ctx>(
     () => ({
       state,
-      dispatch,
+      dispatch: app.dispatch,
+      mode: choice === 'arbor' ? 'live' : 'demo',
+      sync,
       conversation,
       messages,
       busy,
@@ -325,15 +238,20 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
       ...graph,
       demoPrompts: provider.demoPrompts ?? state.session.demoPrompts,
       canQuiz,
-      send,
-      stop,
-      retry,
-      classifyDraft,
-      jumpTo,
-      toast,
-      finishOnboarding,
+      send: app.send,
+      stop: app.stop,
+      retry: app.retry,
+      classifyDraft: app.classifyDraft,
+      jumpTo: app.jumpTo,
+      openChat: app.openChat,
+      newChat: app.newChat,
+      renameChat: app.renameChat,
+      loadChat: app.loadChat,
+      retryLoad: app.retryLoad,
+      toast: app.toast,
+      finishOnboarding: app.finishOnboarding,
     }),
-    [state, dispatch, conversation, messages, busy, activeTree, graph, provider, canQuiz, send, stop, retry, classifyDraft, jumpTo, toast, finishOnboarding],
+    [app, state, choice, sync, conversation, messages, busy, activeTree, graph, provider, canQuiz],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

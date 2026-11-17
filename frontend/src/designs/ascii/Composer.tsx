@@ -198,7 +198,7 @@ interface Cmd {
 const TIMES = Object.fromEntries(TIME_TICKS.map((t) => [t.label, t.days]));
 
 function useCommands(): Cmd[] {
-  const { state, dispatch, send, stop, retry, busy, toast, messages } = useStore();
+  const { state, dispatch, send, stop, retry, busy, toast, messages, mode, newChat, renameChat } = useStore();
   const ui = useUi();
   return useMemo(() => {
     const s = state.settings;
@@ -223,6 +223,9 @@ function useCommands(): Cmd[] {
         desc: 'run the failed reply again',
         run: () => (state.session.turn.status === 'error' ? retry() : toast('nothing failed')),
       },
+      { name: 'chats', desc: 'all your chats, by day (or c)', run: () => dispatch({ type: 'chats', open: true }) },
+      { name: 'new', desc: 'start a new chat', run: newChat },
+      { name: 'title', args: '<name>', desc: 'rename this chat', run: renameChat },
       { name: 'forest', desc: 'zoom out to all your chats', run: () => dispatch({ type: 'forest', open: true }) },
       {
         name: 'outline',
@@ -255,7 +258,7 @@ function useCommands(): Cmd[] {
         name: 'provider',
         args: 'scripted|arbor',
         desc: 'where answers come from (arbor: live claude)',
-        run: (a) => pick(a, ['scripted', 'arbor'] as const, (v) => (set({ provider: v }), toast(`answers: ${v === 'arbor' ? 'live claude, from your next message' : 'scripted demo'}`)), 'provider'),
+        run: (a) => pick(a, ['scripted', 'arbor'] as const, (v) => (set({ provider: v }), toast(`answers: ${v === 'arbor' ? 'live claude · your saved chats' : 'scripted demo · nothing saved'}`)), 'provider'),
       },
       {
         name: 'design',
@@ -267,18 +270,23 @@ function useCommands(): Cmd[] {
       s.enabled
         ? { name: 'pause', desc: 'pause arbor: the plain chat, nothing labelled', run: () => set({ enabled: false }) }
         : { name: 'resume', desc: 'resume arbor', run: () => set({ enabled: true }) },
-      {
-        name: 'reset',
-        desc: 'restart the demo conversation',
-        run: () => (dispatch({ type: 'reset', empty: false }), ui.setDays(0), toast('demo reset')),
-      },
-      {
-        name: 'empty',
-        desc: 'start from an empty chat',
-        run: () => (dispatch({ type: 'reset', empty: true }), ui.setDays(0), toast('empty chat: watch the tree grow from a seed')),
-      },
+      // The demo's own resets; live chats are saved, so there /new starts afresh.
+      ...(mode === 'demo'
+        ? [
+            {
+              name: 'reset',
+              desc: 'restart the demo conversation',
+              run: () => (dispatch({ type: 'reset', empty: false }), ui.setDays(0), toast('demo reset')),
+            },
+            {
+              name: 'empty',
+              desc: 'start the demo from an empty chat',
+              run: () => (dispatch({ type: 'reset', empty: true }), ui.setDays(0), toast('empty chat: watch the tree grow from a seed')),
+            },
+          ]
+        : []),
       { name: 'concepts', desc: 'the interaction ideas in this design', run: () => ui.setSheet('concepts') },
       { name: 'intro', desc: 'replay the introduction', run: () => dispatch({ type: 'onboarding', open: true }) },
     ] satisfies Cmd[];
-  }, [state.settings, state.session.turn.status, messages, busy, dispatch, send, stop, retry, toast, ui]);
+  }, [state.settings, state.session.turn.status, messages, busy, dispatch, send, stop, retry, toast, ui, mode, newChat, renameChat]);
 }

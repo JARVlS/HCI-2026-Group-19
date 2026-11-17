@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { demoFixture } from './scripted/fixture';
 import { chooseProvider, createProvider } from './providers';
 
 describe('provider choice', () => {
@@ -8,6 +7,11 @@ describe('provider choice', () => {
     expect(chooseProvider({ url: null, saved: 'arbor', build: 'scripted' })).toBe('arbor');
     expect(chooseProvider({ url: null, saved: null, build: 'arbor' })).toBe('arbor');
     expect(chooseProvider({ url: 'scripted', saved: 'arbor', build: 'arbor' })).toBe('scripted');
+  });
+
+  it('?demo=1 forces the scripted demo, whatever the URL, the saved choice or the build say', () => {
+    expect(chooseProvider({ demo: true, url: 'arbor', saved: 'arbor', build: 'arbor' })).toBe('scripted');
+    expect(chooseProvider({ demo: false, url: null, saved: 'arbor' })).toBe('arbor');
   });
 
   it('unknown or missing values count as unset; nothing set means the scripted demo', () => {
@@ -19,19 +23,5 @@ describe('provider choice', () => {
   it('creates the chosen provider', () => {
     expect(createProvider('scripted').kind).toBe('scripted');
     expect(createProvider('arbor').kind).toBe('arbor');
-  });
-});
-
-describe('where a live provider starts', () => {
-  it('a new, untitled chat without subject or messages, next to the demo forest', () => {
-    const scripted = demoFixture();
-    const f = demoFixture({ fresh: true });
-    const chat = f.conversations[f.activeConversationId];
-    expect(chat).toMatchObject({ title: 'New chat', subjectId: null, studyMode: false });
-    expect(f.messagesByConv[f.activeConversationId]).toEqual([]);
-    expect(f.conversations[scripted.activeConversationId]).toBeUndefined();
-    expect(f.demoPrompts).toEqual([]);
-    // The past trees stay; the scripted chat's tree does not.
-    expect(f.trees.map((t) => t.id)).toEqual(scripted.trees.slice(1).map((t) => t.id));
   });
 });

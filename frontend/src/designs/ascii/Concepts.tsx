@@ -95,6 +95,13 @@ function useConcepts(): Concept[] {
       try: 'see it cheer: share your own take',
       run: () => ui.fill('I think the learning rate is the size of each step downhill, so if it is too big we overshoot'),
     },
+    {
+      name: 'chats ↔ trees ↔ leaves',
+      principle: 'two-way links · information scent',
+      body: 'every chat is kept. c lists them by day, each with the crowns of the trees it grew. a chat names its trees at the top; a tree in the forest lists the chats it was grown in; a leaf lists every message that touched it. pick one and you land in that chat, on that message.',
+      try: 'open your chats',
+      run: () => dispatch({ type: 'chats', open: true }),
+    },
   ];
 }
 
@@ -160,7 +167,7 @@ export function Concepts() {
                 setSheet('concepts');
               }}
             >
-              how it works: 10 concepts
+              how it works: 11 concepts
             </button>
             <K>?</K>
           </p>

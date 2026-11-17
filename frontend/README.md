@@ -5,7 +5,7 @@ Arbor is a web app for learning with LLM chats. It looks like an overlay on a ch
 1. **Awareness: who is doing the thinking?** Every prompt is labelled as *your thinking* ●, *thinking together* ◑ or *delegated to AI* ○. Before you delegate, Arbor can offer a gentle speed bump: add your own take first.
 2. **Organisation: a knowledge tree, zoomable to a forest.** Each concept you touch becomes a leaf on the conversation's tree. Filled leaves are ideas you reasoned through yourself; hollow leaves are still the AI's. Zoom out to see all your conversations as a forest, grouped into groves and connected by roots (shared concepts).
 
-The prototype shows Arbor on top of a generic chat app inside a mock browser window. The answers come from one of two providers: the **scripted** assistant ("Wizard of Oz"), which runs offline and behaves the same way for every test participant, or **live** Claude through the group's backend (see [Live answers](#live-answers-provider-arbor)). The plan for the rest (persistence, full turn analysis, study setup) is in [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md).
+The prototype shows Arbor on top of a generic chat app inside a mock browser window. The answers come from one of two providers: the **scripted** assistant ("Wizard of Oz"), which runs offline and behaves the same way for every test participant, or **live** Claude through the group's backend (see [Live answers](#live-answers-provider-arbor)). In live mode your chats, trees and labels are saved on the backend and come back on the next visit; the scripted demo saves nothing (see [Demo and live](#demo-and-live-what-is-saved-where)). The plan for the rest (full turn analysis, study setup) is in [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md).
 
 ## Design styles
 
@@ -34,6 +34,7 @@ Press `?` in the app for the same list, each with a *try it* button that sets up
 | 08 | **Relabel in place** | User control, error recovery | Click the glyph next to a message: the evidence is underlined in your own words, with the confidence, and you can relabel it. The tree regrows. |
 | 09 | **Command line** | Flexibility & efficiency, recognition over recall | `/` lists every command with what it does (`/quiz`, `/hint`, `/forest`, `/time 1w`, `/why`, `/nudge`, `/design`, …). `tab` cycles demo prompts. |
 | 10 | **Squirrel** | Ambient presence, non-judgmental tone, details on demand | A squirrel in characters holds an acorn in the glyph language, lifts it when an answer is veiled and hops when you think for yourself. On its own it moves only when something changes. Hover it and it notices you once (ear twitch, blink, a ripple down the tail); poke it and it tosses its acorn and cycles through tips, each with an action: the leaf that is least yours (*quiz me*), what would fade (*skip ahead*), the forest. Poke it too often and it gets dizzy. |
+| 11 | **Chats ↔ trees ↔ leaves** | Two-way links, information scent | Every chat is kept. `c` (or `/chats`) lists them by day, each with the crowns of the trees it grew; `/new` starts one, `/title` renames it. A chat names the trees it grew under its title; a tree in the forest lists the chats it was *grown in*; a leaf touched by several messages lists them (chat · snippet · date). Pick one and you land in that chat, on that message. |
 
 ## Run it
 
@@ -61,27 +62,60 @@ Pages project settings: root directory `frontend`, build command `npm run build`
 
 ## Live answers (provider `arbor`)
 
-Where answers come from is a setting: **answers: scripted | live** in the settings of both designs, `/provider scripted|arbor` in the ASCII style, or `?provider=arbor` / `?provider=scripted` for one visit. The URL parameter beats the saved choice, which beats the build default (`VITE_DEFAULT_PROVIDER`). Only a choice made in settings is saved (localStorage `arbor.provider.v1`). A new choice applies from the next message; a reply that is already streaming finishes with the provider it started with.
+Where answers come from is a setting: **answers: scripted | live** in the settings of both designs, `/provider scripted|arbor` in the ASCII style, or `?provider=arbor` / `?provider=scripted` for one visit. `?demo=1` beats everything else; then the URL parameter beats the saved choice, which beats the build default (`VITE_DEFAULT_PROVIDER`). Only a choice made in settings is saved (localStorage `arbor.provider.v1`). The choice is also the mode: switching stops a running reply and loads the other world at once (live: your saved chats; scripted: the demo).
 
 With `arbor`, the answers are Claude through the backend relay (`../backend/docs/api.md`). The frontend writes the prompts and schemas; the backend picks the model, caps the tokens and keeps the budgets.
 
 - **Session:** the first call creates an anonymous session (`POST /api/session`). The token stays in localStorage (`arbor.session.v1`); after a 401 (database reset) a new one is made once and the call repeats.
 - **Chat:** streamed over SSE. The tutor prompt (`src/ai/prompts/chat.ts`) follows the linter's label for your message (your own reasoning: it reacts to it first; exploring: it explains and hands a question back; delegating: it answers fully; a hint request: a hint only), the nudge level (off or Arbor paused: a plain assistant) and study mode. `esc` (or `/stop`) cancels the request itself.
 - **Analysis:** after each message one structured call (`src/ai/prompts/analyze.ts`, schema in `src/ai/schemas/turnAnalysis.ts`) labels who did the thinking, with reasons and quoted evidence, and names up to three concepts, each an existing node of your graph or a new one. That is what grows the leaves; the first message of a chat also picks its subject (the grove). An answer that does not fit the schema counts as a failed analysis, and the linter's label stays.
-- **Start:** a new, empty chat without a subject, next to the demo forest. The `tab` prompts are three generic ones instead of the script's.
+- **Start:** your saved chats load and the one you changed last opens (see below). The `tab` prompts are three generic ones instead of the script's.
 - **Errors:** a failed reply shows `! failed · <why> · r retry` (classic: the reason and *Retry*). A used-up budget says whether it is your daily budget (resets at midnight UTC) or the project's total budget.
 - **Predict → reveal** works on the stream: the answer keeps arriving under the veil, and a reveal shows what is there so far while the rest streams in.
 
-Not in live mode yet: quizzes on a leaf (`q`, the squirrel's *quiz me*, the forest), which need a `quiz` task that keeps the question pending so the answer is graded (M4/M5); `/quiz` still works as a plain chat message. Also not yet: "make it yours" after an answer, saving chats (a reload starts a new chat, M2), a chat title from the first message, and sending study events. Trees are still shallow: most live leaves sit on the *side questions* branch until the M4 tree work.
+Not in live mode yet: quizzes on a leaf (`q`, the squirrel's *quiz me*, the forest), which need a `quiz` task that keeps the question pending so the answer is graded (M4/M5); `/quiz` still works as a plain chat message. Also not yet: "make it yours" after an answer, and sending study events. Trees are still shallow: most live leaves sit on the *side questions* branch until the M4 tree work.
 
-To try it locally against the deployed backend (its CORS allows exactly `http://localhost:5173`):
+Live mode needs a backend with the persistence routes (`GET /api/state`, `PUT /api/sync`, `GET /api/conversations/:id/messages`, M2 backend and its migration `0002`). Without them the start shows *could not load your chats*. To run both locally (the backend's CORS allows exactly `http://localhost:5173`):
 
 ```bash
-VITE_API_URL=https://hci-backend.leon-grass.workers.dev npm run dev -- --port 5173 --strictPort
+cd ../backend && uv run pywrangler d1 migrations apply hci-grp19 --local && uv run pywrangler dev   # once per checkout, then just `dev`
+cd ../frontend && npm run dev -- --port 5173 --strictPort    # .env.development points at http://localhost:8787
 # then open http://localhost:5173/?provider=arbor&intro=0
 ```
 
+Against the deployed backend (once it has the M2 routes): `VITE_API_URL=https://hci-backend.leon-grass.workers.dev npm run dev -- --port 5173 --strictPort`.
+
 Every live message costs tokens from the group's budget: one chat call and one analysis call. Measured on 17 Nov at the start of a chat: about 540 tokens for the reply and 2,560 for the analysis. Both grow as the chat and the graph grow, because the transcript is sent again each time.
+
+## Demo and live: what is saved where
+
+| | Demo (provider `scripted`) | Live (provider `arbor`) |
+|---|---|---|
+| Data | the scripted fixture: the "neural networks" chat and the demo forest | your own chats, concepts, trees and labels |
+| Saved | nothing; a reload starts the demo again | on the backend (D1), through `PUT /api/sync` |
+| Requests to the backend | none at all | session, load, save, model calls |
+| Turn on | build default, `?provider=scripted`, or `?demo=1` (forces it for the visit, whatever is saved) | `?provider=arbor` or *answers: live* in settings |
+
+**What live mode saves** (`src/lib/sync.ts`): after every change it compares the state with the one before and queues what changed: concepts, edges, trees (a tree the planner removed is sent once more with `deletedAt`), chats, messages and attempts (a relabel adds a new attempt that supersedes the old one). A chat is saved from its first message on; an empty chat stays on this device and is dropped when you leave it. A reply is saved once it is complete (never while it streams); a failed reply is not saved, its retry replaces it.
+
+**When:** about 0.8 s after a change, and at once when a reply ends. Requests carry at most 500 rows. Network errors, 5xx and 401 are tried again after 1 s, 2 s, 4 s … (at most 30 s), and at once when the browser is back online; when the tab is hidden or closed, what is left goes out with `keepalive`. A 4xx is a bug in what we send: those rows stay queued, a toast and the browser console say why, the modeline shows `! n not saved`, and they are sent once more after the next reload. The ASCII modeline says `saved`, `saving…` or `offline · n unsaved`.
+
+**A reload never loses a turn:** the queue is mirrored in localStorage (`arbor.sync.v1`) and goes out together with the next start. The start loads `GET /api/state` (everything but messages), puts the queued rows on top (they are newer) and opens the chat you changed last; a first visit gets one new, empty chat. Messages load per chat when you open it (`GET /api/conversations/:id/messages`) and stay for the visit. While loading, the page says *loading your chats…*; if the backend cannot be reached it says so with *retry* (and tries again by itself when the browser is back online). It never shows the demo instead. The device keeps only the queue, not a full copy of your data, so live mode does not work offline from a cold start.
+
+localStorage keys: `arbor.session.v1` (the session token), `arbor.sync.v1` (changes not saved yet), `arbor.provider.v1`, `arbor.settings.v1`, `arbor.onboarded.v1`.
+
+**Chat history in the ASCII style** (keyboard first; also in the `?` sheet, concept 11, and in the modeline):
+
+| Key / command | What it does |
+|---|---|
+| `c` or `/chats` | the chat list: today, this week, earlier; each row shows the crowns (one glyph per leaf) of the trees the chat grew. `↑↓` move, `↵` open, `n` new chat, `esc` close |
+| `/new` | start a new chat |
+| `/title <name>` | rename the open chat (new chats are named after their first message) |
+| *grew* line under the chat title | the trees this chat grew; click one to open it in the forest |
+| forest → a tree → *grown in* | the chats this tree grew from; click one to open it |
+| click or `↵` on a leaf | one message: open its chat at the message; several: list them (chat · snippet · date) to pick one, in any chat |
+
+The classic style's sidebar opens these chats too, and its *New chat* button starts one. In the demo, the past chats of the forest have no transcript: opening one says so (classic: it opens their tree in the forest, as before).
 
 ## Demo script, ASCII style (≈ 3 minutes)
 
@@ -110,8 +144,9 @@ Every live message costs tokens from the group's budget: one chat call and one a
 | Parameter | Effect |
 |---|---|
 | `?intro=0` / `?intro=1` | skip / force the onboarding |
-| `?provider=arbor\|scripted` | live Claude through the backend, or the scripted demo, for this visit (not saved) |
-| `?empty=1` | start from an empty chat (the tree grows from a seed); scripted only, live always starts empty |
+| `?provider=arbor\|scripted` | live Claude and your saved chats, or the scripted demo, for this visit (not saved) |
+| `?demo=1` | the scripted demo for this visit, whatever is saved or in `?provider`: no request to the backend at all |
+| `?empty=1` | start the demo from an empty chat (the tree grows from a seed); scripted only |
 | `?nudge=off\|gentle\|active` | nudge level |
 | `?arbor=off` | extension paused (baseline condition for A/B tests) |
 | `?view=forest&tree=sql` | open the forest, optionally focused on a tree |
@@ -135,7 +170,10 @@ Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=activ
 | What a turn does (send, stream, stop, retry, analysis) | `src/lib/turn.ts` |
 | Live tutor prompt, analysis prompt and its schema | `src/ai/prompts/chat.ts`, `src/ai/prompts/analyze.ts`, `src/ai/schemas/turnAnalysis.ts` |
 | Calls to the backend (base URL, errors, SSE) and the anonymous session | `src/lib/api.ts`, `src/lib/session.ts` |
-| Which provider answers | `src/ai/providers.ts`, the `provider` setting in `src/lib/store.tsx` |
+| Which provider answers, and with it demo or live mode | `src/ai/providers.ts`, `initialState` and `createApp` in `src/lib/app.ts` |
+| What is saved, when, retries, the localStorage mirror | `src/lib/sync.ts` |
+| Loading at start, messages per chat, which chat opens | `src/lib/live.ts`, `src/lib/chats.ts` |
+| ASCII style: chat list and a leaf's messages | `src/designs/ascii/Chats.tsx` |
 | How leaves are scored and trees are drawn from the data | `src/lib/project.ts` |
 | When a tree splits | `src/lib/planner.ts` (`MAX_LEAVES`, `MAX_BRANCH_LEAVES`) |
 | Forgetting model (fading, fallen leaves) | `src/lib/retention.ts` |
@@ -190,8 +228,12 @@ Learning-science background for the interventions: the *generation effect* (a fi
 src/
   App.tsx                 one store, then the chosen design (lazy-loaded, so only its CSS is on the page)
   lib/                    shared by every design; pure modules have a *.test.ts next to them
-    store.tsx             React side of the store: context, send/stop/retry, provider choice, memoized projections
+    store.tsx             React side of the store: context and memoized projections (chat list, grown in, crowns)
+    app.ts                the store without React: initial state from URL + storage, turns, chats, demo vs live mode
     state.ts              state slices (domain / session / ui) and the pure reducer
+    sync.ts               live mode: what changed → queue → PUT /api/sync (batches, backoff, localStorage mirror)
+    live.ts               live mode: load at start (queue on top), messages per chat
+    chats.ts              new chat, title from the first message, merging loaded messages
     turn.ts               one chat turn: linter label → streamed reply → analysis → merge
     domain.ts             canonical data model (concepts, attempts, trees, chats; ADR-2)
     types.ts              render contract the designs consume (TreeData, Branch, Leaf, ChatMessage, …)
@@ -216,13 +258,14 @@ src/
   data/
     scenario.ts           live conversation script (demo fixture)
     forest.ts             past trees (demo fixture)
-  test/                   test helpers: a store without React, graph builders, a fake backend
+  test/                   test helpers: a store without React, graph builders, a fake backend (also an in-memory one with persistence), localStorage
   shared/
     AsciiTreeView.tsx     the animated ASCII tree (ASCII style; kept here so other styles can reuse it)
   designs/
     ascii/
       App.tsx             layout, global keys, browser line, toast
-      Transcript.tsx      the log: evidence, why + relabel, predict → reveal, make it yours, failed/stopped replies
+      Transcript.tsx      the log: evidence, why + relabel, predict → reveal, make it yours, failed/stopped replies, the trees a chat grew
+      Chats.tsx           chat list (c, /chats) and a leaf's messages: one keyboard-first picker sheet
       Composer.tsx        thought linter, slash commands, demo prompts
       Pane.tsx            balance, trail, squirrel, tree, forgetting scrubber, settings
       Forest.tsx          semantic zoom: forest of glyph crowns, roots, tree detail

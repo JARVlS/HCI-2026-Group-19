@@ -7,6 +7,7 @@ import type { Concept, Id, Message } from '../../lib/domain';
 import { useStore } from '../../lib/store';
 import type { Mode, NudgeLevel, ProviderChoice, Theme } from '../../lib/types';
 import { AsciiTreeView } from '../../shared/AsciiTreeView';
+import { useLeafJump } from './Chats';
 import { Squirrel, type Pose } from './Squirrel';
 import { Check, G, K, Radios, lower, useUi } from './ui';
 
@@ -252,8 +253,9 @@ function Companion() {
 /* ───────────── Tree ───────────── */
 
 function TreeSection() {
-  const { state, dispatch, activeTree, activeTrees, jumpTo, send, canQuiz } = useStore();
+  const { state, dispatch, activeTree, activeTrees, send, canQuiz } = useStore();
   const { view, setView, days, setDays, setLink } = useUi();
+  const jump = useLeafJump();
   const wrap = useRef<HTMLDivElement>(null);
   const highlight = useMemo(() => new Set(state.ui.highlight), [state.ui.highlight]);
   const messageOf = useMemo(
@@ -308,7 +310,7 @@ function TreeSection() {
             dispatch({ type: 'highlight', ids: id ? [id] : [] });
             setLink(id ? { kind: 'leaf', id, messageId: messageOf.get(id) } : null);
           }}
-          onJump={jumpTo}
+          onJump={jump}
           onNodeKey={(n, e) => {
             if (e.key === 'q' && n.kind === 'leaf' && canQuiz(n.id)) {
               e.preventDefault();
@@ -439,14 +441,14 @@ export function Scrubber({ days, setDays, width = 26 }: { days: number; setDays:
 /* ───────────── Settings ───────────── */
 
 const PROVIDER_DESC: Record<ProviderChoice, string> = {
-  scripted: 'the demo script. offline, the same answers for everyone.',
-  arbor: 'claude through the arbor backend. uses the group’s token budget. new chats start empty.',
+  scripted: 'the demo script. offline, the same answers for everyone. nothing is saved.',
+  arbor: 'claude through the arbor backend. your chats are saved on it and come back. uses the group’s token budget.',
 };
 
-/** Where answers come from. A reply already on its way finishes with the old choice. */
+/** Where answers come from, and with that whose chats you see: switching loads the other world. */
 function providerNote(p: ProviderChoice) {
   const missing = p === 'arbor' && !apiUrl() ? ' this build has no backend url (VITE_API_URL), so live answers fail.' : '';
-  return `${PROVIDER_DESC[p]}${missing} applies from your next message.`;
+  return `${PROVIDER_DESC[p]}${missing}`;
 }
 
 const NUDGE_DESC: Record<NudgeLevel, string> = {
@@ -456,7 +458,7 @@ const NUDGE_DESC: Record<NudgeLevel, string> = {
 };
 
 function Settings({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
-  const { state, dispatch, toast } = useStore();
+  const { state, dispatch, toast, mode } = useStore();
   const { setSheet, setDays } = useUi();
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(ref, open, () => setOpen(false));
@@ -546,18 +548,20 @@ function Settings({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => v
               intro
             </button>
           </p>
-          <p className="a-pop-actions">
-            <span className="a-dim">demo</span>
-            <button className="a-btn" onClick={() => (dispatch({ type: 'reset', empty: false }), setDays(0), close(), toast('demo reset'))}>
-              reset
-            </button>
-            <button
-              className="a-btn"
-              onClick={() => (dispatch({ type: 'reset', empty: true }), setDays(0), close(), toast('empty chat: watch the tree grow from a seed'))}
-            >
-              empty chat
-            </button>
-          </p>
+          {mode === 'demo' && (
+            <p className="a-pop-actions">
+              <span className="a-dim">demo</span>
+              <button className="a-btn" onClick={() => (dispatch({ type: 'reset', empty: false }), setDays(0), close(), toast('demo reset'))}>
+                reset
+              </button>
+              <button
+                className="a-btn"
+                onClick={() => (dispatch({ type: 'reset', empty: true }), setDays(0), close(), toast('empty chat: watch the tree grow from a seed'))}
+              >
+                empty chat
+              </button>
+            </p>
+          )}
           <p className="a-dim a-pop-foot">
             or type <K>/</K> for commands
           </p>

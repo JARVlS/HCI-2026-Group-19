@@ -23,6 +23,8 @@ export const event = (name: string, data: unknown) => `event: ${name}\ndata: ${J
 
 export interface Call {
   path: string;
+  method: string;
+  keepalive: boolean;
   auth: string | null;
   body: Record<string, unknown> | null;
   signal: AbortSignal | null;
@@ -38,6 +40,8 @@ export function fakeBackend(answer: (call: Call) => Response | Promise<Response>
   vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
     const call: Call = {
       path: url.slice(API.length),
+      method: init.method ?? 'GET',
+      keepalive: Boolean(init.keepalive),
       auth: new Headers(init.headers).get('authorization'),
       body: typeof init.body === 'string' ? JSON.parse(init.body) : null,
       signal: init.signal ?? null,
