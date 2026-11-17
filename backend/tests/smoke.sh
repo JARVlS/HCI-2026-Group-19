@@ -16,6 +16,9 @@ stop() {
 }
 trap stop EXIT
 
+# A fresh database every run: all migrations are applied from scratch, and the large rows of the
+# sync checks do not pile up across runs.
+rm -rf "$STATE"
 uv run pywrangler d1 migrations apply hci-grp19 --local --persist-to "$STATE" > /dev/null
 uv run python tests/fake_anthropic.py --port 8790 &
 FAKE_PID=$!

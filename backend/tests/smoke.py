@@ -175,6 +175,127 @@ def run(base_url: str, admin_token: str) -> None:
         check("unknown route -> 404 not_found", r.status_code == 404 and r.json()["error"]["code"] == "not_found")
     guarded("unknown route", not_found)
 
+    run_sync(client, run_id, auth, admin_token)
+
+
+T0, T1 = "2026-11-17T10:00:00.000Z", "2026-11-17T11:00:00.000Z"
+
+
+def sync_body(p: str) -> dict:
+    """One row of every entity, ids prefixed with p (new per run). All optional fields set, plus
+    unknown message fields that must come back as they were sent."""
+    conv, msg = f"{p}-conv", f"{p}-m1"
+    return {
+        "concepts": [
+            {"id": f"{p}-s", "label": "CS", "slug": "cs", "aliases": [], "kind": "subject", "parentId": None,
+             "createdBy": "seed", "createdAt": T0, "updatedAt": T0},
+            {"id": f"{p}-c", "label": "Rekursion", "slug": "rekursion", "aliases": ["recursion", "Rückruf"],
+             "kind": "concept", "parentId": f"{p}-s", "description": "Eine Funktion ruft sich selbst auf.",
+             "createdBy": "llm", "createdAt": T0, "updatedAt": T0}],
+        "edges": [{"id": f"{p}-e", "fromId": f"{p}-s", "toId": f"{p}-c", "kind": "related", "createdAt": T0}],
+        "trees": [{"id": f"{p}-t", "rootConceptId": f"{p}-s", "title": "CS", "groveId": f"{p}-s",
+                   "splitFrom": f"{p}-t0", "createdAt": T0, "updatedAt": T0}],
+        "conversations": [{"id": conv, "title": "Recursion", "subjectId": f"{p}-s", "studyMode": True,
+                           "continuedFrom": f"{p}-conv0", "carrySummary": "loops", "createdAt": T0, "updatedAt": T0}],
+        "messages": [
+            {"id": msg, "conversationId": conv, "role": "user", "text": "I think it calls itself.",
+             "classification": {"mode": "own", "confidence": 0.8, "reasons": ["claim"]}, "createdAt": T0,
+             "conceptIds": [f"{p}-c"], "analysis": "done"},
+            {"id": f"{p}-m2", "conversationId": conv, "role": "assistant", "text": "Yes.", "createdAt": T1,
+             "conceptIds": [], "veiled": True, "guess": None, "provider": "arbor", "model": "claude-sonnet-5-5"}],
+        "attempts": [{"id": f"{p}-a", "conversationId": conv, "messageId": msg, "conceptId": f"{p}-c", "mode": "own",
+                      "independence": 1.0, "correctness": None, "confidence": 0.75, "reasons": ["own claim"],
+                      "evidence": [{"start": 0, "end": 7, "mode": "own", "reason": "I think"}], "source": "prompt",
+                      "createdAt": T0}],
+    }
+
+
+def by_id(rows: list[dict]) -> list[dict]:
+    return sorted(rows, key=lambda row: row["id"])
+
+
+def run_sync(client: httpx2.Client, run_id: str, auth: dict, admin_token: str) -> None:
+    """PUT /sync, GET /state, GET /conversations/:id/messages against real (local) D1."""
+    body = sync_body(f"smoke-{run_id}")
+    conv = body["conversations"][0]["id"]
+    sent_messages = [dict(body["messages"][0]), dict(body["messages"][1])]
+    body["messages"][1]["streaming"] = True  # transient UI state: must not be stored
+
+    def state() -> dict:
+        r = client.get("/api/state", headers=auth)
+        r.raise_for_status()
+        return r.json()
+
+    def round_trip() -> None:
+        r = client.put("/api/sync", json=body, headers=auth)
+        check("sync: PUT /api/sync", r.status_code == 200 and r.json()["ok"] is True
+              and r.json()["serverTime"].endswith("Z"), r.text[:160])
+        got = state()
+        same = {key: by_id(got[key]) == by_id(body[key]) for key in got}
+        check("sync: GET /api/state returns what was synced", set(got) == set(body) - {"messages"} and all(same.values()),
+              json.dumps(same))
+        messages = client.get(f"/api/conversations/{conv}/messages", headers=auth).json()["messages"]
+        check("sync: messages come back in order, meta flattened, streaming dropped", messages == sent_messages,
+              json.dumps(messages)[:200])
+        again = client.put("/api/sync", json=body, headers=auth)
+        check("sync: same body again changes nothing", again.status_code == 200 and state() == got)
+    guarded("sync: round trip", round_trip)
+
+    def conflicts() -> None:
+        concept = body["concepts"][1]
+        client.put("/api/sync", json={"concepts": [{**concept, "label": "old", "updatedAt": "2026-11-17T09:00:00Z"}]},
+                   headers=auth)
+        label = next(c for c in state()["concepts"] if c["id"] == concept["id"])["label"]
+        client.put("/api/sync", json={"concepts": [{**concept, "label": "deleted", "updatedAt": T1, "deletedAt": T1}]},
+                   headers=auth)
+        ids = [c["id"] for c in state()["concepts"]]
+        check("sync: older updatedAt ignored, soft delete hides the concept", label == "Rekursion"
+              and concept["id"] not in ids and len(ids) == 1, f"{label}, {ids}")
+
+        token = client.post("/api/session", json={}).json()["token"]
+        other = {"Authorization": f"Bearer {token}"}
+        hostile = {"conversations": [{**body["conversations"][0], "title": "taken", "updatedAt": T1}],
+                   "messages": [{**sent_messages[0], "text": "taken"}]}
+        r = client.put("/api/sync", json=hostile, headers=other)
+        theirs = client.get(f"/api/conversations/{conv}/messages", headers=other)
+        mine = client.get(f"/api/conversations/{conv}/messages", headers=auth).json()["messages"]
+        check("sync: another user can neither overwrite nor read our rows", r.status_code == 200
+              and theirs.status_code == 404 and state()["conversations"][0]["title"] == "Recursion"
+              and mine[0]["text"] == sent_messages[0]["text"], theirs.text[:120])
+    guarded("sync: conflicts", conflicts)
+
+    def limits() -> None:
+        p = f"smoke-{run_id}-bulk"
+        rows = [{**body["attempts"][0], "id": f"{p}-{i}", "createdAt": T1} for i in range(500)]
+        r = client.put("/api/sync", json={"attempts": rows}, headers=auth)
+        stored = sum(a["id"].startswith(p) for a in state()["attempts"])
+        check("sync: 500 rows in one request (one D1 batch)", r.status_code == 200 and stored == 500,
+              f"{r.status_code}, {stored} stored")
+        r = client.put("/api/sync", json={"attempts": rows, "edges": body["edges"]}, headers=auth)
+        check("sync: 501 rows -> 413 too_many_rows", r.status_code == 413
+              and r.json()["error"]["code"] == "too_many_rows", r.text[:120])
+        # Rows at every size limit, written with 4-byte characters (UTF-8): about 0.9 MB per row.
+        big = "\U0001d538" * 200_000
+        meta = {"note": "\U0001d538" * (20_000 - len('{"note":""}'))}
+        classification = {"note": "\U0001d538" * (20_000 - len('{"note":""}'))}
+        large = [{"id": f"{p}-big{i}", "conversationId": conv, "role": "assistant", "text": big,
+                  "classification": classification, "createdAt": T1, **meta} for i in range(3)]
+        r = client.put("/api/sync", json={"messages": large}, headers=auth)
+        back = client.get(f"/api/conversations/{conv}/messages", headers=auth).json()["messages"]
+        bigs = [m for m in back if m["id"].startswith(f"{p}-big")]
+        check("sync: 3 messages at the size limits (200k + 2 x 20k 4-byte chars each)", r.status_code == 200
+              and len(bigs) == 3 and all(m["text"] == big and m["note"] == meta["note"] for m in bigs),
+              f"{r.status_code} {r.text[:120]}")
+    guarded("sync: limits", limits)
+
+    def export() -> None:
+        r = client.get("/api/admin/export", params={"table": "messages"}, headers={"X-Admin-Token": admin_token})
+        csv.field_size_limit(1_000_000)  # the large messages above are longer than csv's default 131072
+        rows = [row for row in csv.DictReader(io.StringIO(r.text)) if row["conversation_id"] == conv]
+        check("admin export messages CSV", r.status_code == 200 and len(rows) >= 2
+              and json.loads(rows[0]["meta_json"])["conceptIds"] == sent_messages[0]["conceptIds"], f"{len(rows)} rows")
+    guarded("admin export messages", export)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
