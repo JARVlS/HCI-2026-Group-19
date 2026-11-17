@@ -1,4 +1,4 @@
-import type { AnalyzeInput, ChatRequest, Provider, ScoreInput, TurnContext } from '../ai/provider';
+import type { AnalyzeInput, ChatRequest, Provider, ScoreInput, ScoreResult, TurnContext } from '../ai/provider';
 import { isAbort, ProviderError } from '../ai/provider';
 import type { TurnAnalysis } from '../ai/schemas/turnAnalysis';
 import { looksLikeQuizAnswer } from './classify';
@@ -37,7 +37,14 @@ export interface TurnDeps {
   getState: () => State;
   newId?: () => Id;
   now?: () => ISO;
+  /**
+   * The judge's distribution over the "thought along" scale for a sent message (the composer's
+   * rating of exactly that text, or the turn's own score): the live word filter learns from it.
+   */
+  judged?: (input: ThinkingInput, distribution: Record<string, number>) => void;
 }
+
+export type ThinkingInput = Extract<ScoreInput, { question: 'thinking' }>;
 
 export interface SendInput {
   text: string;
@@ -47,9 +54,10 @@ export interface SendInput {
   veil?: boolean;
   /**
    * The fast model's thinking score of exactly this text in this chat, rated while it was typed
-   * (`draftScore.ts`): it lands on the message at once and the turn does not ask again.
+   * (`draftScore.ts`): it lands on the message at once and the turn does not ask again. Its
+   * distribution goes to `judged`, never onto the message.
    */
-  thinking?: Score;
+  thinking?: ScoreResult;
 }
 
 /** How many earlier turns the analysis sees (ADR-6). */
@@ -59,6 +67,9 @@ const SCORE_RECENT_MESSAGES = 4;
 
 /** The context of a thinking score: the last messages before the one rated (the composer's live rating uses the same). */
 export const scoreContext = (before: Pick<Message, 'role' | 'text'>[]) => before.slice(-SCORE_RECENT_MESSAGES).map((m) => ({ role: m.role, text: m.text }));
+
+/** What a message stores of a score: the number and the model, nothing else. */
+const stored = ({ p, model }: ScoreResult): Score => (model ? { p, model } : { p });
 
 const defaults = (deps: TurnDeps) => ({
   newId: deps.newId ?? (() => crypto.randomUUID()),
@@ -70,7 +81,7 @@ export async function sendTurn(deps: TurnDeps, input: SendInput, signal: AbortSi
   const text = input.text.trim();
   if (!text) return;
   const conversationId = deps.getState().session.activeConversationId;
-  const scores = input.thinking && { thinking: input.thinking };
+  const scores = input.thinking && { thinking: stored(input.thinking) };
   const user: Message = {
     id: newId(),
     role: 'user',
@@ -85,7 +96,7 @@ export async function sendTurn(deps: TurnDeps, input: SendInput, signal: AbortSi
     provider: deps.provider.kind,
   };
   deps.dispatch({ type: 'user', msg: user });
-  await reply(deps, user, Boolean(input.veil), signal);
+  await reply(deps, user, Boolean(input.veil), signal, input.thinking?.distribution);
 }
 
 /** Run the failed turn again: same user message, fresh reply. */
@@ -98,7 +109,8 @@ export async function retryTurn(deps: TurnDeps, signal: AbortSignal): Promise<vo
   await reply(deps, user, false, signal);
 }
 
-async function reply(deps: TurnDeps, user: Message, veil: boolean, signal: AbortSignal) {
+/** `rated`: the distribution of the composer's rating of exactly this text, if it had one. */
+async function reply(deps: TurnDeps, user: Message, veil: boolean, signal: AbortSignal, rated?: Record<string, number>) {
   const { newId, now } = defaults(deps);
   const { provider, dispatch } = deps;
   const conversationId = user.conversationId;
@@ -109,8 +121,10 @@ async function reply(deps: TurnDeps, user: Message, veil: boolean, signal: Abort
 
   // The analysis is not stopped by the stop key: the user's message stands, and so does its label.
   const analysis = user.analysis === 'done' ? null : runAnalysis(provider, analyzeInput(before, user, context, upto));
-  // The fast score runs beside it (again on a retry, if it failed the first time).
-  const thinking = user.scores?.thinking === undefined || user.scores.thinking === 'failed' ? scoreThinking(deps, user, upto) : null;
+  // The fast score runs beside it (again on a retry, if it failed the first time). Earlier turns are context.
+  const ask: ThinkingInput = { question: 'thinking', text: user.text, recent: scoreContext(upto.slice(0, -1)) };
+  if (rated) deps.judged?.(ask, rated);
+  const thinking = user.scores?.thinking === undefined || user.scores.thinking === 'failed' ? scoreThinking(deps, user, ask) : null;
   // Applied once; every caller gets the same promise, so the end of the turn waits until it is in.
   let applying: Promise<void> | null = null;
   const apply = () =>
@@ -186,15 +200,18 @@ function score(deps: TurnDeps, userMessageId: Id, key: ScoreKey, input: ScoreInp
   const { provider, dispatch } = deps;
   dispatch({ type: 'score', userMessageId, key, value: 'pending' });
   return provider.score!(input, new AbortController().signal).then(
-    ({ p, model }) => dispatch({ type: 'score', userMessageId, key, value: model ? { p, model } : { p } }),
+    (r) => {
+      dispatch({ type: 'score', userMessageId, key, value: stored(r) });
+      if (input.question === 'thinking' && r.distribution) deps.judged?.(input, r.distribution);
+    },
     () => dispatch({ type: 'score', userMessageId, key, value: 'failed' }),
   );
 }
 
-/** How much did the student think along in this message? Earlier turns are context. */
-function scoreThinking(deps: TurnDeps, user: Message, upto: Message[]) {
+/** How much did the student think along in this message? */
+function scoreThinking(deps: TurnDeps, user: Message, input: ThinkingInput) {
   if (!deps.provider.score) return null;
-  return score(deps, user.id, 'thinking', { question: 'thinking', text: user.text, recent: scoreContext(upto.slice(0, -1)) });
+  return score(deps, user.id, 'thinking', input);
 }
 
 /** An own claim the analysis found gradable: is it right, judged against the complete reply? */

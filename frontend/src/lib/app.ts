@@ -1,7 +1,7 @@
 import { createKeyStore } from '../ai/own/keys';
 import { OwnProvider } from '../ai/own/provider';
 import { parseSetup } from '../ai/own/setup';
-import type { Provider } from '../ai/provider';
+import type { Provider, ScoreResult } from '../ai/provider';
 import { chooseProvider, createProvider, isLiveChoice } from '../ai/providers';
 import { demoFixture } from '../ai/scripted/fixture';
 import { classify } from './classify';
@@ -10,8 +10,8 @@ import type { Id, ISO } from './domain';
 import { createLive, type Backend, type Live } from './live';
 import { isBusy, reducer, type Action, type DomainState, type State } from './state';
 import { SyncQueue, watchPage, type KeyValue } from './sync';
-import { isQuizAnswer, retryTurn, revealTurn, sendTurn } from './turn';
-import type { Classification, ProviderChoice, Score, Settings } from './types';
+import { isQuizAnswer, retryTurn, revealTurn, sendTurn, type TurnDeps } from './turn';
+import type { Classification, ProviderChoice, Settings } from './types';
 
 /**
  * The app without React (IMPLEMENTATION_PLAN.md, M1/M2): initial state from the URL and storage,
@@ -155,6 +155,8 @@ export interface AppOptions {
   page?: { win: EventTarget; doc: EventTarget & { visibilityState: string } } | null;
   newId?: () => Id;
   now?: () => ISO;
+  /** Every judged sent message (live mode): the word filter learns from it (`LiveFilter.learn`). */
+  judged?: TurnDeps['judged'];
 }
 
 export type App = ReturnType<typeof createApp>;
@@ -194,7 +196,7 @@ export function createApp(opts: AppOptions) {
       if (controller === c) controller = null;
     });
   };
-  const deps = () => ({ provider: provider(), dispatch: store.dispatch, getState: store.getState, newId, now });
+  const deps = (): TurnDeps => ({ provider: provider(), dispatch: store.dispatch, getState: store.getState, newId, now, judged: opts.judged });
 
   const showDemo = (empty: boolean) => store.dispatch({ type: 'hydrate', ...demoWorld(empty) });
 
@@ -268,7 +270,7 @@ export function createApp(opts: AppOptions) {
       else void live.boot();
     },
 
-    send(text: string, cls?: Classification, o?: { veil?: boolean; thinking?: Score }) {
+    send(text: string, cls?: Classification, o?: { veil?: boolean; thinking?: ScoreResult }) {
       const s = store.getState();
       if (isBusy(s.session.turn) || !text.trim()) return;
       if (!s.domain.messagesByConv[s.session.activeConversationId]) return toast('this chat is still loading');

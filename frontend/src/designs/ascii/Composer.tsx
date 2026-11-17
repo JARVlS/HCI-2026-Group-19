@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { draftGauge, sendMode, useDraftScore, type DraftGauge, type DraftView } from '../../lib/draftScore';
+import { draftGauge, sendMode, useDraftScore, useSteady, type DraftGauge, type DraftView } from '../../lib/draftScore';
+import { useFilterView } from '../../lib/liveFilter';
 import { MODE_META, pct } from '../../lib/modes';
 import { useStore } from '../../lib/store';
 import { useAccount } from '../../Welcome';
@@ -23,7 +24,7 @@ const AFTER: Record<Mode, string> = {
 };
 
 export function Composer() {
-  const { state, dispatch, send, stop, classifyDraft, busy, demoPrompts, messages, scoreDraft } = useStore();
+  const { state, dispatch, send, stop, classifyDraft, busy, demoPrompts, messages, scoreDraft, filter } = useStore();
   const { focusPrompt } = useUi();
   const { enabled: arborOn, nudge } = state.settings;
   const lint = arborOn && nudge !== 'off';
@@ -39,6 +40,8 @@ export function Composer() {
   const commands = useCommands();
   // The fast model rates the draft once typing pauses (live mode); the word rules decide until it has.
   const model = useDraftScore(lint ? scoreDraft : null, text, messages);
+  // Live mode: the word filter rates every finished word at once, and moves the model's last number by the words since.
+  const words = useFilterView(lint ? filter : null, text, messages, model.anchor?.text ?? null);
 
   const isCmd = text.startsWith('/') && !text.includes('\n');
   const [word, ...rest] = isCmd ? text.slice(1).split(' ') : [''];
@@ -62,8 +65,12 @@ export function Composer() {
   // Typing moves the words: the reason under the mouse waits for the next mouse move.
   useEffect(() => setTip(null), [text]);
 
+  // What the score line says; its label changes only once a new one held for two finished words.
+  const lensGauge = lint && lens ? draftGauge(lens.c, model, words.view) : null;
+  const steady = useSteady(words.step, lensGauge);
+  const line = lensGauge && { ...lensGauge, mode: steady?.shown ?? lensGauge.mode };
   // Tell the rest of the UI (modeline, squirrel) what the score line says.
-  const live = lint && lens ? draftGauge(lens.c, model).mode : null;
+  const live = line?.mode ?? null;
   useEffect(() => {
     dispatch({ type: 'composer', lens: live, nudge: false });
   }, [live, dispatch]);
@@ -82,8 +89,10 @@ export function Composer() {
     }
     if (busy || !text.trim()) return;
     const c = classifyDraft(text);
-    // The model's rating of exactly this text decides the veil and goes with the message; else the rules decide, and the turn asks the model.
-    send(text, c, { veil: arborOn && willVeil(sendMode(c, model)), thinking: model.rated ?? undefined });
+    // The model's rating of exactly this text decides the veil and goes with the message; else the
+    // line's steady label with the whole draft rated by the word filter (live), or the rules; the turn asks the model.
+    const whole = { gauge: draftGauge(c, model, words.whole(text)), steady, newWord: words.step.trimEnd() !== text.trim() };
+    send(text, c, { veil: arborOn && willVeil(sendMode(c, model, whole)), thinking: model.rated ?? undefined });
     setText('');
   };
 
@@ -116,7 +125,7 @@ export function Composer() {
   };
 
   const c = lint && lens && lens.text === text ? lens.c : null;
-  const g = c && draftGauge(c, model);
+  const g = c && line;
 
   /** The textarea lies over the underlines, so find the underlined word under the mouse by its boxes. */
   const onHover = (e: MouseEvent<HTMLTextAreaElement>) => {
@@ -168,7 +177,7 @@ export function Composer() {
 
       <div className="a-gauge-row">
         {c && g ? (
-          <Gauge c={c} g={g} model={model} text={text} after={willVeil(g.mode) ? 'the answer arrives veiled, so you can guess first' : AFTER[g.mode]} />
+          <Gauge c={c} g={g} from={source(g, model, c, words)} text={text} after={willVeil(g.mode) ? 'the answer arrives veiled, so you can guess first' : AFTER[g.mode]} />
         ) : !text && !busy && next ? (
           // A quiet hint, only visible while the prompt has focus (tab only works there), so it is
           // never mistaken for the prompt itself. Clicking keeps the focus in the prompt.
@@ -235,30 +244,36 @@ export function Composer() {
 
       {/* For screen readers: what the linter says, without a visible block that moves the page. */}
       <p id="a-lint" className="a-sr" aria-live="polite">
-        {c && g ? `${MODE_META[g.mode].lens}, ${g.from === 'rules' ? `${pct(c.confidence)}% sure` : 'rated by the fast model'}. ${c.reasons.join('. ')}` : ''}
+        {c && g ? `${MODE_META[g.mode].lens}, ${source(g, model, c, words)}. ${c.reasons.join('. ')}` : ''}
       </p>
     </div>
   );
 }
 
 /** Where the line's number comes from, in plain words. "% sure" belongs to the word rules only. */
-function source(g: DraftGauge, model: DraftView, c: Classification) {
+function source(g: DraftGauge, model: DraftView, c: Classification, words: { learned: number; failed: boolean }) {
+  const learned = words.learned ? ` · learned from ${words.learned} of your messages` : '';
+  const off = model.unavailable ? ' · the model rating is not available' : '';
   if (g.from === 'model') return 'rated by the fast model';
+  if (g.from === 'adjusted') return `the fast model's rating, adjusted for the words since${learned}`;
+  if (g.from === 'filter') return `estimated from your words (instant)${g.unsure ? ' · unsure' : ''}${off}${learned}`;
   if (g.from === 'earlier') return 'rated by the fast model, on your earlier words';
-  const sure = `${pct(c.confidence)}% sure`;
+  const sure = `${pct(c.confidence)}% sure${words.failed ? ' · the word filter could not load' : ''}`;
   if (!model.canRate) return sure;
   return `${sure} · from the word rules, ${model.unavailable ? 'the model rating is not available' : 'the model has not answered'}`;
 }
 
 /**
  * The live score: the label, a bar from you to ai, the split, and what sending will do. In live
- * mode the fast model's rating sets them once it has answered (dimmed while newer words wait for
- * theirs); until then the word rules do. Hovering it lists every reason the linter found.
+ * mode the word filter sets them at every finished word (dimmed while it is unsure), and the fast
+ * model's rating once it has answered (moved by the filter for the words since); without the
+ * filter the model's earlier rating stays dimmed, and the word rules decide until it has answered.
+ * Hovering it lists every reason the linter found.
  */
-function Gauge({ c, g, model, text, after }: { c: Classification; g: DraftGauge; model: DraftView; text: string; after: string }) {
+function Gauge({ c, g, from, text, after }: { c: Classification; g: DraftGauge; from: string; text: string; after: string }) {
   const you = pct(g.you);
   return (
-    <div className={`a-gauge m-${g.mode}${g.from === 'earlier' ? ' stale' : ''}`} tabIndex={0} aria-describedby="a-lint">
+    <div className={`a-gauge m-${g.mode}${g.from === 'earlier' || g.unsure ? ' stale' : ''}`} tabIndex={0} aria-describedby="a-lint">
       <G mode={g.mode} /> <strong>{lower(MODE_META[g.mode].lens)}</strong>
       <span className="a-gauge-bar" aria-hidden="true">
         <span style={{ width: `${you}%` }} />
@@ -272,7 +287,7 @@ function Gauge({ c, g, model, text, after }: { c: Classification; g: DraftGauge;
       <div className="a-gauge-pop" role="tooltip">
         <p className="a-verdict-head">
           <G mode={g.mode} /> <strong>{lower(MODE_META[g.mode].lens)}</strong>
-          <span className="a-dim"> · {source(g, model, c)}</span>
+          <span className="a-dim"> · {from}</span>
         </p>
         {g.from !== 'rules' && (
           <p className="a-dim">
@@ -304,7 +319,7 @@ const PROVIDER_TOAST: Record<ProviderChoice, string> = {
 };
 
 function useCommands(): Cmd[] {
-  const { state, dispatch, send, stop, retry, busy, toast, messages, mode, newChat, renameChat, sync } = useStore();
+  const { state, dispatch, send, stop, retry, busy, toast, messages, mode, newChat, renameChat, sync, filter } = useStore();
   const ui = useUi();
   const account = useAccount();
   return useMemo(() => {
@@ -368,6 +383,17 @@ function useCommands(): Cmd[] {
         run: (a) => pick(a, ['scripted', 'arbor', 'own'] as const, (v) => (set({ provider: v }), toast(`answers: ${PROVIDER_TOAST[v]}`)), 'provider'),
       },
       { name: 'model', desc: 'set up your own model: endpoint, key, test', run: () => ui.setSheet('model') },
+      // Live mode: what the word filter learned from your messages stays in this browser.
+      ...(filter
+        ? [
+            {
+              name: 'filter',
+              args: 'reset',
+              desc: 'forget what the word filter learned from your messages',
+              run: (a: string) => (a.toLowerCase() === 'reset' ? (filter.reset(), toast('the word filter forgot what it learned from you')) : toast('/filter takes reset')),
+            },
+          ]
+        : []),
       {
         name: 'design',
         args: 'ascii|classic',
@@ -411,5 +437,5 @@ function useCommands(): Cmd[] {
       { name: 'concepts', desc: 'the interaction ideas in this design', run: () => ui.setSheet('concepts') },
       { name: 'intro', desc: 'replay the introduction', run: () => dispatch({ type: 'onboarding', open: true }) },
     ] satisfies Cmd[];
-  }, [state.settings, state.session.turn.status, messages, busy, dispatch, send, stop, retry, toast, ui, mode, newChat, renameChat, account, sync.pending]);
+  }, [state.settings, state.session.turn.status, messages, busy, dispatch, send, stop, retry, toast, ui, mode, newChat, renameChat, account, sync.pending, filter]);
 }
