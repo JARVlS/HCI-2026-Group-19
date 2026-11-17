@@ -649,7 +649,10 @@ animated tree). Decisions taken on the way (change them here if the team disagre
 **FE**
 - [ ] `lib/session.ts` (create or restore a token), `lib/sync.ts` (debounced queue, retry with
       backoff, localStorage mirror so a reload never loses a turn), hydrate on boot.
-- [ ] `api.ts`: auth header, typed errors, `apiStream()` for SSE.
+      *17 Nov:* `lib/session.ts` built with M3 (create or restore, a new session once after a 401);
+      `sync.ts` and hydrate not yet.
+- [x] `api.ts`: auth header, typed errors, `apiStream()` for SSE. *17 Nov:* built with M3; one base
+      URL (`VITE_API_URL`), `ApiError(status, code, message)`, SSE events split across chunks.
 - [ ] **Chat history and revisit** (ASCII design, keyboard-first):
       - chat list: `/chats` (or `c`), grouped today / this week / earlier, each row showing its
         trees' glyph crowns; `/new` starts a chat; titles are auto-set from the first turn and
@@ -687,16 +690,25 @@ from with the browser back button.
       `analyze`/`tree`/`quiz`. *16 Nov:* JSON outputs instead of tool use; live Claude not run yet.
 
 **FE**
-- [ ] `ArborProvider` (chat + json); provider picker in settings (scripted | arbor); default
+- [x] `ArborProvider` (chat + json); provider picker in settings (scripted | arbor); default
       `arbor` outside demo mode.
-- [ ] `ai/prompts/chat.ts`: tutor system prompt parameterized by the linter mode, nudge level
+      *17 Nov:* the default is the build variable `VITE_DEFAULT_PROVIDER`, `scripted` in
+      `.env.production` until the group has its own API key and a higher token cap (with `arbor`
+      every visitor spends tokens). `?provider=arbor|scripted` for one visit.
+- [x] `ai/prompts/chat.ts`: tutor system prompt parameterized by the linter mode, nudge level
       and study mode. This replaces `engine.ts`'s variants: `own` → react to their reasoning
       first, `together` → explain and hand a question back, `ai` → answer fully, `hint` →
       hint only, `/quiz` → separate `quiz` task.
-- [ ] Veil works with streamed text (the stream fills while veiled; reveal shows what has arrived so far).
+      *17 Nov:* the `quiz` task is left for M4/M5: live mode does not offer quizzes on a leaf
+      (`canQuiz` is false), `/quiz` is a plain chat message. A small first `analyze` prompt and
+      its JSON schema came with it (`ai/prompts/analyze.ts`), because every turn runs one.
+- [x] Veil works with streamed text (the stream fills while veiled; reveal shows what has arrived so far).
 
 *Acceptance:* a real conversation on an arbitrary topic streams, can be stopped, survives a
 network error with retry, and the budget limit shows a friendly message.
+*17 Nov (FE):* checked in both designs against the deployed Worker (`?provider=arbor`): streams,
+`esc`/stop cancels the request, a cut connection fails with retry, the budget errors (simulated
+429s) show which budget is used up. A live chat starts empty and is not saved yet (M2).
 
 ### M4 Turn analysis and tree generation (FE-heavy + BE task, Nov 24–Dec 1) ⇢ M2, M3. **Core milestone.**
 - [ ] `ai/schemas/turnAnalysis.ts` (ADR-6) and `ai/prompts/analyze.ts`: graph subtree in
