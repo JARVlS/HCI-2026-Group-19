@@ -54,7 +54,7 @@ def test_docs_and_openapi(client):
     paths = client.get("/api/openapi.json").json()["paths"]
     assert set(paths) == {"/api/health", "/api/session", "/api/ai/complete", "/api/ai/score", "/api/events",
                           "/api/admin/export", "/api/state", "/api/conversations/{conversation_id}/messages",
-                          "/api/sync"}
+                          "/api/sync", "/api/auth/signup", "/api/auth/login", "/api/me"}
 
 
 def test_cors_preflight_allows_authorization(client):

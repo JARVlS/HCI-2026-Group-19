@@ -3,7 +3,8 @@
 FastAPI running on Cloudflare Python Workers (Pyodide), with a Cloudflare D1 database. Deployed
 separately from the frontend (Cloudflare Pages); the frontend calls it through `frontend/src/lib/api.ts`.
 
-What it does today (IMPLEMENTATION_PLAN.md, ADR-3/5/8): anonymous sessions, a guarded relay to
+What it does today (IMPLEMENTATION_PLAN.md, ADR-3/5/8): anonymous sessions, optional accounts
+(username and password on top of a guest, no email), a guarded relay to
 Claude with a daily token budget per user, G-Eval-style scores from a fast model's token
 probabilities, persistence of the frontend's data model (concepts, edges, trees, conversations,
 messages, attempts: one idempotent batch sync, a bootstrap read and messages per conversation),
@@ -21,11 +22,12 @@ src/config.py            vars and secrets from the Worker env
 src/schemas.py           request/response models (camelCase on the wire), incl. the synced entities and their limits
 src/entities.py          how a synced entity maps to its D1 row and back, and the SQL to upsert and read it
 src/auth.py              session tokens, the `current_user` dependency, the admin token check
+src/passwords.py         PBKDF2 password hashing (WebCrypto under Workers, hashlib in tests)
 src/db.py                small async functions over D1
 src/llm.py               Claude request bodies, response and SSE parsing (pure logic)
 src/scoring.py           the fast slot: OpenAI-format request body and logprob scoring (pure logic)
 src/upstream.py          the HTTP call to the model APIs through the Workers `fetch`
-src/routes/              health, session, ai, events, sync (state, messages, sync), admin
+src/routes/              health, session, accounts (signup, login, me), ai, events, sync (state, messages, sync), admin
 tests/                   pytest suite, fake model APIs (Claude and the fast model), smoke test (see docs/testing.md)
 docs/api.md              the API reference
 docs/testing.md          how to test, manual checklist, results table
@@ -165,6 +167,7 @@ because migrations here only add tables and indexes.
 |---|---|---|
 | `0001_users_usage_events.sql` | session, ai, events, export | 16 Nov 2026 |
 | `0002_graph_and_chats.sql` | `/sync`, `/state`, `/conversations/{id}/messages`, the export of the six new tables | **open**: apply after the merge of the M2 backend PR |
+| `0003_accounts.sql` | `/auth/signup`, `/auth/login`, `/me` | **open**: apply before or right after the merge of the accounts PR |
 
 From `backend/`, with a Cloudflare login for the account that holds `hci-grp19`:
 

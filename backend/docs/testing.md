@@ -40,7 +40,7 @@ migrations to it, starts `tests/fake_anthropic.py` on port 8790 and `uv run pywr
 port 8787 with the made-up values from `tests/smoke.env` (your own `.dev.vars` is not used, so a
 real key in it is never called), runs `tests/smoke.py` and stops both servers. The first run
 downloads the Python packages and takes about a minute, later runs about 20 seconds. Expected last
-line: `38 passed, 0 failed`. The Worker log is in `.wrangler/smoke-dev.log`.
+line: `43 passed, 0 failed`. The Worker log is in `.wrangler/smoke-dev.log`.
 
 What it checks: health, session (also the same participant twice), 401, chat without streaming,
 CORS preflight, chat streaming with `Origin: http://localhost:5173` (CORS header present, the text is
@@ -48,7 +48,9 @@ right, the deltas arrive spread over about 2.7 seconds, so nothing buffers them,
 an upstream `error` event mid-stream, analyze with a nested schema, the score route (probabilities
 and mass from the fake's logprobs, then `[off-topic]`, `[no-logprobs]` and `[upstream-500]` as
 502s), upstream HTTP 500, refusal, the budget (one call that reports 250 000 tokens, then 429),
-events twice (3 then 0), the CSV export (the usage CSV has the session's `chat`, `analyze` and
+accounts (sign up with a guest token keeps the guest, login ignores case and returns the same token,
+wrong password 401, the same username again 409, `/api/me`; this is the only test of the WebCrypto
+password hashing), events twice (3 then 0), the CSV export (the usage CSV has the session's `chat`, `analyze` and
 `score` rows) and its 403, and the 404 format. Then persistence on the local D1: `PUT /api/sync` with one row of
 every entity and `GET /api/state` returns exactly that, messages come back in order with their
 extra fields and without `streaming`, the same body twice changes nothing, an older `updatedAt` is
@@ -141,6 +143,8 @@ tokens.
 | T-35 | Live score | the score `curl` with a message that clearly thinks along, then with "Write me a summary of backpropagation for my exam."; time both (`curl -w '%{time_total}'`) | first `probabilities["1"]` above 0.9, second below 0.2, `mass` near 1, `model` `zai.glm-4.7-flash`, well under 1 s each |
 | T-36 | Effort `none` on Haiku 4.5 | `.dev.vars`: `MODEL_ANALYZE=anthropic.claude-haiku-4-5`, `EFFORT_ANALYZE=low`, restart dev, analyze `curl`; then `EFFORT_ANALYZE=none`, restart, again | `low`: 502 `upstream_error` "HTTP 400 ... This model does not support the effort parameter"; `none`: 200 with JSON that matches the schema, `model` `anthropic.claude-haiku-4-5` |
 | T-37 | Deployed score | after `FAST_API_KEY` is set on the Worker and the deploy: T-35 against `https://hci-backend.leon-grass.workers.dev` | as T-35 |
+| T-38 | Accounts | new token (T-02), then the signup `curl` from `docs/api.md` with it; `POST /api/auth/login` with the username in capitals; again with a wrong password; the signup again; `GET /api/me` | signup 200 with the guest's `userId` and token; login 200, same token, username as stored; 401 `invalid_credentials`; 409 `username_taken`; `/me` names the account |
+| T-39 | Deployed accounts | after `uv run pywrangler d1 migrations apply hci-grp19 --remote` (0003) and the deploy: T-38 against `https://hci-backend.leon-grass.workers.dev`; then T-26 for the signup and login requests | as T-38; CPU time of signup and login below the plan's limit (PBKDF2 runs in WebCrypto) |
 
 ## 4. How we document tests
 
@@ -162,6 +166,8 @@ ID in the table below. Write what you actually saw, not what you expected.
 | 2026-11-17 | Claude (for Salomon) | T-35 live score: 14 judged messages (10 "thought along?", 4 "right or wrong?", prompts as in `docs/api.md`), 1 call with three options, 1 greeting prompt | `915aa89` | clear cases in their band, mass near 1, well under 1 s | 13 of 14 in band: "I think dropout works because ..." P("1") 0.999, "Write me a summary of backpropagation for my exam." 0.119, mass 1.00 on all 14; the one miss is a middle case, "Why does a smaller learning rate help? Is it because big steps overshoot?" at 0.881 (band 0.15 to 0.85). Three options on a hint request: "B" 0.9998, mass 0.99. Greeting prompt: 502 `invalid_model_output`, likeliest token 'Hello'. Latency through the local Worker: median 0.27 s, min 0.13 s, max 0.50 s (the first call), 15 calls; `/api/health` median 6 ms. 1 897 tokens for the 16 score calls | pass | local `pywrangler dev` against `zai.glm-4.7-flash` on Bedrock eu-north-1; deployed Worker not tested (T-37 open) |
 | 2026-11-17 | Claude (for Salomon) | live upstream error on the score route | `915aa89` | 502 `upstream_error` with the provider's message | `MODEL_FAST=zai.no-such-model`: 502 `upstream_error` "The model API returned HTTP 404 (invalid_request_error: The model 'zai.no-such-model' does not exist)." | pass | Bedrock's error body has the OpenAI shape |
 | 2026-11-17 | Claude (for Salomon) | T-36 | `915aa89` | `low` 400, `none` 200 | `low`: 502 `upstream_error` "HTTP 400 (invalid_request_error: This model does not support the effort parameter.)"; `none`: 200, `{"mode": "ai"}`, 187 in / 9 out tokens, 1.12 s | pass | local `pywrangler dev`, `anthropic.claude-haiku-4-5` on Bedrock |
+| 2026-11-17 | Claude (for Leon) | automatic tests (`uv run --group test pytest -q`) | branch `accounts-backend` | all pass | `190 passed` | pass | 173 before plus 17 new in `test_accounts.py` |
+| 2026-11-17 | Claude (for Leon) | smoke (`tests/smoke.sh`) incl. the account checks (T-38 automated) | branch `accounts-backend` | `43 passed, 0 failed` | `43 passed, 0 failed`; signup 0.06 s and login 0.06 s through the local Worker (PBKDF2 100 000 iterations in WebCrypto) | pass | local `pywrangler dev`, fresh local D1 with 0001 to 0003; deployed Worker not tested (T-39 open: 0003 is not applied remotely) |
 
 Rule: every PR that adds or changes an endpoint adds or updates its test ID in section 3 (and an
 automatic test), and adds a row here with the result of its own run.
