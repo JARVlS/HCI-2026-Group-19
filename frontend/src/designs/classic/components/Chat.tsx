@@ -2,6 +2,7 @@ import { ArrowUp, FlaskConical, Lightbulb, PenLine, Sparkles, Square, X } from '
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDismiss } from '../../../lib/hooks';
 import { MODES, MODE_META, pct } from '../../../lib/modes';
+import { guessScoreWords, messageScoreWords, scoreView, type ScoreWord } from '../../../lib/scores';
 import { useStore } from '../../../lib/store';
 import type { ChatMessage, Classification } from '../../../lib/types';
 import { ArborLogo, Glyph } from './Glyph';
@@ -55,11 +56,11 @@ export function ChatView() {
               </p>
             </div>
           )}
-          {messages.map((m) =>
+          {messages.map((m, i) =>
             m.role === 'user' ? (
               <UserMessage key={m.id} m={m} />
             ) : (
-              <AssistantMessage key={m.id} m={m} showReflect={m.id === lastAssistant?.id} />
+              <AssistantMessage key={m.id} m={m} showReflect={m.id === lastAssistant?.id} asked={messages[i - 1]?.role === 'user' ? messages[i - 1] : undefined} />
             ),
           )}
           {busy && last?.role === 'user' && (
@@ -119,6 +120,7 @@ function MessageTag({ m, c }: { m: ChatMessage; c: Classification }) {
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(ref, open, () => setOpen(false));
   const meta = MODE_META[c.mode];
+  const scores = messageScoreWords(scoreView(m.scores), c.overridden);
   const toggle = () => {
     const r = ref.current?.getBoundingClientRect();
     setUp(Boolean(r && r.bottom > window.innerHeight * 0.55));
@@ -142,6 +144,11 @@ function MessageTag({ m, c }: { m: ChatMessage; c: Classification }) {
             <ArborLogo size={14} /> {meta.label}
           </p>
           <p className="pop-desc">{meta.desc}</p>
+          {scores.length > 0 && (
+            <p className="pop-scores">
+              <Scores words={scores} />
+            </p>
+          )}
           {c.reasons.length > 0 && !c.overridden && (
             <>
               <p className="pop-sub">Why Arbor thinks so</p>
@@ -150,7 +157,8 @@ function MessageTag({ m, c }: { m: ChatMessage; c: Classification }) {
                   <li key={r}>{r}</li>
                 ))}
               </ul>
-              <p className="pop-conf">Confidence {pct(c.confidence)}%</p>
+              {/* A scored message's label comes from its score, so the analysis's confidence is not shown. */}
+              {!m.scores && <p className="pop-conf">Confidence {pct(c.confidence)}%</p>}
             </>
           )}
           <p className="pop-sub">Not right? Relabel it</p>
@@ -176,7 +184,21 @@ function MessageTag({ m, c }: { m: ChatMessage; c: Classification }) {
   );
 }
 
-function AssistantMessage({ m, showReflect }: { m: ChatMessage; showReflect: boolean }) {
+/** Score words joined by `·`; the ones on their way or failed are muted. */
+function Scores({ words }: { words: ScoreWord[] }) {
+  return (
+    <>
+      {words.map((w, i) => (
+        <span key={w.text} className={w.quiet ? 'muted' : undefined}>
+          {i > 0 && ' · '}
+          {w.text}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function AssistantMessage({ m, showReflect, asked }: { m: ChatMessage; showReflect: boolean; asked?: ChatMessage }) {
   const { state, dispatch, send, busy } = useStore();
   const enabled = state.settings.enabled;
   const concept = m.reflectOn ? state.domain.concepts[m.reflectOn] : undefined;
@@ -192,6 +214,14 @@ function AssistantMessage({ m, showReflect }: { m: ChatMessage; showReflect: boo
           {m.streaming && <span className="caret" aria-hidden="true" />}
         </div>
         {m.stopped && <p className="ai-note">Stopped.</p>}
+        {/* A guess revealed in the ASCII style (live): how right it was. */}
+        {enabled && m.guess && !m.veiled && asked?.scores && (
+          <p className="ai-note">
+            Your guess: “{m.guess}”
+            {guessScoreWords(scoreView(asked.scores)).length > 0 && ' · '}
+            <Scores words={guessScoreWords(scoreView(asked.scores))} />
+          </p>
+        )}
         {enabled && concept && showReflect && !m.streaming && !busy && (
           <div className="reflect" aria-label="Arbor suggestion">
             <span className="reflect-label">

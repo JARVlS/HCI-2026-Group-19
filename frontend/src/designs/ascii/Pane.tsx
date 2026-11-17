@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { apiUrl } from '../../lib/api';
 import { useDismiss } from '../../lib/hooks';
-import { MODE_META, MODE_SCORE, mean, pct } from '../../lib/modes';
+import { MODE_META, mean, pct } from '../../lib/modes';
+import { thinkingShare } from '../../lib/scores';
 import { TIME_MAX, TIME_TICKS, daysAt, formatDays, posOf, retention } from '../../lib/retention';
 import type { Concept, Id, Message } from '../../lib/domain';
 import { useStore } from '../../lib/store';
@@ -80,7 +81,7 @@ function useTween(value: number, ms = 450) {
 function Balance() {
   const { jumpTo, messages } = useStore();
   const turns = messages.filter((m) => m.role === 'user' && m.classification);
-  const you = turns.length ? mean(turns.map((t) => MODE_SCORE[t.classification!.mode])) : 0.5;
+  const you = turns.length ? mean(turns.map(thinkingShare)) : 0.5;
   const shown = useTween(you);
   const filled = Math.round(shown * BAR);
 
@@ -109,7 +110,7 @@ function Balance() {
               aria-label={`Prompt ${i + 1}: ${MODE_META[t.classification!.mode].label}. Jump to message`}
               title={`${lower(MODE_META[t.classification!.mode].label)} — “${t.text.slice(0, 60)}${t.text.length > 60 ? '…' : ''}”`}
             >
-              <G mode={t.classification!.mode} />
+              <G score={thinkingShare(t)} />
             </button>
           ))}
         </p>

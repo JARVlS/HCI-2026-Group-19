@@ -17,6 +17,13 @@ export interface Provider {
   chat(req: ChatRequest, onDelta: (text: string) => void, signal: AbortSignal): Promise<ChatResult>;
   /** Structured output for one task (M1: `analyze`; M3/M4 add `tree` and `quiz`). */
   json<K extends JsonTask>(task: K, input: JsonTasks[K]['input'], signal: AbortSignal): Promise<JsonTasks[K]['output']>;
+  /**
+   * A rating by a fast model, G-Eval style: the model answers with one digit of a scale, and the
+   * score is the sum of the digits' token probabilities times their weights (prompts and scales in
+   * `ai/prompts/score.ts`). Optional: a provider whose models return no token probabilities
+   * (Claude, the scripted demo) has none, and then the turn analysis's own numbers stay.
+   */
+  score?(input: ScoreInput, signal: AbortSignal): Promise<ScoreResult>;
   models?(): Promise<string[]>;
   /** Can this provider quiz the user on that concept? (The scripted one only knows its script.) Default: yes. */
   canQuiz?(conceptId: Id): boolean;
@@ -74,6 +81,21 @@ export interface AnalyzeInput {
 
 export interface JsonTasks {
   analyze: { input: AnalyzeInput; output: TurnAnalysis };
+}
+
+/** The questions `score` answers. */
+export type ScoreInput =
+  /** How much of the thinking in `text` is the student's own? `recent`: earlier turns, oldest first, as context. */
+  | { question: 'thinking'; text: string; recent: { role: 'user' | 'assistant'; text: string }[] }
+  /** The same for a `guess` typed at predict → reveal before reading the answer to `prompt`. */
+  | { question: 'guess'; prompt: string; guess: string }
+  /** Is the student's `statement` right, judged against `reference` (the tutor's answer)? */
+  | { question: 'correct'; statement: string; reference: string };
+
+export interface ScoreResult {
+  /** The score, 0..1: how much the student thought along, or how right it is. */
+  p: number;
+  model?: string;
 }
 export type JsonTask = keyof JsonTasks;
 

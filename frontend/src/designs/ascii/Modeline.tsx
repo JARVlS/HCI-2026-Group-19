@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { MODE_SCORE, mean, pct } from '../../lib/modes';
+import { mean, pct } from '../../lib/modes';
+import { thinkingShare } from '../../lib/scores';
 import { formatDays } from '../../lib/retention';
 import { useStore } from '../../lib/store';
 import { K, useUi } from './ui';
@@ -34,7 +35,7 @@ export function Modeline() {
 
   const veiled = messages.some((m) => m.veiled);
   const turns = messages.filter((m) => m.role === 'user' && m.classification);
-  const you = turns.length ? pct(mean(turns.map((t) => MODE_SCORE[t.classification!.mode]))) : null;
+  const you = turns.length ? pct(mean(turns.map(thinkingShare))) : null;
 
   let badge: { cls: string; text: string };
   if (!settings.enabled) badge = { cls: 'idle', text: 'paused' };

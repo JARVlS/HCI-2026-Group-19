@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../../lib/api';
 import { useDismiss, useSize } from '../../../lib/hooks';
 import { layoutTree, type PlacedBranch, type PlacedLeaf } from '../../../lib/layout';
-import { MODE_META, MODE_SCORE, mean, pct, scoreToMode } from '../../../lib/modes';
+import { MODE_META, mean, pct, scoreToMode } from '../../../lib/modes';
+import { thinkingShare } from '../../../lib/scores';
 import type { Concept, Id, Message } from '../../../lib/domain';
 import { useStore } from '../../../lib/store';
 import type { Design, Mode, NudgeLevel, ProviderChoice, Theme } from '../../../lib/types';
@@ -87,7 +88,7 @@ function insightFor(messages: Message[], concepts: Record<Id, Concept>): string 
 function Balance() {
   const { state, jumpTo, messages } = useStore();
   const turns = messages.filter((m) => m.role === 'user' && m.classification);
-  const you = turns.length ? pct(mean(turns.map((t) => MODE_SCORE[t.classification!.mode]))) : 50;
+  const you = turns.length ? pct(mean(turns.map(thinkingShare))) : 50;
 
   return (
     <section className="balance" aria-labelledby="balance-title">
@@ -121,7 +122,7 @@ function Balance() {
               aria-label={`Prompt ${i + 1}: ${MODE_META[t.classification!.mode].label}. Jump to message`}
               title={`${MODE_META[t.classification!.mode].label} — “${t.text.slice(0, 60)}${t.text.length > 60 ? '…' : ''}”`}
             >
-              <Glyph mode={t.classification!.mode} size={12} />
+              <Glyph score={thinkingShare(t)} size={12} />
             </button>
           ))}
         </div>

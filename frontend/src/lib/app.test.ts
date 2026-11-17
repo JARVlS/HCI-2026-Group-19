@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ScoreInput, ScoreResult } from '../ai/provider';
 import { json } from '../test/backend';
 import { memoryStorage } from '../test/storage';
 import { biologyProvider, fakeServer, serverMessages, testSession } from '../test/server';
@@ -236,6 +237,41 @@ describe('live mode', () => {
     a.dispatch({ type: 'forest', open: true });
     await a.openChat(chat, user.id);
     expect(a.state().ui).toMatchObject({ paneTreeId: 'picked-in-the-pane', forest: { open: false }, flash: { id: user.id } });
+  });
+
+  it('fast scores are saved with the message and come back after a reload; a score on its way is not saved; a reveal scores the guess', async () => {
+    const server = fakeServer();
+    const storage = memoryStorage();
+    const asked: { input: ScoreInput; answer: (r: ScoreResult) => void }[] = [];
+    const provider = { ...biologyProvider(), score: (input: ScoreInput) => new Promise<ScoreResult>((answer) => asked.push({ input, answer })) };
+    const a = app('?provider=arbor', storage, { provider });
+    a.start();
+    await settle();
+    a.send('Write me a summary of how vaccines work', undefined, { veil: true });
+    await settle();
+    const chat = a.state().session.activeConversationId;
+    const [user, reply] = activeMessages(a.state());
+    // Saved while the score is on its way: without it, so a reload never waits for it forever.
+    expect(user.scores).toEqual({ thinking: 'pending' });
+    expect(serverMessages(server, chat)[0].scores).toEqual({});
+
+    asked[0].answer({ p: 0.2, model: 'fast' });
+    await settle();
+    expect(serverMessages(server, chat)[0].scores).toEqual({ thinking: { p: 0.2, model: 'fast' } });
+
+    a.dispatch({ type: 'reveal', id: reply.id, guess: 'it trains memory cells' });
+    expect(asked.slice(1).map((x) => x.input.question)).toEqual(['guess', 'correct']);
+    asked[1].answer({ p: 0.8 });
+    asked[2].answer({ p: 0.9 });
+    await settle();
+
+    // Reload: a new app on the same storage.
+    const second = app('?provider=arbor', storage, { provider });
+    second.start();
+    await settle();
+    const [loaded] = activeMessages(second.state());
+    expect(loaded).toMatchObject({ scores: { thinking: { p: 0.2, model: 'fast' }, guess: { p: 0.8 }, correct: { p: 0.9 } }, classification: { mode: 'own' } });
+    expect(second.state().domain.attempts.map((x) => [x.mode, x.independence, x.correctness, x.source])).toEqual([['own', 0.8, 0.9, 'reveal']]);
   });
 
   it('/title renames the open chat and saves it; an empty chat left behind is dropped', async () => {

@@ -26,7 +26,7 @@ Press `?` in the app for the same list, each with a *try it* button that sets up
 |---|---|---|---|
 | 01 | **Thought linter** | Explainable feedforward | While you type, the words that make a prompt delegating get a wavy underline (dashed: together, solid: yours, so shape carries the meaning as well as colour), and the reason sits right below, like a spellchecker or compiler diagnostic. |
 | 02 | **Modeline** | Ambient awareness, calm technology | Like vim's `-- INSERT --`, the status bar always says who is thinking right now and lists the keys that work in this moment. Even the caret takes the mode's colour. |
-| 03 | **Predict → reveal** | Desirable difficulty, generation effect | With nudges on *active*, the answer to a prompt the linter reads as delegating arrives veiled (`░░░`): its shape is visible, its words are not. Type a hunch and reveal it, and a decode sweep uncovers the answer with the words you already had highlighted; the prompt becomes *thinking together*. Or just press ↵. It is never blocked. |
+| 03 | **Predict → reveal** | Desirable difficulty, generation effect | With nudges on *active*, the answer to a prompt the linter reads as delegating arrives veiled (`░░░`): its shape is visible, its words are not. Type a hunch and reveal it, and a decode sweep uncovers the answer with the words you already had highlighted; the prompt becomes *thinking together* (live: the guess is scored instead, see [Fast and slow](#fast-and-slow-how-a-turn-is-judged)). Or just press ↵. It is never blocked. |
 | 04 | **Two views, one tree** | Multiple views, object constancy | `t` switches between the growing plant and a `tree`-command outline. Every leaf keeps its identity and glides to its new place. |
 | 05 | **Forgetting scrubber** | Feedforward of consequences | Drag time forward (`[` `]`): letters drop out of labels and forgotten leaves fall to the ground. What you delegated falls first. An illustrative Ebbinghaus-style model (`src/lib/retention.ts`), labelled as such. |
 | 06 | **Semantic zoom** | Overview first, zoom & filter, details on demand | Pinch out or press `f`: the camera pulls back from your tree to the forest, where every chat is a crown of glyphs. Hover a tree and labelled roots run to chats that share a concept; zoom in for the full tree and a "revisit, most faded first" list. |
@@ -71,7 +71,7 @@ With `arbor`, the answers are Claude through the backend relay (`../backend/docs
 - **Analysis:** after each message one structured call (`src/ai/prompts/analyze.ts`, schema in `src/ai/schemas/turnAnalysis.ts`) labels who did the thinking, with reasons and quoted evidence, and names up to three concepts, each an existing node of your graph or a new one. That is what grows the leaves; the first message of a chat also picks its subject (the grove). An answer that does not fit the schema counts as a failed analysis, and the linter's label stays.
 - **Start:** your saved chats load and the one you changed last opens (see below). The `tab` prompts are three generic ones instead of the script's.
 - **Errors:** a failed reply shows `! failed · <why> · r retry` (classic: the reason and *Retry*). A used-up budget says whether it is your daily budget (resets at midnight UTC) or the project's total budget.
-- **Predict → reveal** works on the stream: the answer keeps arriving under the veil, and a reveal shows what is there so far while the rest streams in.
+- **Predict → reveal** works on the stream: the answer keeps arriving under the veil, and a reveal shows what is there so far while the rest streams in. A guess is scored once the reply is complete (see [Fast and slow](#fast-and-slow-how-a-turn-is-judged)).
 
 Not in live mode yet: quizzes on a leaf (`q`, the squirrel's *quiz me*, the forest), which need a `quiz` task that keeps the question pending so the answer is graded (M4/M5); `/quiz` still works as a plain chat message. Also not yet: "make it yours" after an answer, and sending study events. Trees are still shallow: most live leaves sit on the *side questions* branch until the M4 tree work.
 
@@ -85,7 +85,21 @@ cd ../frontend && npm run dev -- --port 5173 --strictPort    # .env.development 
 
 Against the deployed backend (once it has the M2 routes): `VITE_API_URL=https://hci-backend.leon-grass.workers.dev npm run dev -- --port 5173 --strictPort`.
 
-Every live message costs tokens from the group's budget: one chat call and one analysis call. Measured on 17 Nov at the start of a chat: about 540 tokens for the reply and 2,560 for the analysis. Both grow as the chat and the graph grow, because the transcript is sent again each time.
+Every live message costs tokens from the group's budget: one chat call, one analysis call and one small score call (two more for a graded claim or a revealed guess). Measured on 17 Nov at the start of a chat: about 540 tokens for the reply, 2,560 for the analysis, 250 to 500 for each score. The reply and the analysis grow as the chat and the graph grow, because the transcript is sent again each time.
+
+## Fast and slow: how a turn is judged
+
+Three judges look at every message, from fast to slow:
+
+1. **Linter, while you type** (`src/lib/classify.ts`): word rules underline the words and pick the label before you send. Free and instant; nothing goes to a model while you type.
+2. **Scores from a fast model, right after you send** (live mode, `Provider.score`, prompts and scales in `src/ai/prompts/score.ts`): the fast model (`zai.glm-4.7`) rates the message on a **rating scale**: *how much of the thinking in this message is the student's own?*, from 1 = none (hands the work over: a summary, a solution, a bare fact) through 2 = little (a why or how question without an own idea), 3 = some (asks for a hint or a quiz, or a vague idea) and 4 = much (an own claim, guess or prediction) to 5 = all (own reasoning or a worked attempt). Whether the student is right does not matter here: a wrong claim is still their own thinking. The model answers with one digit; the backend (`POST /api/ai/score`) returns how likely each digit was as that answer, and the score is the sum of each digit's probability times its weight (0, 25, 50, 75, 100 %), as in G-Eval. That is the message's **thought along** percent. It sets the label (yours from 67 %, delegated up to 20 %, together in between: `OWN_FROM` and `AI_UP_TO` in `src/lib/modes.ts`), the independence of every concept the message touched, and the *who's thinking* bar, trail and status line. A second scale, *is it right?* (right 100 %, partly right 50 %, wrong or no answer 0 %), runs once the reply is complete: for an own claim that the analysis found gradable (judged against the tutor's answer), and for a guess at predict → reveal. A revealed guess is also rated on the first scale (with the question as context): a real guess raises the percent, it never lowers it, and "no idea" stays at 0. A call takes about 0.4 s (median of 80 eval calls), but the fast model is sometimes slow: 7 of those 80 took 3 to 42 s, and the why then shows *…* until the score lands.
+3. **Turn analysis, slow** (Claude, `analyze`): which concepts the message is about, where they go in the graph, reasons and quoted evidence. With scores it no longer decides the numbers; whichever of the two lands first, the result is the same.
+
+What you see: the *why* of a message says *thought along 75%* and, when graded, *right 0%*; under a revealed answer the guess shows *right 100% · thought along 91%* (classic: a note under the answer), and *with your guess* when the guess changed the label. On its way: *…*; failed: *not checked*, and the analysis's numbers stay. A relabel by you always wins over a score. The scores are saved with the message (`scores` on the user message), so they are back after a reload.
+
+Why a scale and not a yes/no question: a good model answers *did the student think along, yes or no?* with 0 or 1, so there is no percent left; a weak model gives numbers in between, but they are its uncertainty, not a degree (it put short wrong claims like "My guess is that antibiotics kill viruses" at 18 %, the one case this tool must never punish). On the scale the same claims land at 72 to 79 %. Why a second model at all: Claude's API returns no token probabilities, so Claude cannot give these scores. A provider without `score` (the scripted demo; a Claude-only key in M7) keeps the analysis's own numbers, and a guess counts as *thinking together* as before.
+
+**Eval:** `npm run eval:score` sends 40 labelled cases (`eval/score.eval.ts`: 21 messages, 6 guesses, 13 statements to grade) to a running backend (`VITE_API_URL`, default `http://localhost:8787`) and prints one row per case with its score and label. It is not part of `npm test`. On 17 Nov with `zai.glm-4.7`: 37 of 40 in their band. Wrong own claims 72 to 79 % (yours), own reasoning 77 to 100 %, hint and quiz requests about 50 %, plain why and how questions 24 % (together), "explain X" 8 %, delegation 0 %; right statements 92 to 100 %, half right (tides) 46 %, wrong ones and "idk" 0 %. The misses: two worked attempts at 77 and 83 % (expected 85 % and up; still yours) and the vague guess "something with the blood?" at 25 % (together; expected 35 to 80 %). What the wording needs: the tutor's answer *before* the student's statement (tutor answers often end with a question, and the model rated that one instead).
 
 ## Demo and live: what is saved where
 
@@ -167,8 +181,9 @@ Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=activ
 | How the demo data becomes concepts, trees, chats and attempts | `src/ai/scripted/fixture.ts` |
 | Classification rules ("who's thinking"), their explanations and the words they point at | `src/lib/classify.ts` |
 | Scripted assistant behaviour (hint / quiz / feedback / full answer) | `src/ai/scripted/engine.ts` |
-| What a turn does (send, stream, stop, retry, analysis) | `src/lib/turn.ts` |
+| What a turn does (send, stream, stop, retry, analysis, scores) | `src/lib/turn.ts` |
 | Live tutor prompt, analysis prompt and its schema | `src/ai/prompts/chat.ts`, `src/ai/prompts/analyze.ts`, `src/ai/schemas/turnAnalysis.ts` |
+| Score prompts, how scores set labels and numbers, their words, the thresholds | `src/ai/prompts/score.ts`, `src/lib/scores.ts`, `OWN_FROM` / `AI_UP_TO` in `src/lib/modes.ts` |
 | Calls to the backend (base URL, errors, SSE) and the anonymous session | `src/lib/api.ts`, `src/lib/session.ts` |
 | Which provider answers, and with it demo or live mode | `src/ai/providers.ts`, `initialState` and `createApp` in `src/lib/app.ts` |
 | What is saved, when, retries, the localStorage mirror | `src/lib/sync.ts` |
@@ -193,6 +208,7 @@ Every model backend is a `Provider` (`src/ai/provider.ts`) that returns the same
 ```
 prompt ─▶ classify.ts (live linter, while typing)
        ─▶ turn.ts ─▶ Provider.chat ──── streamed reply ───────────▶ messages
+                  ├▶ Provider.score (fast: thought along? right?) ─▶ scores.ts ─▶ label + attempt numbers
                   └▶ Provider.json('analyze') ─▶ graph.ts merge ─▶ concepts + attempts
                                                                    │  planner.ts: which trees exist
 designs ◀── TreeData / Leaf ◀── project.ts, links.ts (pure selectors) ◀┘

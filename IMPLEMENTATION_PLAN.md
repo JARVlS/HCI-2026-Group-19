@@ -295,6 +295,17 @@ current quiz if one is pending. Merge rules (`lib/graph.ts`): prefer `existingId
 `newNode`, dedupe by `slug`/`aliases` before inserting; cap new nodes per turn (default 3)
 to keep trees readable.
 
+*17 Nov:* a third element sits between the two tiers, **scores from a fast model**
+(`Provider.score`, `POST /api/ai/score`, G-Eval): right after send it rates "how much of the
+thinking is the student's own?" on a 1–5 scale (weights 0, .25, .5, .75, 1; a wrong claim still
+counts as own), and the probability-weighted sum over the digits sets the message label (own ≥ 0.67,
+ai ≤ 0.2) and every attempt's `independence`. "Is it right?" (right / partly / wrong: 1, .5, 0,
+against the tutor's reply) sets `correctness` for own claims the analysis marks gradable and for
+guesses at predict → reveal (a guess can only raise independence). A scale, because a yes/no
+question gives 0 or 1 on a good model and a weak model's uncertainty otherwise. The analysis keeps
+choosing concepts, reasons and quotes. Scores are stored on the user message; a relabel wins.
+Claude returns no token probabilities, so providers without `score` keep the analysis's numbers.
+
 ### ADR-7 Knowledge state = help-aware Bayesian Knowledge Tracing (client-side, from attempts)
 Two quantities per concept, kept apart on purpose:
 - **Independence:** who did the thinking (mean of attempt `independence`). This drives the leaf

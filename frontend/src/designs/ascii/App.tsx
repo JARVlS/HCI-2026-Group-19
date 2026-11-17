@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { MODE_SCORE, mean } from '../../lib/modes';
+import { mean } from '../../lib/modes';
+import { thinkingShare } from '../../lib/scores';
 import { TIME_MAX, TIME_TICKS } from '../../lib/retention';
 import { useStore } from '../../lib/store';
 import { ChatList, LeafRefs } from './Chats';
@@ -87,7 +88,7 @@ function Shell() {
 function TopLine() {
   const { state, dispatch, toast, messages } = useStore();
   const turns = messages.filter((m) => m.role === 'user' && m.classification);
-  const score = turns.length ? mean(turns.map((t) => MODE_SCORE[t.classification!.mode])) : 0.5;
+  const score = turns.length ? mean(turns.map(thinkingShare)) : 0.5;
   return (
     <header className="a-top">
       <span className="a-top-nav a-dim" aria-hidden="true">

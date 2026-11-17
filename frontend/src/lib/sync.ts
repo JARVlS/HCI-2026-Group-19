@@ -35,7 +35,11 @@ function changed<T extends { id: Id }>(prev: T[], next: T[]): T[] {
 /** A message is saved once it is complete: never while it streams, and not a failed reply (a retry replaces it). */
 const saveable = (m: Message) => !m.streaming && !m.error;
 
-const wireMessage = ({ streaming: _, ...m }: Message): Message => m;
+/** What is saved of a message: not its streaming flag, and not a score still on its way (after a reload it would wait forever). */
+function wireMessage({ streaming: _, ...m }: Message): Message {
+  if (!m.scores || !Object.values(m.scores).includes('pending')) return m;
+  return { ...m, scores: Object.fromEntries(Object.entries(m.scores).filter(([, v]) => v !== 'pending')) };
+}
 
 /**
  * The rows to save after one state change. A tree the planner removed is sent once more with

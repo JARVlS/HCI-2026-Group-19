@@ -2,17 +2,20 @@ import { api, ApiError, apiStream } from '../../lib/api';
 import { session as browserSession, type Session } from '../../lib/session';
 import { ANALYZE_SYSTEM, analyzeMessage } from '../prompts/analyze';
 import { chatMessages, chatSystem } from '../prompts/chat';
-import type { ChatRequest, ChatResult, JsonTask, JsonTasks, Provider } from '../provider';
+import { scaleScore, scorePrompt } from '../prompts/score';
+import type { ChatRequest, ChatResult, JsonTask, JsonTasks, Provider, ScoreInput, ScoreResult } from '../provider';
 import { ProviderError } from '../provider';
 import { TURN_ANALYSIS_SCHEMA, toTurnAnalysis } from '../schemas/turnAnalysis';
 
 /**
  * Claude through the group's backend relay (IMPLEMENTATION_PLAN.md ADR-3/ADR-4, backend/docs/api.md):
  * the frontend renders prompts and schemas, the backend picks the model, caps tokens and keeps the
- * budgets. Chat streams over SSE; the analysis is one structured call.
+ * budgets. Chat streams over SSE; the analysis is one structured call. Scores come from a fast
+ * non-Claude model behind `/api/ai/score`, because Claude's API returns no token probabilities.
  */
 
 const COMPLETE = '/api/ai/complete';
+const SCORE = '/api/ai/score';
 
 interface Done {
   model: string;
@@ -78,6 +81,20 @@ export class ArborProvider implements Provider {
       throw toProviderError(e, signal);
     }
     return toTurnAnalysis(output, { hasSubject: Boolean(input.subjectId) });
+  }
+
+  async score(input: ScoreInput, signal: AbortSignal): Promise<ScoreResult> {
+    const { system, messages, scale } = scorePrompt(input);
+    const body = { system, messages, options: Object.keys(scale) };
+    let answer: { probabilities?: Record<string, unknown>; model?: unknown };
+    try {
+      answer = await this.session.run((token) => api<typeof answer>(SCORE, body, { token, signal }));
+    } catch (e) {
+      throw toProviderError(e, signal);
+    }
+    const p = scaleScore(answer.probabilities ?? {}, scale);
+    if (p === null) throw new ProviderError('The score answer lacks a probability for an option of the scale.', 'invalid_output');
+    return { p, ...(typeof answer.model === 'string' && { model: answer.model }) };
   }
 
   /**

@@ -21,12 +21,31 @@ export interface Classification {
   evidence?: Evidence[];
 }
 
+/** A score from the fast model's rating scale (G-Eval): `p`, 0..1, how much the student thought along or how right it is. */
+export interface Score {
+  p: number;
+  model?: string;
+}
+
+/** A score on its way, a failed score call, or the score. */
+export type ScoreState = 'pending' | 'failed' | Score;
+
+/**
+ * The fast model's scores of one user message (live mode, providers that have `score`):
+ * `thinking` did the student think along in the message, `guess` did they in a guess revealed at
+ * predict → reveal, `correct` is the guess (if there is one) or else the message's own claim right.
+ */
+export type ScoreKey = 'thinking' | 'guess' | 'correct';
+export type MessageScores = Partial<Record<ScoreKey, ScoreState>>;
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   text: string;
   /** User messages only. */
   classification?: Classification;
+  /** User messages only: the fast model's scores. Absent when the provider has none (demo, or a model without token probabilities). */
+  scores?: MessageScores;
   /** Concepts this exchange touched. */
   conceptIds: string[];
   streaming?: boolean;
