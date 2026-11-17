@@ -154,7 +154,7 @@ export function createLive(
     observe(prev, next, a) {
       // Loads come from the backend; only what happens after them is saved.
       if (a.type === 'hydrate' || a.type === 'messagesLoaded') return;
-      if (next.settings.provider !== 'arbor' || prev.session.boot !== 'ready' || next.session.boot !== 'ready') return;
+      if (next.settings.provider === 'scripted' || prev.session.boot !== 'ready' || next.session.boot !== 'ready') return;
       const rows = changedRows(prev.domain, next.domain, now());
       const ended = isBusy(prev.session.turn) && !isBusy(next.session.turn);
       if (rows.length || ended) queue.add(rows, { urgent: ended });

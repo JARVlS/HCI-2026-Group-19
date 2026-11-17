@@ -1,3 +1,5 @@
+import type { OwnSetup } from '../ai/own/setup';
+
 /** Who did the thinking for a prompt. */
 export type Mode = 'own' | 'together' | 'ai';
 
@@ -114,8 +116,8 @@ export type NudgeLevel = 'off' | 'gentle' | 'active';
 /** Design styles: each is its own UI over the same store (see src/designs/). */
 export type Design = 'ascii' | 'classic';
 export type Theme = 'system' | 'light' | 'dark';
-/** Where answers come from: the scripted demo, or Claude through the Arbor backend (ADR-4). */
-export type ProviderChoice = 'scripted' | 'arbor';
+/** Where answers come from: the scripted demo, Claude through the Arbor backend, or the user's own model (ADR-4, M7). */
+export type ProviderChoice = 'scripted' | 'arbor' | 'own';
 
 export interface Settings {
   enabled: boolean;
@@ -127,4 +129,6 @@ export interface Settings {
   design: Design;
   /** Applies from the next message; a running reply finishes with the provider it started with. */
   provider: ProviderChoice;
+  /** Provider `own`: the connection of each role (no keys: those stay in `ai/own/keys.ts`). */
+  own: OwnSetup;
 }

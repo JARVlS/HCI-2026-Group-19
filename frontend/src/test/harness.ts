@@ -1,3 +1,4 @@
+import { DEFAULT_SETUP } from '../ai/own/setup';
 import { demoFixture } from '../ai/scripted/fixture';
 import { ScriptedProvider } from '../ai/scripted/provider';
 import type { Provider } from '../ai/provider';
@@ -33,7 +34,7 @@ export function testStore(opts: { empty?: boolean; fresh?: boolean; provider?: P
       paneTreeId: null,
       chats: false,
     },
-    settings: { enabled: true, nudge: 'active', showTags: true, theme: 'system', mascot: true, design: 'ascii', provider: 'scripted' },
+    settings: { enabled: true, nudge: 'active', showTags: true, theme: 'system', mascot: true, design: 'ascii', provider: 'scripted', own: DEFAULT_SETUP },
   };
   const actions: Action[] = [];
   const provider = opts.provider ?? new ScriptedProvider({ think: [0, 0], tick: 0, tokensPerTick: 4 });

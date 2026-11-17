@@ -9,7 +9,7 @@ import type { Mode } from '../../lib/types';
  */
 
 export type TreeView = 'tree' | 'outline';
-export type Sheet = 'concepts' | null;
+export type Sheet = 'concepts' | 'model' | null;
 /** What the pointer is on, so the link overlay knows where to draw from. */
 export type LinkSource = { kind: 'message'; id: string } | { kind: 'leaf'; id: string; messageId?: string } | null;
 
@@ -144,6 +144,13 @@ export function Check({ checked, onChange, children }: { checked: boolean; onCha
 }
 
 export const lower = (s: string) => s.toLowerCase();
+
+/**
+ * An error in the design's lowercase voice, except what must keep its case to be copied: names like
+ * OLLAMA_ORIGINS, URLs, model ids, times, quoted words, and acronyms (HTTP, CORS).
+ */
+export const lowerProse = (s: string) =>
+  s.replace(/"[^"]*"|\S+/g, (w) => (/[_/.\d"]|^\W*[A-Z]{2,}/.test(w.replace(/[.,;:!?)]+$/, '')) ? w : w.toLowerCase()));
 
 /** Reasons, lower-cased and without the quoted words the evidence already points at. */
 export const shortReason = (r: string) => lower(r.replace(/\s*\(“[^”]*”\)/, ''));

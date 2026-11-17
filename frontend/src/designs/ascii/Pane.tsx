@@ -444,11 +444,13 @@ export function Scrubber({ days, setDays, width = 26 }: { days: number; setDays:
 const PROVIDER_DESC: Record<ProviderChoice, string> = {
   scripted: 'the demo script. offline, the same answers for everyone. nothing is saved.',
   arbor: 'claude through the arbor backend. your chats are saved on it and come back. uses the group’s token budget.',
+  own: 'your own model, with your own key or server. your chats are saved on the arbor backend as with live; the model calls go from this browser to your endpoint.',
 };
 
 /** Where answers come from, and with that whose chats you see: switching loads the other world. */
 function providerNote(p: ProviderChoice) {
-  const missing = p === 'arbor' && !apiUrl() ? ' this build has no backend url (VITE_API_URL), so live answers fail.' : '';
+  const result = p === 'arbor' ? 'live answers fail' : 'your chats cannot be loaded or saved';
+  const missing = p !== 'scripted' && !apiUrl() ? ` this build has no backend url (VITE_API_URL), so ${result}.` : '';
   return `${PROVIDER_DESC[p]}${missing}`;
 }
 
@@ -484,10 +486,18 @@ function Settings({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => v
               options={[
                 { v: 'scripted', label: 'scripted' },
                 { v: 'arbor', label: 'live' },
+                { v: 'own', label: 'own model' },
               ]}
             />
           </div>
-          <p className="a-set-desc a-dim">{providerNote(s.provider)}</p>
+          <p className="a-set-desc a-dim">
+            {providerNote(s.provider)}{' '}
+            {s.provider === 'own' && (
+              <button className="a-btn" onClick={() => (setSheet('model'), close())}>
+                set up your model
+              </button>
+            )}
+          </p>
           <div className="a-set">
             <span className="a-set-k">nudges</span>
             <Radios<NudgeLevel>
