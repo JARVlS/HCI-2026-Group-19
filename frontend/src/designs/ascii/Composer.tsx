@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { MODE_META, pct } from '../../lib/modes';
 import { useStore } from '../../lib/store';
-import type { Classification, Mode, NudgeLevel, Theme } from '../../lib/types';
+import type { Classification, Mode, NudgeLevel, ProviderChoice, Theme } from '../../lib/types';
 import { TIME_TICKS } from '../../lib/retention';
 import { Diagnostics, Marked } from './Transcript';
 import { G, K, lower, useUi } from './ui';
@@ -197,6 +197,12 @@ interface Cmd {
 
 const TIMES = Object.fromEntries(TIME_TICKS.map((t) => [t.label, t.days]));
 
+const PROVIDER_TOAST: Record<ProviderChoice, string> = {
+  scripted: 'scripted demo · nothing saved',
+  arbor: 'live claude · your saved chats',
+  own: 'your own model · your saved chats · /model to set it up',
+};
+
 function useCommands(): Cmd[] {
   const { state, dispatch, send, stop, retry, busy, toast, messages, mode, newChat, renameChat } = useStore();
   const ui = useUi();
@@ -256,10 +262,11 @@ function useCommands(): Cmd[] {
       { name: 'theme', args: 'system|light|dark', desc: 'colour theme', run: (a) => pick<Theme>(a, ['system', 'light', 'dark'], (v) => set({ theme: v }), 'theme') },
       {
         name: 'provider',
-        args: 'scripted|arbor',
-        desc: 'where answers come from (arbor: live claude)',
-        run: (a) => pick(a, ['scripted', 'arbor'] as const, (v) => (set({ provider: v }), toast(`answers: ${v === 'arbor' ? 'live claude · your saved chats' : 'scripted demo · nothing saved'}`)), 'provider'),
+        args: 'scripted|arbor|own',
+        desc: 'where answers come from (arbor: live claude, own: your model)',
+        run: (a) => pick(a, ['scripted', 'arbor', 'own'] as const, (v) => (set({ provider: v }), toast(`answers: ${PROVIDER_TOAST[v]}`)), 'provider'),
       },
+      { name: 'model', desc: 'set up your own model: endpoint, key, test', run: () => ui.setSheet('model') },
       {
         name: 'design',
         args: 'ascii|classic',
