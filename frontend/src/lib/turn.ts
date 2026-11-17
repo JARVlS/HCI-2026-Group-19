@@ -99,14 +99,15 @@ async function reply(deps: TurnDeps, user: Message, veil: boolean, signal: Abort
   const analysis = user.analysis === 'done' ? null : runAnalysis(provider, analyzeInput(before, user, context, upto));
   // The fast score runs beside it (again on a retry, if it failed the first time).
   const thinking = user.scores?.thinking === undefined || user.scores.thinking === 'failed' ? scoreThinking(deps, user, upto) : null;
-  let applied = false;
-  const apply = async () => {
-    if (applied || !analysis) return;
-    applied = true;
-    const r = await analysis;
-    if (r.ok) dispatch({ type: 'analysisDone', patch: patchOf(deps.getState(), user, r.value, context, provider, newId) });
-    else dispatch({ type: 'analysisFailed', conversationId, userMessageId: user.id });
-  };
+  // Applied once; every caller gets the same promise, so the end of the turn waits until it is in.
+  let applying: Promise<void> | null = null;
+  const apply = () =>
+    (applying ??= (async () => {
+      if (!analysis) return;
+      const r = await analysis;
+      if (r.ok) dispatch({ type: 'analysisDone', patch: patchOf(deps.getState(), user, r.value, context, provider, newId) });
+      else dispatch({ type: 'analysisFailed', conversationId, userMessageId: user.id });
+    })());
 
   const req: ChatRequest = { conversationId, messages: upto.map((m) => ({ role: m.role, text: m.text })), context };
   let assistantId: Id | null = null;

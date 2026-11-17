@@ -227,6 +227,21 @@ describe('turn with a scoring provider: own claims', () => {
     expect(scoreView(user().scores)).toEqual({ thought: 0.9, byGuess: false, guess: null, right: 0.85 });
   });
 
+  it('also when the analysis lands after the reply is complete (it usually does: it is the slow call)', async () => {
+    const { s, fake, reply } = live();
+    const sent = s.send(CLAIM);
+    await tick();
+    expect(reply().streaming).toBe(false);
+    fake.call('thinking', CLAIM).resolve({ p: 0.9 });
+    await tick();
+    expect(fake.calls).toHaveLength(1);
+    fake.analysis.resolve({ ...ANALYSIS, concepts: [concept('Vaccines', { mode: 'own', independence: 1, correctness: 0.4 })] });
+    await vi.waitFor(() => expect(fake.calls).toHaveLength(2));
+    fake.call('correct', CLAIM).resolve({ p: 0.2 });
+    await sent;
+    expect(numbers(s.state.domain.attempts)).toEqual([['own', 0.9, 0.2, 'prompt']]);
+  });
+
   it('a stopped reply is not graded', async () => {
     const { s, fake } = live();
     fake.analysis.resolve({ ...ANALYSIS, concepts: [concept('Vaccines', { correctness: 0.4 })] });
