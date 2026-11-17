@@ -400,6 +400,44 @@ type OrganizationPolicy =
 - **Data model:** `Conversation` gains `continuedFrom?: Id` and `carrySummary?: string`. Nothing
   else changes, because chats ↔ trees are derived from attempts anyway.
 
+**Second A/B candidate (Salomon, 17 Nov 2026, PROPOSED): does seeing your score make you think more?**
+```ts
+type ScoreFeedback =
+  | 'shown'    // A: the person sees the score Arbor gives their thinking
+  | 'hidden';  // B: the same score is computed and logged, but never shown
+```
+- **Question:** do people do more of the thinking themselves, measured by our own "thought along"
+  score (ADR-6, 17 Nov note), when they can see that score than when they cannot?
+- **The app first checks which group the person is in, then decides what to render.** The group is
+  a field of the user on the server (`users.condition`, returned by `POST /session` and `GET /me`),
+  so it survives a reload and another device (accounts, ADR-8). Nothing score-related renders
+  before the group is known. Outside a study (no participant id) the score is shown.
+- **Same judge in both groups:** the fast model rates every sent message (and every rated draft)
+  in A and in B, with the same prompt and model, and the result is saved with the message. B only
+  hides it. So the dependent variable is measured the same way in both.
+- **What B hides, exactly:** the live score line under the composer (label, bar, split), the
+  label glyph and the "why" with its percentages on messages, the "who's thinking" bar and trail,
+  the squirrel's reactions to the label, and the leaf fill that encodes whose thinking a leaf was
+  (leaves are drawn neutral). **Identical in both:** the chat, the tutor and its prompt, which
+  concepts the tree shows, saving, the task.
+- **Not part of this IV:** the veil (predict → reveal) and the nudges are consequences of the
+  score that a person can read their rating from. For a clean comparison they are the same in
+  both groups; recommended: off in both during this test (open question 9).
+- **If A beats B, follow-up tests of how the score is shown,** one factor at a time, same measure:
+  colour (neutral vs. red/green vs. another hue; never colour alone, for colour-blind
+  participants), and reward (none vs. the squirrel saying "I'm proud of you"). Each is one more
+  `StudyConfig` field (`scoreStyle`, `reward`), not a fork.
+- **Threats to name in the report:** (1) the score is our own judge, so "thinks more" means
+  "is rated higher": it needs the validity check of M9/R4, a learning measure that does not come
+  from the judge (a short quiz after the task), and a sample of turns rated by two team members
+  who do not know the group. (2) People in A can learn to phrase prompts so the judge likes them
+  ("I think …" in front of a request): compare the score with correctness and the quiz. (3) With
+  about 12 participants only a large effect is detectable; report effect size and interval, and
+  consider each person doing both groups on two topics in balanced order (twice the data, but
+  whoever saw the score once may behave differently afterwards). (4) Praise for a score can
+  crowd out the wish to learn: ask about pressure and motivation in the questionnaire.
+
+
 ### ADR-10 "Continue with ChatGPT": assessment and decision
 What the docs actually say (Nov 2026):
 - **Plan usage** (running requests on the user's ChatGPT plan) is offered to **open-source
@@ -900,6 +938,27 @@ message mode (tune prompts until it is, or report honestly).
 - [x] `GET /admin/export` CSVs feed straight into the analysis notebook. *16 Nov:* tables `events|usage|users`.
 - [ ] Pilot checklist: full run in under 20 min, export opens in pandas, no absurd values.
 
+- [ ] **Score visibility test** (ADR-9, second candidate; PROPOSED 17 Nov, runs only if the team
+      and the TA agree, open question 9):
+      - Assignment: `POST /session` with a participant id and no condition assigns the group on
+        the server, balanced (the smaller group gets the next person, a coin decides a tie), and
+        stores it in `users.condition`; `?cond=` on the study link overrides it for the
+        experimenter. If the organization test runs too, the condition names both
+        (e.g. `trees.shown`).
+      - `StudyConfig.scoreFeedback: 'shown' | 'hidden'`, and ONE selector (`showScore`) that every
+        place listed in ADR-9 asks. A test renders both designs in `hidden` and asserts that no
+        label, percent, bar or filled leaf appears; the judge still runs and the scores are saved.
+      - Measures: per participant the mean "thought along" percent over the task's turns
+        (primary); share of delegated and of own turns; first vs. sent rating of a draft (did they
+        rework it before sending); correctness of own claims; turns and words per prompt; a short
+        quiz on the topic after the task; questionnaire (noticed a score? felt pressure? useful?).
+      - Events: `draft_rated` (first and last rating per prompt), `turn_sent` with the rating,
+        `score_shown` (A only); each with `cond`.
+      - Analysis in `research/`: per-participant means, a permutation or Mann-Whitney test,
+        effect size with interval, one plot per measure; the turn sample rated blind by two people.
+      - Follow-ups only if A beats B: `scoreStyle` (colour) and `reward` (the squirrel's praise),
+        one at a time.
+
 **Freeze Dec 5.** After that: bug fixes only, until the study ends.
 
 ### R Research track (Python, `research/`, parallel to M4–M6, owner: whoever writes the report sections)
@@ -1022,6 +1081,12 @@ ADR-15 decided with those numbers. The same numbers feed R4.
 7. **Radial items (M2b):** are the 8 proposed wedges right? It's the same menu in both conditions
    (not part of the IV).
 8. **Demo Day date:** decides whether M7 (BYOK) lands before or after it.
+9. **Score visibility test (M6, ADR-9, proposed by Salomon 17 Nov):** (a) Does it run next to the
+   organization test (`split-chats` vs `split-trees`, which carries the course's M3 requirement),
+   as a second factor, as a second session, or instead of it? Twelve participants do not carry
+   two factors at once. (b) Are veil and nudges off in both groups during this test, so that the
+   only difference is the visible score? (c) One group per person, or both groups per person on
+   two topics? Ask the TA with the study design (Dec 4/8).
 
 **Decided:** the study runs on live Claude through the backend relay (department credits);
 ChatGPT sign-in is not viable for the hosted app, so BYOK covers "use your own model" (M7) and
