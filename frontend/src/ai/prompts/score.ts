@@ -14,6 +14,7 @@ export const THINKING_SYSTEM = [
   'You judge one message that a student wrote to an AI tutor. Question: did the student think along?',
   "Thinking along means the message contains the student's own reasoning, claim, prediction, guess, attempt or a specific idea they want checked, even if it is wrong.",
   'Not thinking along means the student hands the work to the AI: asks for a finished answer, summary, solution or text without any idea of their own, or only says they have no idea.',
+  'Asking for a hint or to be quizzed is in between: the student wants to do the thinking but brings no idea of their own yet.',
   'Earlier turns are context only: judge the student message at the end.',
   `Answer with a single digit and nothing else: ${YES} = the student thought along, ${NO} = the student did not.`,
 ].join(' ');
@@ -21,7 +22,8 @@ export const THINKING_SYSTEM = [
 export const CORRECT_SYSTEM = [
   "You compare a student's statement with the tutor's answer to the same question. Question: is the student's statement right?",
   "Judge only against the tutor's answer; wording may differ.",
-  'A statement that says nothing about the question, such as "I don\'t know", "no idea" or a question back, is wrong.',
+  "A statement that contradicts the tutor's answer is wrong.",
+  'A statement that is no answer at all, such as "idk", "I don\'t know", "no idea" or a question back, is wrong too.',
   `Answer with a single digit and nothing else: ${YES} = right, ${NO} = wrong.`,
 ].join(' ');
 

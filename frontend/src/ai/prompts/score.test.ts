@@ -6,9 +6,12 @@ describe('score prompts', () => {
     expect([YES, NO]).toEqual(['1', '2']);
     expect(THINKING_SYSTEM).toMatch(/single digit and nothing else: 1 = the student thought along, 2 = the student did not\.$/);
     expect(CORRECT_SYSTEM).toMatch(/single digit and nothing else: 1 = right, 2 = wrong\.$/);
-    // Known misses of the first wording: a guess counts even if wrong, "I don't know" is wrong.
+    // Fixes from the eval (eval/score.eval.ts): a guess counts even if wrong; hints and quizzes are
+    // in between; "idk" is wrong, and so is a contradiction (naming only the first made the second drift).
     expect(THINKING_SYSTEM).toContain('even if it is wrong');
-    expect(CORRECT_SYSTEM).toContain('"I don\'t know"');
+    expect(THINKING_SYSTEM).toContain('Asking for a hint or to be quizzed is in between');
+    expect(CORRECT_SYSTEM).toContain('"idk", "I don\'t know", "no idea"');
+    expect(CORRECT_SYSTEM).toContain("contradicts the tutor's answer is wrong");
   });
 
   it('thinking: the message to judge, with earlier turns as context before it', () => {
