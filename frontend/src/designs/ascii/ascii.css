@@ -1345,6 +1345,64 @@ body {
   padding-top: 8px;
   border-top: 1px dashed var(--rule);
 }
+
+/* Settings → model (own model): one block per role, fields on the character grid */
+.a-model {
+  width: min(100%, 88ch);
+  overflow-wrap: anywhere;
+}
+.a-model-intro {
+  margin-top: 10px;
+}
+.a-model-role {
+  margin-top: 12px;
+}
+/* "analysis" is 8 characters: one more column for the role names than in the settings pop-up */
+.a-model .a-set {
+  grid-template-columns: 10ch minmax(0, 1fr);
+}
+.a-model .a-set-desc {
+  margin-left: 10ch;
+}
+.a-fields {
+  margin: 2px 0 0 10ch;
+}
+.a-field {
+  display: grid;
+  grid-template-columns: 9ch minmax(0, 1fr) auto;
+  gap: 1ch;
+  align-items: baseline;
+}
+.a-field input {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dashed var(--rule);
+  background: transparent;
+  outline: none;
+}
+.a-field input:focus {
+  border-bottom-color: var(--text);
+}
+.a-field input::placeholder {
+  color: var(--text-3);
+}
+.a-hint {
+  cursor: help;
+}
+.a-model-test {
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--rule);
+}
+.a-model-checks {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.a-model-checks li {
+  overflow-wrap: anywhere;
+}
 .a-intro {
   width: min(100%, 66ch);
   padding: 16px 3ch 18px;

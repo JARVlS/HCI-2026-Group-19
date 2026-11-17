@@ -5,7 +5,7 @@ import { guessScoreWords, messageScoreWords, scoreView, type ScoreView, type Sco
 import { useStore } from '../../lib/store';
 import type { ChatMessage, Classification, Evidence, Mode } from '../../lib/types';
 import { Md, parseMd } from './Md';
-import { G, K, Radios, lower, shortReason, typing, useUi } from './ui';
+import { G, K, Radios, lower, lowerProse, shortReason, typing, useUi } from './ui';
 
 /* The conversation as a two-column log: who · what. */
 
@@ -60,7 +60,10 @@ export function Transcript() {
           <div className="a-empty">
             <p>what do you want to learn today?</p>
             <p className="a-dim">
-              {mode === 'live' ? 'ask about anything, the answers come live from claude. your chats are saved.' : 'ask anything about neural networks.'} or
+              {mode === 'demo'
+                ? 'ask anything about neural networks.'
+                : `ask about anything, the answers come live from ${state.settings.provider === 'own' ? 'your own model' : 'claude'}. your chats are saved.`}{' '}
+              or
               press <K>tab</K> for a demo prompt.
             </p>
           </div>
@@ -506,7 +509,7 @@ function TurnError({ error, inline = false }: { error?: string; inline?: boolean
   }, [retry]);
   const line = (
     <p className="a-failed" role="alert">
-      <span className="a-fail-mark">!</span> failed{error ? <span className="a-dim"> · {lower(error)}</span> : null} ·{' '}
+      <span className="a-fail-mark">!</span> failed{error ? <span className="a-dim"> · {lowerProse(error)}</span> : null} ·{' '}
       <button className="a-btn" onClick={retry}>
         <u>r</u>etry
       </button>

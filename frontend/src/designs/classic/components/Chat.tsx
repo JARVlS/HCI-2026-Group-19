@@ -51,7 +51,7 @@ export function ChatView() {
             <div className="chat-empty">
               <h2>What do you want to learn today?</h2>
               <p>
-                {state.settings.provider === 'arbor' ? 'Ask about anything, the answers come live from Claude' : 'Ask anything about neural networks'} — or pick a
+                {state.settings.provider === 'scripted' ? 'Ask anything about neural networks' : `Ask about anything, the answers come live from ${state.settings.provider === 'own' ? 'your own model' : 'Claude'}`} — or pick a
                 demo prompt below.
               </p>
             </div>
@@ -440,7 +440,11 @@ function Composer() {
         </div>
       </form>
       <p className="fineprint">
-        {state.settings.provider === 'arbor' ? 'Prototype — live answers from Claude through the Arbor backend.' : 'Prototype — the assistant’s answers are scripted.'}
+        {
+          { arbor: 'Prototype — live answers from Claude through the Arbor backend.', own: 'Prototype — live answers from your own model.', scripted: 'Prototype — the assistant’s answers are scripted.' }[
+            state.settings.provider
+          ]
+        }
       </p>
     </div>
   );

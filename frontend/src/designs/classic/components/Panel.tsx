@@ -391,6 +391,11 @@ const NUDGE_OPTS: { v: NudgeLevel; label: string; desc: string }[] = [
 const PROVIDER_OPTS: { v: ProviderChoice; label: string; desc: string }[] = [
   { v: 'scripted', label: 'Scripted', desc: 'The demo script: offline, the same answers for everyone, nothing saved.' },
   { v: 'arbor', label: 'Live', desc: 'Claude through the Arbor backend. Your chats are saved and come back; uses the group’s token budget.' },
+  {
+    v: 'own',
+    label: 'Own model',
+    desc: 'Your own model, with your own key or server; your chats are saved as with Live. Set it up in the ASCII design: settings → answers → own model → set up your model (or type /model there).',
+  },
 ];
 const DESIGN_OPTS: { v: Design; label: string }[] = [
   { v: 'classic', label: 'Classic' },
@@ -426,7 +431,7 @@ function SettingsMenu({ open, setOpen }: { open: boolean; setOpen: (o: boolean) 
           </div>
           <p className="pop-desc">
             {PROVIDER_OPTS.find((o) => o.v === s.provider)?.desc}
-            {s.provider === 'arbor' && !apiUrl() && ' This build has no backend URL (VITE_API_URL), so live answers fail.'}
+            {s.provider !== 'scripted' && !apiUrl() && ' This build has no backend URL (VITE_API_URL), so live answers fail.'}
           </p>
 
           <p className="pop-sub">Nudges</p>

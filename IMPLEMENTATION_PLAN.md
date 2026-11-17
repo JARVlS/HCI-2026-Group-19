@@ -844,15 +844,24 @@ message mode (tune prompts until it is, or report honestly).
 ### M7 Bring your own key (FE, right after the freeze, before Demo Day) ⇢ M4
 Cheap once M4 exists, because all prompts and schemas are already client-side. It can be pulled
 before the freeze if the study doesn't need the time.
-- [ ] `AnthropicProvider` (BYOK) and `OpenAICompatibleProvider` (base URL + key + model), per ADR-4.
-- [ ] Settings → *model*: presets, test connection, a separate provider for chat vs. analysis,
-      and "remember on this device".
-- [ ] Docs in the README: Ollama needs `OLLAMA_ORIGINS=https://hci-2026-group-19.pages.dev`;
+- [x] `AnthropicProvider` (BYOK) and `OpenAICompatibleProvider` (base URL + key + model), per ADR-4.
+      *17 Nov:* built as provider choice `own` (`src/ai/own/`): live mode, chats still saved on the
+      backend; chat, analysis and scores each go to their own connection (group backend, Anthropic
+      key, or OpenAI-compatible), so the fast scores can come from a model of the user's too
+      (logprobs; Anthropic cannot). Anthropic uses `output_config.format`, not tool use.
+- [x] Settings → *model*: presets, test connection, a separate provider for chat vs. analysis,
+      and "remember on this device". *17 Nov:* the ASCII sheet (`/model`); classic shows the
+      choice and where to set it up.
+- [x] Docs in the README: Ollama needs `OLLAMA_ORIGINS=https://hci-2026-group-19.pages.dev`;
       LM Studio needs its CORS toggle; Chrome asks for local-network permission the first time a
       hosted page calls `localhost`; a remote self-hosted server needs HTTPS and CORS (or a
       tunnel, e.g. `cloudflared`).
-- [ ] Error mapping: CORS/network → "your endpoint blocked the browser" with the fix; 401 → key;
+- [x] Error mapping: CORS/network → "your endpoint blocked the browser" with the fix; 401 → key;
       404 model → model list; no JSON support → automatic fallback mode.
+
+*17 Nov:* checked in a browser against a Bedrock stand-in in both formats (`zai.glm-4.7`,
+`qwen.qwen3-32b`, Claude Haiku 4.5 and Sonnet 5): full turns with no `/api/ai/*` request, the
+key only in sessionStorage. Acceptance with real OpenAI, OpenRouter and Ollama is still open.
 
 *Acceptance:* the full flow (chat + analysis + tree) works with an OpenAI key, an OpenRouter key
 and a local Ollama model, with no request to our backend except `/sync`.

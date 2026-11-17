@@ -62,7 +62,7 @@ Pages project settings: root directory `frontend`, build command `npm run build`
 
 ## Live answers (provider `arbor`)
 
-Where answers come from is a setting: **answers: scripted | live** in the settings of both designs, `/provider scripted|arbor` in the ASCII style, or `?provider=arbor` / `?provider=scripted` for one visit. `?demo=1` beats everything else; then the URL parameter beats the saved choice, which beats the build default (`VITE_DEFAULT_PROVIDER`). Only a choice made in settings is saved (localStorage `arbor.provider.v1`). The choice is also the mode: switching stops a running reply and loads the other world at once (live: your saved chats; scripted: the demo).
+Where answers come from is a setting: **answers: scripted | live | own model** in the settings of both designs, `/provider scripted|arbor|own` in the ASCII style, or `?provider=arbor` / `?provider=own` / `?provider=scripted` for one visit (*own model*: see [Your own model](#your-own-model-provider-own)). `?demo=1` beats everything else; then the URL parameter beats the saved choice, which beats the build default (`VITE_DEFAULT_PROVIDER`). Only a choice made in settings is saved (localStorage `arbor.provider.v1`). The choice is also the mode: switching between demo and live stops a running reply and loads the other world at once (live: your saved chats; scripted: the demo); between `arbor` and `own` your chats stay and the next message goes to the other models.
 
 With `arbor`, the answers are Claude through the backend relay (`../backend/docs/api.md`). The frontend writes the prompts and schemas; the backend picks the model, caps the tokens and keeps the budgets.
 
@@ -87,6 +87,53 @@ Against the deployed backend (once it has the M2 routes): `VITE_API_URL=https://
 
 Every live message costs tokens from the group's budget: one chat call, one analysis call and one small score call (two more for a graded claim or a revealed guess). Measured on 17 Nov at the start of a chat: about 540 tokens for the reply, 2,560 for the analysis, 250 to 500 for each score. The reply and the analysis grow as the chat and the graph grow, because the transcript is sent again each time.
 
+## Your own model (provider `own`)
+
+*answers: own model* in settings (or `?provider=own`, or `/provider own`) is live mode with your own model: your chats are still saved on the group's backend and come back as with `arbor`, but every model call goes from your browser straight to an endpoint you choose, with your key. The group's backend sees only the saving and loading calls (`/api/session`, `/api/state`, `/api/sync`, messages), never a model call and never your key. Set it up in the ASCII style: settings → answers → own model → *set up your model*, or `/model` (code: `src/ai/own/`, the sheet: `src/designs/ascii/Model.tsx`). The classic style shows the choice and says where to set it up.
+
+**Three roles, one connection each.** A turn makes three kinds of model calls, and each can go somewhere else:
+
+| Role | What it does | What the endpoint needs |
+|---|---|---|
+| chat | the tutor's streamed reply | streaming chat |
+| analysis | who did the thinking, which concepts grow on the tree | JSON output (a JSON schema, or prompt mode, see below) |
+| scores | the fast *thought along* and *is it right* percent | token probabilities (`logprobs`, `top_logprobs`); Claude has none |
+
+Analysis and scores can be *same as chat*; scores can be *off* (then turns keep the analysis's own numbers, as with any provider without scores) or any role can stay on the *group backend*. Anthropic is not offered for scores, and *same as chat* with an Anthropic chat says so in the sheet.
+
+**Presets** fill in the base URL and a suggested model; every field stays editable, and *list* asks the endpoint for its models (`GET {base}/models`, Anthropic `GET {base}/v1/models`) to pick from:
+
+| Preset | Base URL | Format | Key |
+|---|---|---|---|
+| anthropic | `https://api.anthropic.com` (model `claude-sonnet-5-5`) | Anthropic Messages API, with `anthropic-dangerous-direct-browser-access: true` | needed |
+| openai | `https://api.openai.com/v1` (`gpt-4.1-mini`) | OpenAI chat completions | needed |
+| openrouter | `https://openrouter.ai/api/v1` (`openai/gpt-4.1-mini`) | OpenAI chat completions | needed |
+| groq | `https://api.groq.com/openai/v1` (`llama-3.3-70b-versatile`) | OpenAI chat completions | needed |
+| ollama | `http://localhost:11434/v1` (`llama3.2`) | OpenAI chat completions | none |
+| lm studio | `http://localhost:1234/v1` (whatever is loaded) | OpenAI chat completions | none |
+| custom | yours (a self-hosted vLLM or LiteLLM, any OpenAI-compatible server) | OpenAI chat completions | optional |
+
+The Anthropic requests have the same shape as the backend's (`backend/src/llm.py`): `anthropic-version: 2026-10-21`, JSON through `output_config.format`, no `temperature`, no `thinking`, no `effort`. Scores on an OpenAI-compatible endpoint work like the backend's fast slot (`backend/src/scoring.py`): one token with its top 20 logprobs, tokens matched to the scale's digits after trimming whitespace, each digit's share of their summed probability; if the digits hold less than half of the first token (e.g. `openai.gpt-oss-20b` starts with a control token) or there are no logprobs, the model *cannot give scores*.
+
+**Structured output on OpenAI-compatible endpoints:** the analysis asks with `response_format: { type: 'json_schema', … strict: true }`. If the endpoint refuses that (a 400 about `response_format`) or ignores it and answers in prose, that endpoint and model switch to **prompt mode** for the rest of the visit: the schema goes into the system prompt with "answer with one JSON object", the answer is parsed (a `<think>` block or a code fence around it is dropped), and an answer that is not valid JSON or does not fit the schema gets one repair retry; after that the analysis fails like any other (the linter's label stays).
+
+**Keys stay on this device:** one per role, in sessionStorage (`arbor.keys.v1`, gone when the tab closes) unless you tick *remember on this device*, which moves them to localStorage. They are never sent to the group's backend, never part of the settings (`arbor.settings.v1` holds the rest of the setup: preset, base URL, model per role), never in saved chats (messages carry the model's name, as with `arbor`) and never in an error message (an endpoint's error text is shown with the key replaced by `[key]`).
+
+**Test connection** runs one tiny call per role, in parallel (a few hundred tokens): a streamed hello for chat, a small structured answer for analysis (enum, nullable field, list of objects: the features the turn analysis uses), a score of a right statement for scores. Each role then says *works · model · time* (analysis: *json schema* or *prompt mode*; scores: how right it rated the right statement) or what failed and how to fix it. Roles on the group backend and scores that are off are not tested.
+
+**When it fails**, the message says what to fix (in the failed turn's line, and per role in test connection):
+
+| What happened | What you see |
+|---|---|
+| no answer, or blocked by CORS (the browser does not say which) | *did not answer, or did not allow this page to call it*, with the fix for the preset: Ollama: start it with `OLLAMA_ORIGINS=https://hci-2026-group-19.pages.dev` (the page's own address); LM Studio: switch on CORS in its server settings; your own server: CORS headers for this page, and HTTPS unless it runs on your computer (or a tunnel such as `cloudflared`). Chrome asks for local network access the first time a hosted page calls `localhost`: allow it |
+| an `http://` endpoint that is not on your computer, from the HTTPS site | refused before the call: the browser blocks it (mixed content); give the server HTTPS or use a tunnel |
+| 401 or 403 | the key was refused; check it |
+| 404, or "model not found" | the model name (or the base URL, which usually ends in `/v1`), with the models the endpoint lists |
+| 429 | the provider's limit; wait or check your plan |
+| no logprobs | *cannot give scores*: set scores to off or to the group backend |
+
+**What was tested, and what was not (17 Nov):** in a browser against a local stand-in that forwards to Amazon Bedrock, which speaks both formats: OpenAI-compatible with `zai.glm-4.7` and `qwen.qwen3-32b` (streaming, `json_schema`, logprobs), Anthropic-format with `anthropic.claude-haiku-4-5` and `anthropic.claude-sonnet-5` (test connection on both), a full turn in each format (reply, leaf, percent, saved; no `/api/ai/*` request), a wrong model name, an Ollama that is not running, and `openai.gpt-oss-20b` for scores. Not tested with real keys or servers: OpenAI, OpenRouter, Groq, Anthropic's own API, Ollama, LM Studio, a remote server behind HTTPS and CORS, and Chrome's local network prompt on the hosted site. The prompt-mode fallback is covered by unit tests only: no stand-in model refused `json_schema`.
+
 ## Fast and slow: how a turn is judged
 
 Three judges look at every message, from fast to slow:
@@ -97,18 +144,20 @@ Three judges look at every message, from fast to slow:
 
 What you see: the *why* of a message says *thought along 75%* and, when graded, *right 0%*; under a revealed answer the guess shows *right 100% · thought along 91%* (classic: a note under the answer), and *with your guess* when the guess changed the label. On its way: *…*; failed: *not checked*, and the analysis's numbers stay. A relabel by you always wins over a score. The scores are saved with the message (`scores` on the user message), so they are back after a reload.
 
-Why a scale and not a yes/no question: a good model answers *did the student think along, yes or no?* with 0 or 1, so there is no percent left; a weak model gives numbers in between, but they are its uncertainty, not a degree (it put short wrong claims like "My guess is that antibiotics kill viruses" at 18 %, the one case this tool must never punish). On the scale the same claims land at 72 to 79 %. Why a second model at all: Claude's API returns no token probabilities, so Claude cannot give these scores. A provider without `score` (the scripted demo; a Claude-only key in M7) keeps the analysis's own numbers, and a guess counts as *thinking together* as before.
+Why a scale and not a yes/no question: a good model answers *did the student think along, yes or no?* with 0 or 1, so there is no percent left; a weak model gives numbers in between, but they are its uncertainty, not a degree (it put short wrong claims like "My guess is that antibiotics kill viruses" at 18 %, the one case this tool must never punish). On the scale the same claims land at 72 to 79 %. Why a second model at all: Claude's API returns no token probabilities, so Claude cannot give these scores. A provider without `score` (the scripted demo; *own model* with scores off) keeps the analysis's own numbers, and a guess counts as *thinking together* as before.
 
 **Eval:** `npm run eval:score` sends 40 labelled cases (`eval/score.eval.ts`: 21 messages, 6 guesses, 13 statements to grade) to a running backend (`VITE_API_URL`, default `http://localhost:8787`) and prints one row per case with its score and label. It is not part of `npm test`. On 17 Nov with `zai.glm-4.7`: 37 of 40 in their band. Wrong own claims 72 to 79 % (yours), own reasoning 77 to 100 %, hint and quiz requests about 50 %, plain why and how questions 24 % (together), "explain X" 8 %, delegation 0 %; right statements 92 to 100 %, half right (tides) 46 %, wrong ones and "idk" 0 %. The misses: two worked attempts at 77 and 83 % (expected 85 % and up; still yours) and the vague guess "something with the blood?" at 25 % (together; expected 35 to 80 %). What the wording needs: the tutor's answer *before* the student's statement (tutor answers often end with a question, and the model rated that one instead).
 
 ## Demo and live: what is saved where
 
-| | Demo (provider `scripted`) | Live (provider `arbor`) |
+| | Demo (provider `scripted`) | Live (provider `arbor`, or `own`) |
 |---|---|---|
 | Data | the scripted fixture: the "neural networks" chat and the demo forest | your own chats, concepts, trees and labels |
 | Saved | nothing; a reload starts the demo again | on the backend (D1), through `PUT /api/sync` |
-| Requests to the backend | none at all | session, load, save, model calls |
-| Turn on | build default, `?provider=scripted`, or `?demo=1` (forces it for the visit, whatever is saved) | `?provider=arbor` or *answers: live* in settings |
+| Requests to the backend | none at all | session, load, save, and with `arbor` the model calls (`own` sends those to your endpoint) |
+| Turn on | build default, `?provider=scripted`, or `?demo=1` (forces it for the visit, whatever is saved) | `?provider=arbor` or *answers: live* in settings; `?provider=own` or *answers: own model* |
+
+Switching between `arbor` and `own` keeps your chats on screen: the next message goes to the other models.
 
 **What live mode saves** (`src/lib/sync.ts`): after every change it compares the state with the one before and queues what changed: concepts, edges, trees (a tree the planner removed is sent once more with `deletedAt`), chats, messages and attempts (a relabel adds a new attempt that supersedes the old one). A chat is saved from its first message on; an empty chat stays on this device and is dropped when you leave it. A reply is saved once it is complete (never while it streams); a failed reply is not saved, its retry replaces it.
 
@@ -116,7 +165,7 @@ Why a scale and not a yes/no question: a good model answers *did the student thi
 
 **A reload never loses a turn:** the queue is mirrored in localStorage (`arbor.sync.v1`) and goes out together with the next start. The start loads `GET /api/state` (everything but messages), puts the queued rows on top (they are newer) and opens the chat you changed last; a first visit gets one new, empty chat. Messages load per chat when you open it (`GET /api/conversations/:id/messages`) and stay for the visit. While loading, the page says *loading your chats…*; if the backend cannot be reached it says so with *retry* (and tries again by itself when the browser is back online). It never shows the demo instead. The device keeps only the queue, not a full copy of your data, so live mode does not work offline from a cold start.
 
-localStorage keys: `arbor.session.v1` (the session token), `arbor.sync.v1` (changes not saved yet), `arbor.provider.v1`, `arbor.settings.v1`, `arbor.onboarded.v1`.
+localStorage keys: `arbor.session.v1` (the session token), `arbor.sync.v1` (changes not saved yet), `arbor.provider.v1`, `arbor.settings.v1` (with the own-model setup, without keys), `arbor.onboarded.v1`; `arbor.keys.v1` (own-model keys) only with *remember on this device*, otherwise in sessionStorage.
 
 **Chat history in the ASCII style** (keyboard first; also in the `?` sheet, concept 11, and in the modeline):
 
@@ -158,7 +207,7 @@ The classic style's sidebar opens these chats too, and its *New chat* button sta
 | Parameter | Effect |
 |---|---|
 | `?intro=0` / `?intro=1` | skip / force the onboarding |
-| `?provider=arbor\|scripted` | live Claude and your saved chats, or the scripted demo, for this visit (not saved) |
+| `?provider=arbor\|own\|scripted` | live Claude and your saved chats, your own model and your saved chats, or the scripted demo, for this visit (not saved) |
 | `?demo=1` | the scripted demo for this visit, whatever is saved or in `?provider`: no request to the backend at all |
 | `?empty=1` | start the demo from an empty chat (the tree grows from a seed); scripted only |
 | `?nudge=off\|gentle\|active` | nudge level |
@@ -186,6 +235,7 @@ Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=activ
 | Score prompts, how scores set labels and numbers, their words, the thresholds | `src/ai/prompts/score.ts`, `src/lib/scores.ts`, `OWN_FROM` / `AI_UP_TO` in `src/lib/modes.ts` |
 | Calls to the backend (base URL, errors, SSE) and the anonymous session | `src/lib/api.ts`, `src/lib/session.ts` |
 | Which provider answers, and with it demo or live mode | `src/ai/providers.ts`, `initialState` and `createApp` in `src/lib/app.ts` |
+| Your own model: presets, roles, keys, the two wire formats, error messages, test connection | `src/ai/own/` (`setup.ts`, `keys.ts`, `anthropic.ts`, `openai.ts`, `http.ts`, `provider.ts`); the sheet: `src/designs/ascii/Model.tsx` |
 | What is saved, when, retries, the localStorage mirror | `src/lib/sync.ts` |
 | Loading at start, messages per chat, which chat opens | `src/lib/live.ts`, `src/lib/chats.ts` |
 | ASCII style: chat list and a leaf's messages | `src/designs/ascii/Chats.tsx` |
@@ -201,7 +251,7 @@ Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=activ
 | Classic style: squirrel | `src/designs/classic/components/Squirrel.tsx`, `Mascot` in `.../Panel.tsx` |
 | Tree and forest geometry (classic) | `src/lib/layout.ts` |
 
-Every model backend is a `Provider` (`src/ai/provider.ts`) that returns the same shapes: a streamed reply, and a `TurnAnalysis` for each prompt. `ScriptedProvider` and `ArborProvider` (live, through the backend) exist; bring-your-own-key providers follow in M7. The designs never talk to a provider or to `src/data/` directly.
+Every model backend is a `Provider` (`src/ai/provider.ts`) that returns the same shapes: a streamed reply, and a `TurnAnalysis` for each prompt. `ScriptedProvider`, `ArborProvider` (live, through the backend) and `OwnProvider` (your own endpoints, per role) exist. The designs never talk to a provider or to `src/data/` directly.
 
 ### How the data flows
 

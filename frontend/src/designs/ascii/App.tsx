@@ -8,6 +8,7 @@ import { Composer } from './Composer';
 import { Concepts } from './Concepts';
 import { Forest } from './Forest';
 import { Links } from './Links';
+import { ModelSheet } from './Model';
 import { Modeline } from './Modeline';
 import { Pane } from './Pane';
 import { Transcript } from './Transcript';
@@ -77,6 +78,7 @@ function Shell() {
       <Modeline />
       <Links />
       <Concepts />
+      <ModelSheet />
       <ChatList />
       <LeafRefs />
       <Toast />
