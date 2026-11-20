@@ -171,6 +171,7 @@ Until migration `0003_accounts.sql` is applied to the backend database, sign up 
 | Data | the scripted fixture: the "neural networks" chat and the demo forest | your own chats, concepts, trees and labels |
 | Saved | nothing; a reload starts the demo again | on the backend (D1), through `PUT /api/sync` |
 | Requests to the backend | none at all | session, load, save, and with `arbor` the model calls (`own` sends those to your endpoint) |
+| Usage log | nothing recorded, nothing sent | what you do, as ids, counts and labels, never texts (`POST /api/events`, see [Usage log](#usage-log)) |
 | Turn on | `?provider=scripted`, *answers: scripted* in settings, or `?demo=1` (forces it for the visit, whatever is saved) | the build default (`arbor`), `?provider=arbor` or *answers: live* in settings; `?provider=own` or *answers: own model* |
 
 Switching between `arbor` and `own` keeps your chats on screen: the next message goes to the other models.
@@ -181,7 +182,7 @@ Switching between `arbor` and `own` keeps your chats on screen: the next message
 
 **A reload never loses a turn:** the queue is mirrored in localStorage (`arbor.sync.v1`) and goes out together with the next start. The start loads `GET /api/state` (everything but messages), puts the queued rows on top (they are newer) and opens the chat you changed last; a first visit gets one new, empty chat. Messages load per chat when you open it (`GET /api/conversations/:id/messages`) and stay for the visit. While loading, the page says *loading your chats…*; if the backend cannot be reached it says so with *retry* (and tries again by itself when the browser is back online). It never shows the demo instead. The device keeps only the queue, not a full copy of your data, so live mode does not work offline from a cold start.
 
-localStorage keys: `arbor.session.v1` (the session token), `arbor.sync.v1` (changes not saved yet), `arbor.provider.v1`, `arbor.settings.v1` (with the own-model setup, without keys), `arbor.onboarded.v1`; `arbor.keys.v1` (own-model keys) only with *remember on this device*, otherwise in sessionStorage.
+localStorage keys: `arbor.session.v1` (the session token), `arbor.sync.v1` (changes not saved yet), `arbor.events.v1` (usage events not sent yet), `arbor.provider.v1`, `arbor.settings.v1` (with the own-model setup, without keys), `arbor.onboarded.v1`; `arbor.keys.v1` (own-model keys) only with *remember on this device*, otherwise in sessionStorage.
 
 **Chat history in the ASCII style** (keyboard first; also in the `?` sheet, concept 11, and in the modeline):
 
@@ -195,6 +196,28 @@ localStorage keys: `arbor.session.v1` (the session token), `arbor.sync.v1` (chan
 | click or `↵` on a leaf | one message: open its chat at the message; several: list them (chat · snippet · date) to pick one, in any chat |
 
 The classic style's sidebar opens these chats too, and its *New chat* button starts one. In the demo, the past chats of the forest have no transcript: opening one says so (classic: it opens their tree in the forest, as before).
+
+## Usage log
+
+In live mode (providers `arbor` and `own`) Arbor logs what people do with it, for everyone who uses the live site, not only study participants (IMPLEMENTATION_PLAN.md M6). The demo (`scripted`, `?demo=1`) records nothing and sends nothing.
+
+**What is logged:** ids, counts, lengths, labels (own, together, ai), numbers and enum values. **Never:** a message, a draft, a guess, a chat title, a concept label, a username, a key or an endpoint URL. The texts are in the saved chats already, so the log stays harmless. Tests check this (`events.test.ts`, `app.events.test.ts`, `app.own.test.ts`).
+
+**The catalogue** is `src/lib/events.ts` (`UsageEvent`): every event name and its payload shape, so `track` only compiles for those. A new event starts there. Events come from three places:
+
+| From | Events |
+|---|---|
+| the store, in every design (`eventsOf` turns each state change into events) | `session_start` (counts, screen, theme, signed in), `turn_sent` (length, words, label, the composer's thinking percent), `reply_done` (length, ms since sent, model, stopped), `turn_error`, `turn_stopped`, `retry`, `analysis_shown` (concepts judged, new concepts and trees), `analysis_failed`, `score`, `relabel`, `veil_shown`, `reveal` (guess length, ms veiled), `veil_skip`, `nudge_shown` (classic), `setting_changed` (`own` only says that it changed), `panel`, `forest_open`, `forest_close`, `chats_open`, `chats_close`, `pane_tree`, `onboarding`, `chat_new`, `chat_open`, `chat_rename`, `tree_created` (leaf count) |
+| the ASCII design (`useStore().track`) | `view_start`, `view_change` (via `key`, `command` or `click`), `pane_action` (`rest_on_leaf` after 400 ms, `open_refs`, `jump_to_message`, `scrub` once it settles; with the view and the scrubber's days), `why_open`, `sheet_open`, `command` (the name, never its argument), `squirrel_poke`, `draft_rated` (each rating the fast model gives a draft) |
+| the page and the log (`app.ts`, `telemetry.ts`) | `page_hidden`, `page_visible`, `events_dropped` |
+
+Each event has an `id`, its `type`, `clientTs`, and `conversationId` (the chat it is about, else the open one); its payload carries `visit` (random per page load), `seq` (its order in the visit) and `design`. The backend adds the user, the user's condition and the server time. Seconds per view are worked out in the analysis from `view_start`, `view_change`, `page_hidden` and `page_visible`.
+
+**Sending** (`src/lib/telemetry.ts`): events wait in a queue mirrored in localStorage (`arbor.events.v1`, so a reload loses nothing) and go out in batches of at most 200, about 4 s after the first one waiting. When the tab is hidden or closed, what is left goes at once with `keepalive` (at most 5 KB: the sync queue may use 60 KB of the browser's 64 KB). Network errors, 401, 429 and 5xx are tried again after 1 s, 2 s, 4 s … (at most 30 s) and at once when the browser is back online, without a word to the user. A 4xx is a bug in what we send: those events are dropped, the console says why, and one toast per visit says *usage log not saved: …*. The mirror keeps at most 2,000 events; past that the oldest go and an `events_dropped` event says how many.
+
+**Users on one browser:** the backend files an event under the token that sends it. A page's events go out with that page's session. The mirror carries a fingerprint of the token (a hash, never the token), and a page signed in as someone else (after a log out or a log in) discards it instead of sending it under the wrong user.
+
+**Look at it:** `curl -s 'https://hci-backend.leon-grass.workers.dev/api/admin/export?table=events' -H "x-admin-token: $ADMIN_TOKEN" -o events.csv` (columns `id, user_id, condition, type, payload_json, client_ts, server_ts`; `conversationId` is inside `payload_json`; see `backend/docs/api.md`). Locally: `uv run pywrangler d1 execute hci-grp19 --local --command "SELECT type, payload_json FROM events ORDER BY server_ts, id"` in `backend/`.
 
 ## Demo script, ASCII style (≈ 3 minutes)
 
@@ -254,6 +277,7 @@ Example baseline vs. treatment: `/?intro=0&arbor=off` and `/?intro=0&nudge=activ
 | Which provider answers, and with it demo or live mode | `src/ai/providers.ts`, `initialState` and `createApp` in `src/lib/app.ts` |
 | Your own model: presets, roles, keys, the two wire formats, error messages, test connection | `src/ai/own/` (`setup.ts`, `keys.ts`, `anthropic.ts`, `openai.ts`, `http.ts`, `provider.ts`); the sheet: `src/designs/ascii/Model.tsx` |
 | What is saved, when, retries, the localStorage mirror | `src/lib/sync.ts` |
+| Usage log: the events and their payloads, what the store logs, sending | `src/lib/events.ts` (`UsageEvent`, `eventsOf`), `src/lib/telemetry.ts`; ASCII events in `src/designs/ascii/ui.tsx` |
 | Loading at start, messages per chat, which chat opens | `src/lib/live.ts`, `src/lib/chats.ts` |
 | ASCII style: chat list and a leaf's messages | `src/designs/ascii/Chats.tsx` |
 | How leaves are scored and trees are drawn from the data | `src/lib/project.ts` |
@@ -316,6 +340,8 @@ src/
     app.ts                the store without React: initial state from URL + storage, turns, chats, demo vs live mode
     state.ts              state slices (domain / session / ui) and the pure reducer
     sync.ts               live mode: what changed → queue → PUT /api/sync (batches, backoff, localStorage mirror)
+    events.ts             live mode: the usage log's catalogue (every event and its payload) and the events a state change makes
+    telemetry.ts          live mode: usage events → queue → POST /api/events (batches, backoff, keepalive, mirror per user)
     live.ts               live mode: load at start (queue on top), messages per chat
     chats.ts              new chat, title from the first message, merging loaded messages
     turn.ts               one chat turn: linter label → streamed reply → analysis → merge
