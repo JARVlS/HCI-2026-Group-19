@@ -357,9 +357,10 @@ returns `stored: 0`). The server adds the user, the user's `condition` (from the
 the client), and `server_ts`. `clientTs` is stored in UTC. `conversationId` is stored inside
 `payload_json`, because the plan's `events` table has no column for it.
 
-Event types the plan names for M6 (examples; the endpoint accepts any `type`): `turn_sent`,
-`analysis_shown`, `relabel`, `veil_shown`, `reveal`, `veil_skip`, `nudge_shown`, `nudge_action`,
-`quiz_answer`, `forest_open`, `scrubber_move`, `nav`, `task_start`, `task_end`.
+The endpoint accepts any `type`. The events the frontend really sends, with their payloads, are
+listed in one place: `frontend/src/lib/events.ts` (`UsageEvent`), described in `frontend/README.md`
+under "Usage log" (for example `session_start`, `turn_sent`, `reply_done`, `view_change`,
+`pane_action`). Payloads hold ids, counts, lengths and labels, never texts.
 
 ```bash
 curl -s http://localhost:8787/api/events -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
