@@ -201,7 +201,7 @@ function useTips(): Tip[] {
 const DIZZY_LINE = 'whoa. okay. okay. i’m dizzy.';
 
 function Companion() {
-  const { state, messages } = useStore();
+  const { state, messages, track } = useStore();
   const turns = messages.filter((m) => m.role === 'user' && m.classification);
   const lastMode = turns.length ? turns[turns.length - 1].classification!.mode : null;
   const cheer = useCheer(turns.length, lastMode);
@@ -224,8 +224,10 @@ function Companion() {
     const t = window.setTimeout(() => setTip(null), 10000);
     return () => clearTimeout(t);
   }, [tip]);
-  const poke = (dizzy: boolean) =>
+  const poke = (dizzy: boolean) => {
+    track({ type: 'squirrel_poke', payload: { dizzy } });
     setTip((t) => ({ i: dizzy ? -1 : t && t.i >= 0 ? (t.i + 1) % tips.length : 0, n: (t?.n ?? 0) + 1 }));
+  };
   const shown = tip ? (tip.i < 0 ? { text: DIZZY_LINE } : tips[Math.min(tip.i, tips.length - 1)]) : null;
 
   return (
@@ -295,7 +297,7 @@ function TreeSection() {
         <Radios
           label="Tree view"
           value={view}
-          onChange={setView}
+          onChange={(v) => setView(v, 'click')}
           options={[
             { v: 'tree', label: 'tree' },
             { v: 'outline', label: 'outline' },

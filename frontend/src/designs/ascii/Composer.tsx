@@ -24,7 +24,7 @@ const AFTER: Record<Mode, string> = {
 };
 
 export function Composer() {
-  const { state, dispatch, send, stop, classifyDraft, busy, demoPrompts, messages, scoreDraft, filter } = useStore();
+  const { state, dispatch, send, stop, classifyDraft, busy, demoPrompts, messages, scoreDraft, filter, track } = useStore();
   const { focusPrompt } = useUi();
   const { enabled: arborOn, nudge } = state.settings;
   const lint = arborOn && nudge !== 'off';
@@ -39,7 +39,7 @@ export function Composer() {
   const [sel, setSel] = useState(0);
   const commands = useCommands();
   // The fast model rates the draft once typing pauses (live mode); the word rules decide until it has.
-  const model = useDraftScore(lint ? scoreDraft : null, text, messages);
+  const model = useDraftScore(lint ? scoreDraft : null, text, messages, track);
   // Live mode: the word filter rates every finished word at once, and moves the model's last number by the words since.
   const words = useFilterView(lint ? filter : null, text, messages, model.anchor?.text ?? null);
 
@@ -77,6 +77,7 @@ export function Composer() {
 
   const run = (cmd: Cmd, a: string) => {
     setText('');
+    track({ type: 'command', payload: { name: cmd.name } }); // the name only: an argument can be any text
     cmd.run(a);
   };
 
@@ -352,7 +353,7 @@ function useCommands(): Cmd[] {
       {
         name: 'outline',
         desc: 'show the tree as an outline, or back',
-        run: () => ui.setView(ui.view === 'tree' ? 'outline' : 'tree'),
+        run: () => ui.setView(ui.view === 'tree' ? 'outline' : 'tree', 'command'),
       },
       {
         name: 'time',

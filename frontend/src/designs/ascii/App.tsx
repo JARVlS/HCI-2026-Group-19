@@ -47,7 +47,7 @@ function Shell() {
       if (key === '/') ui.fill('/');
       else if (key === 'i') ui.focusPrompt();
       else if (key === '?') ui.setSheet(ui.sheet ? null : 'concepts');
-      else if (key === 't' && !state.ui.forest.open) ui.setView(ui.view === 'tree' ? 'outline' : 'tree');
+      else if (key === 't' && !state.ui.forest.open) ui.setView(ui.view === 'tree' ? 'outline' : 'tree', 'key');
       else if (key === 'f') dispatch({ type: 'forest', open: !state.ui.forest.open });
       else if (key === 'c' && !state.ui.forest.open) dispatch({ type: 'chats', open: true });
       else if (key === ']') ui.setDays(stops.find((d) => d > ui.days) ?? TIME_MAX);

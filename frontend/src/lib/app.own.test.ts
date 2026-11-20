@@ -9,6 +9,7 @@ import { memoryStorage } from '../test/storage';
 import { createApp, PROVIDER_KEY, SETTINGS_KEY } from './app';
 import { remoteBackend } from './live';
 import { SYNC_KEY } from './sync';
+import { EVENTS_KEY } from './telemetry';
 
 /**
  * Provider `own` end to end without React (IMPLEMENTATION_PLAN.md M7 acceptance at unit level):
@@ -90,14 +91,19 @@ describe('own model', () => {
     expect(calls.map((c) => c.path)).toEqual(['/chat/completions', '/chat/completions', '/chat/completions']);
     expect(calls.every((c) => c.headers.get('authorization') === `Bearer ${KEY}`)).toBe(true);
     expect(server.calls.filter((c) => c.path.startsWith('/api/ai/'))).toEqual([]);
-    expect(server.calls.map((c) => c.path)).toEqual(['/api/state', '/api/sync']);
+    expect(server.calls.map((c) => c.path).filter((p) => p !== '/api/events')).toEqual(['/api/state', '/api/sync']);
 
     // Saved like live mode, without the key: not in the sync payload, the queue mirror or the settings.
     const synced = JSON.stringify(server.calls.filter((c) => c.path === '/api/sync').map((c) => c.body));
     expect(synced).toContain('Vaccines show the body a harmless copy.');
     expect(synced).not.toContain(KEY);
     expect(serverMessages(server, conv).map((m) => m.model ?? null)).toEqual([null, 'test-model']);
-    for (const k of [SYNC_KEY, SETTINGS_KEY, PROVIDER_KEY, KEYS_KEY]) expect(a.local.getItem(k) ?? '').not.toContain(KEY);
+    for (const k of [SYNC_KEY, SETTINGS_KEY, PROVIDER_KEY, KEYS_KEY, EVENTS_KEY]) expect(a.local.getItem(k) ?? '').not.toContain(KEY);
+    // The usage log has neither the key nor the endpoint.
+    const logged = JSON.stringify([...server.events, ...a.log.pending()]);
+    expect(logged).toContain('turn_sent');
+    expect(logged).not.toContain(KEY);
+    expect(logged).not.toContain(ENDPOINT);
     // The key itself: in this tab's sessionStorage only.
     expect(a.session.getItem(KEYS_KEY)).toContain(KEY);
   });
@@ -123,7 +129,7 @@ describe('own model', () => {
     a.dispatch({ type: 'settings', patch: { provider: 'own' } });
     await settle();
     expect(a.state().session.activeConversationId).toBe(conv);
-    expect(server.calls.map((c) => c.path)).toEqual(['/api/state']);
+    expect(server.calls.map((c) => c.path).filter((p) => p !== '/api/events')).toEqual(['/api/state']);
     expect(a.local.getItem(PROVIDER_KEY)).toBe('own');
     a.dispatch({ type: 'settings', patch: { provider: 'scripted' } });
     expect(a.state().session.activeConversationId).toBe('c-nn');
@@ -142,7 +148,7 @@ describe('own model', () => {
   });
 
   it('a wrong key fails the turn with a message that says to check the key (and never shows it)', async () => {
-    fakeServer();
+    const server = fakeServer();
     fakeEndpoint(() => json({ error: { message: `Incorrect API key provided: ${KEY}` } }, 401));
     const a = app('?provider=own');
     a.keys.setKey('chat', KEY);
@@ -154,5 +160,8 @@ describe('own model', () => {
     expect(turn.status).toBe('error');
     expect(turn.error).toContain('refused the key (HTTP 401)');
     expect(turn.error).not.toContain(KEY);
+    const logged = [...server.events, ...a.log.pending()];
+    expect(logged.map((e) => e.type)).toContain('turn_error');
+    expect(JSON.stringify(logged)).not.toContain(KEY);
   });
 });

@@ -609,8 +609,14 @@ function Roots({ from, wrap }: { from: TreeInfo; wrap: React.RefObject<HTMLDivEl
 
 function TreeDetail({ info }: { info: TreeInfo }) {
   const { state, dispatch, send, toast, canQuiz } = useStore();
+  const { rest } = useUi();
   const jump = useLeafJump();
   const keep = useMemo(() => new Map(info.leaves.map((l) => [l.id, l.keep])), [info]);
+  /** A hovered leaf lights up in the tree and the list (and a rest on it is logged). */
+  const hover = (id: string | null) => {
+    dispatch({ type: 'highlight', ids: id ? [id] : [] });
+    rest(id);
+  };
   const order = [...info.leaves].sort((a, b) => a.keep - b.keep || a.score - b.score);
   const highlight = useMemo(() => new Set(state.ui.highlight), [state.ui.highlight]);
 
@@ -628,7 +634,7 @@ function TreeDetail({ info }: { info: TreeInfo }) {
           tree={info.tree}
           retention={keep}
           highlight={highlight}
-          onHover={(id) => dispatch({ type: 'highlight', ids: id ? [id] : [] })}
+          onHover={hover}
           onJump={jump}
         />
       </div>
@@ -645,8 +651,8 @@ function TreeDetail({ info }: { info: TreeInfo }) {
               <li
                 key={l.id}
                 className={highlight.has(l.id) ? 'on' : ''}
-                onMouseEnter={() => dispatch({ type: 'highlight', ids: [l.id] })}
-                onMouseLeave={() => dispatch({ type: 'highlight', ids: [] })}
+                onMouseEnter={() => hover(l.id)}
+                onMouseLeave={() => hover(null)}
               >
                 <G score={l.score} className={l.keep < FALLEN ? 'is-fallen' : ''} />
                 <span className="a-detail-label" title={l.label}>

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { Provider, ScoreResult } from '../ai/provider';
 import type { Message } from './domain';
-import { draftShare, thinkingMode } from './modes';
+import type { UsageEvent } from './events';
+import { draftShare, pct, thinkingMode } from './modes';
 import { scoreContext } from './turn';
 import type { Classification, Mode, Score } from './types';
 
@@ -66,7 +67,11 @@ export class DraftScorer {
   private inflight: { text: string; context: string; controller: AbortController } | null = null;
   private failures = 0;
 
-  constructor(private readonly score: ScoreFn) {}
+  /** `onRated`: the model's rating of a draft landed (the usage log's `draft_rated`). */
+  constructor(
+    private readonly score: ScoreFn,
+    private readonly onRated?: (text: string, score: ScoreResult) => void,
+  ) {}
 
   readonly snapshot = () => this.state;
   readonly subscribe = (listener: () => void) => {
@@ -117,6 +122,7 @@ export class DraftScorer {
         settle(() => {
           this.failures = 0;
           this.set({ rating: { text, context, score } });
+          this.onRated?.(text, score);
         }),
       () =>
         settle(() => {
@@ -246,12 +252,21 @@ export function useSteady(step: string, g: DraftGauge | null): Steady | null {
   return steady;
 }
 
+/** The usage log's record of a rating: numbers and the draft's length, never its text. */
+export const draftRated = (text: string, s: ScoreResult): UsageEvent => ({
+  type: 'draft_rated',
+  payload: { percent: pct(s.p), mode: thinkingMode(s.p), model: s.model ?? null, chars: text.length },
+});
+
 const noSubscribe = () => () => {};
 const noState = () => null;
 
-/** The live rating for the composer. `score` null: no calls, and the line looks as it always did. */
-export function useDraftScore(score: ScoreFn | null, draft: string, messages: Message[]): DraftView {
-  const scorer = useMemo(() => (score ? new DraftScorer(score) : null), [score]);
+/**
+ * The live rating for the composer. `score` null: no calls, and the line looks as it always did.
+ * `track` (stable, `useStore().track`) logs every rating that lands.
+ */
+export function useDraftScore(score: ScoreFn | null, draft: string, messages: Message[], track?: (e: UsageEvent) => void): DraftView {
+  const scorer = useMemo(() => (score ? new DraftScorer(score, track && ((text, s) => track(draftRated(text, s)))) : null), [score, track]);
   const state = useSyncExternalStore(scorer?.subscribe ?? noSubscribe, scorer?.snapshot ?? noState);
   const recent = useMemo(() => draftContext(messages), [messages]);
   // `context` stands for `recent`: the effect runs when the draft or what it would be sent after changes.

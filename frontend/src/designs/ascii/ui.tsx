@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { PaneKind, TreeView, ViewVia } from '../../lib/events';
 import { MODE_SCORE } from '../../lib/modes';
 import { useStore } from '../../lib/store';
 import type { Mode } from '../../lib/types';
@@ -8,7 +9,6 @@ import type { Mode } from '../../lib/types';
  * the rest (time scrubber, tree view, open sheets, link source) is local to the ASCII design.
  */
 
-export type TreeView = 'tree' | 'outline';
 export type Sheet = 'concepts' | 'model' | null;
 /** What the pointer is on, so the link overlay knows where to draw from. */
 export type LinkSource = { kind: 'message'; id: string } | { kind: 'leaf'; id: string; messageId?: string } | null;
@@ -18,7 +18,8 @@ interface Ui {
   days: number;
   setDays: (d: number) => void;
   view: TreeView;
-  setView: (v: TreeView) => void;
+  /** `via`: how the user switched, for the usage log. */
+  setView: (v: TreeView, via: ViewVia) => void;
   sheet: Sheet;
   setSheet: (s: Sheet) => void;
   /** User message whose "why this label" is open. */
@@ -32,18 +33,96 @@ interface Ui {
   /** Put text in the composer and focus it. */
   fill: (text: string) => void;
   focusPrompt: () => void;
+  /** Usage log: something the user did with a leaf in the pane or the forest. */
+  paneAction: (kind: PaneKind, conceptId: string) => void;
+  /** The pointer is on this leaf (null: on none); resting there REST_MS is logged once. */
+  rest: (leafId: string | null) => void;
 }
+
+/** A pointer that stays this long on a leaf rests there (usage log, `pane_action`). */
+const REST_MS = 400;
+/** The forgetting scrubber is logged once it has stayed put this long, not at every step. */
+const SCRUB_MS = 800;
 
 const UiContext = createContext<Ui | null>(null);
 
 export function UiProvider({ children }: { children: ReactNode }) {
-  const { dispatch } = useStore();
+  const { dispatch, state, track } = useStore();
   const [days, setDays] = useState(0);
-  const [view, setView] = useState<TreeView>(() => (param('layout') === 'outline' ? 'outline' : 'tree'));
-  const [sheet, setSheet] = useState<Sheet>(null);
-  const [why, setWhy] = useState<string | null>(null);
-  const [link, setLink] = useState<LinkSource>(null);
-  const [refs, setRefs] = useState<string | null>(null);
+  const [view, showView] = useState<TreeView>(() => (param('layout') === 'outline' ? 'outline' : 'tree'));
+  const [sheet, showSheet] = useState<Sheet>(null);
+  const [why, showWhy] = useState<string | null>(null);
+  const [link, pointAt] = useState<LinkSource>(null);
+  const [refs, showRefs] = useState<string | null>(null);
+
+  /* The usage log (lib/events.ts). The setters read the current values from a ref, so they keep one identity like plain state setters. */
+  const current = useRef({ view, sheet, why, refs, days, forest: state.ui.forest.open });
+  current.current = { view, sheet, why, refs, days, forest: state.ui.forest.open };
+  const paneAction = useCallback(
+    (kind: PaneKind, conceptId: string | null) => {
+      const { forest, view, days } = current.current;
+      track({ type: 'pane_action', payload: { kind, view: forest ? 'forest' : view, conceptId, days } });
+    },
+    [track],
+  );
+  useEffect(() => track({ type: 'view_start', payload: { view: current.current.view } }), [track]);
+  const setView = useCallback(
+    (to: TreeView, via: ViewVia) => {
+      const from = current.current.view;
+      if (to !== from) track({ type: 'view_change', payload: { from, to, via } });
+      showView(to);
+    },
+    [track],
+  );
+  const setSheet = useCallback(
+    (s: Sheet) => {
+      if (s && s !== current.current.sheet) track({ type: 'sheet_open', payload: { which: s } });
+      showSheet(s);
+    },
+    [track],
+  );
+  const setWhy = useCallback(
+    (id: string | null) => {
+      if (id && id !== current.current.why) track({ type: 'why_open', payload: { messageId: id } });
+      showWhy(id);
+    },
+    [track],
+  );
+  const setRefs = useCallback(
+    (leafId: string | null) => {
+      if (leafId && leafId !== current.current.refs) paneAction('open_refs', leafId);
+      showRefs(leafId);
+    },
+    [paneAction],
+  );
+  const resting = useRef<{ id: string | null; timer?: number }>({ id: null });
+  const rest = useCallback(
+    (leafId: string | null) => {
+      const r = resting.current;
+      if (leafId === r.id) return;
+      clearTimeout(r.timer);
+      resting.current = { id: leafId, timer: leafId ? window.setTimeout(() => paneAction('rest_on_leaf', leafId), REST_MS) : undefined };
+    },
+    [paneAction],
+  );
+  useEffect(() => () => clearTimeout(resting.current.timer), []);
+  const setLink = useCallback(
+    (l: LinkSource) => {
+      pointAt(l);
+      rest(l?.kind === 'leaf' ? l.id : null);
+    },
+    [rest],
+  );
+  // The scrubber's value once it settles (also from `[` `]`, /time and the squirrel); not at the start.
+  const scrubbed = useRef(false);
+  useEffect(() => {
+    if (!scrubbed.current) {
+      scrubbed.current = true;
+      return;
+    }
+    const t = window.setTimeout(() => paneAction('scrub', null), SCRUB_MS);
+    return () => clearTimeout(t);
+  }, [days, paneAction]);
 
   const focusPrompt = useCallback(() => {
     requestAnimationFrame(() => {
@@ -56,8 +135,8 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const fill = useCallback((text: string) => dispatch({ type: 'draft', text }), [dispatch]);
 
   const value = useMemo(
-    () => ({ days, setDays, view, setView, sheet, setSheet, why, setWhy, link, setLink, refs, setRefs, fill, focusPrompt }),
-    [days, view, sheet, why, link, refs, fill, focusPrompt],
+    () => ({ days, setDays, view, setView, sheet, setSheet, why, setWhy, link, setLink, refs, setRefs, fill, focusPrompt, paneAction, rest }),
+    [days, view, setView, sheet, setSheet, why, setWhy, link, setLink, refs, setRefs, fill, focusPrompt, paneAction, rest],
   );
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>;
 }

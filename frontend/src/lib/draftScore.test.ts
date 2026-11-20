@@ -13,6 +13,7 @@ import {
   DELAY_MS,
   draftContext,
   draftGauge,
+  draftRated,
   draftScoreFn,
   DraftScorer,
   draftView,
@@ -53,8 +54,9 @@ function fakeModel({ ignoreAbort = false } = {}) {
 
 function setup(opts?: { ignoreAbort?: boolean }) {
   const model = fakeModel(opts);
-  const scorer = new DraftScorer(model.score);
-  return { ...model, scorer, view: (draft: string, recent: Recent = []) => draftView(scorer.snapshot(), draft, recent) };
+  const rated: [string, ScoreResult][] = [];
+  const scorer = new DraftScorer(model.score, (text, score) => rated.push([text, score]));
+  return { ...model, rated, scorer, view: (draft: string, recent: Recent = []) => draftView(scorer.snapshot(), draft, recent) };
 }
 
 /** Let timers and settled promises run. */
@@ -149,6 +151,9 @@ describe('draft scorer: aborts, stale answers and timeouts', () => {
     now.answer({ p: 0.75 });
     await wait();
     expect(s.view('I think the tilt').rated).toEqual({ p: 0.75 });
+    // Only the rating that landed reaches the usage log (draft_rated), as numbers and a length.
+    expect(s.rated).toEqual([['I think the tilt', { p: 0.75 }]]);
+    expect(draftRated('I think the tilt', { p: 0.75, model: 'fast' })).toEqual({ type: 'draft_rated', payload: { percent: 75, mode: 'own', model: 'fast', chars: 16 } });
     for (let i = 0; i < MAX_FAILURES + 1; i++) await typed(s, `draft number ${i}`);
     expect(s.scorer.snapshot().unavailable).toBe(false);
   });

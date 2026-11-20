@@ -4,6 +4,7 @@ import type { Concept, ConceptAttempt, ConceptEdge, Conversation, Id, ISO, Knowl
 import type { Session } from './session';
 import { isBusy, type Action, type DomainState, type State } from './state';
 import { changedRows, type Row, type SyncBody, type SyncQueue } from './sync';
+import type { EventsBody } from './telemetry';
 
 /**
  * Live mode (IMPLEMENTATION_PLAN.md, M2): the user's own data, loaded from the backend and saved to
@@ -21,11 +22,12 @@ export interface ServerState {
   attempts: ConceptAttempt[];
 }
 
-/** The three persistence calls. Tests use the real one over a fake `fetch`. */
+/** The three persistence calls, and the usage log (`telemetry.ts`). Tests use the real one over a fake `fetch`. */
 export interface Backend {
   state(): Promise<ServerState>;
   messages(conversationId: Id): Promise<Message[]>;
   sync(body: SyncBody, opts: { keepalive: boolean }): Promise<unknown>;
+  events(body: EventsBody, opts: { keepalive: boolean }): Promise<unknown>;
 }
 
 export function remoteBackend(session: Session): Backend {
@@ -37,6 +39,7 @@ export function remoteBackend(session: Session): Backend {
       return messages.map((m) => (Array.isArray(m.conceptIds) ? m : { ...m, conceptIds: [] }));
     },
     sync: (body, { keepalive }) => session.run((token) => api('/api/sync', body, { token, method: 'PUT', keepalive })),
+    events: (body, { keepalive }) => session.run((token) => api('/api/events', body, { token, keepalive })),
   };
 }
 
