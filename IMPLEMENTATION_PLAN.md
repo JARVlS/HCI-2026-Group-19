@@ -423,10 +423,8 @@ type ScoreFeedback =
 - **Not part of this IV:** the veil (predict → reveal) and the nudges are consequences of the
   score that a person can read their rating from. For a clean comparison they are the same in
   both groups; recommended: off in both during this test (open question 9).
-- **If A beats B, follow-up tests of how the score is shown,** one factor at a time, same measure:
-  colour (neutral vs. red/green vs. another hue; never colour alone, for colour-blind
-  participants), and reward (none vs. the squirrel saying "I'm proud of you"). Each is one more
-  `StudyConfig` field (`scoreStyle`, `reward`), not a fork.
+- **If A beats B, follow-up tests of how the score is shown:** the fourth candidate below (the
+  squirrel's reaction, colour, wording, timing). Each is one more `StudyConfig` field, not a fork.
 - **Threats to name in the report:** (1) the score is our own judge, so "thinks more" means
   "is rated higher": it needs the validity check of M9/R4, a learning measure that does not come
   from the judge (a short quiz after the task), and a sample of turns rated by two team members
@@ -436,6 +434,63 @@ type ScoreFeedback =
   consider each person doing both groups on two topics in balanced order (twice the data, but
   whoever saw the score once may behave differently afterwards). (4) Praise for a score can
   crowd out the wish to learn: ask about pressure and motivation in the questionnaire.
+
+**Third A/B candidate (Salomon, 17 Nov 2026, PROPOSED): tree or outline, which one gets used?**
+```ts
+type PaneView = 'tree' | 'outline';  // the drawing the knowledge pane opens with
+```
+- **Question:** the pane draws the same knowledge as a plant (`tree`) or as an indented list
+  (`outline`, key `t`). Which one do people actually use, and does the one they start with change
+  how much they use the pane at all?
+- **A: the pane opens as the tree. B: it opens as the outline.** Everything else is the same, and
+  `t`, `/outline` and the switcher in the pane change the view in both groups. Today the start
+  view is the tree, or the outline with `?layout=outline`.
+- **Measure use, not opinion:** (1) pane actions per minute of task time (rest on a leaf, open a
+  concept, jump from a leaf to its chat, scrubber, forest); (2) the share of task time spent in
+  each view, how many people leave their start view, and when; (3) time and errors in the finding
+  task ("where did you learn X, and in which chat?"), which the organization test already uses;
+  (4) one questionnaire item per view.
+- **Logged for everyone, test or not:** `view_change` and the seconds per view. So "how often is
+  the outline used compared with the tree" is a number we get from the pilot and from the live
+  site even if this test never runs.
+- **Threats:** (1) people stay with what they are given, so the time share alone mostly shows the
+  default; the pane-use rate and the finding task carry the comparison. (2) The plant is new and
+  the outline is familiar: novelty favours the tree in a 20-minute session. (3) Ten leaves read
+  fine either way; the outline's advantage grows with size, so seed a subject that is large
+  enough (M4) and report the tree size.
+
+**Fourth candidate, a family (Salomon, 17 Nov 2026, PROPOSED): how Arbor says who did the thinking.**
+These change only how the label is presented, for people who see it (group A of the second
+candidate). The judge, the score and the measure stay the same: mean "thought along" percent per
+participant, plus the share of delegated turns. One factor at a time; each is one `StudyConfig`
+field whose first value is today's behaviour.
+
+| Field | Values (first = today) | What changes |
+|---|---|---|
+| `squirrel` | `mirror` \| `mad` \| `proud` \| `both` | `mirror`: it holds the matching acorn and hops once after an own turn, without a word of judgement. `mad`: after a delegated turn it turns its back, stamps once and says one line ("you gave that one away"). `proud`: after an own turn it also says "I'm proud of you". `both`: both. |
+| `aiColour` | `purple` \| `red` | The colour of everything that marks "the AI did the thinking" (`--ai`: label, bar, leaf, prompt border). Purple is a neutral hue, red reads as a warning. The glyph ●◑○ stays, so colour is never the only signal. |
+| `scoreForm` | `both` \| `label` \| `percent` \| `loss` | Label and number, only "delegating to ai", only "you 23", or the loss framing "ai 77". |
+| `scoreTiming` | `live` \| `after` | The score while typing (the draft can still be reworked) or only on the sent message. |
+| `leafFill` | `mode` \| `neutral` | The leaf shows whose thinking it was, or every leaf looks the same. |
+
+- **First:** `squirrel` (`mirror` vs. `mad`) and `aiColour`. They are the cheapest to build and
+  ask the same thing from two sides: does disapproval change behaviour more than neutral
+  information does?
+- **Design:** twelve people do not carry five factors between groups. Two ways that work:
+  (1) within a person: the task is cut into blocks of about six turns, the variant changes per
+  block in a balanced order (Latin square), the unit of analysis is the turn (mixed model,
+  participant as random effect); (2) on the live site with everyone who uses it (accounts and
+  guests, the group in `users.condition`, a consent line on the welcome screen), where the
+  numbers grow over time.
+- **Threats:** (1) carry-over: a person scolded in block 1 stays careful in block 2; balance the
+  order and test for an order effect. (2) Scolding and red can make people feel judged, so they
+  quit or learn to please the label: log drop-outs, ask about pressure, and stop a variant that
+  makes people leave. (3) Red means "error" in most interfaces: people may read it as "my answer
+  is wrong", so ask what they thought the colour meant. (4) Many small tests on one sample: name
+  one primary comparison beforehand and call the rest exploratory.
+- **Condition format with several factors:** `users.condition` holds a list such as
+  `org:trees,score:shown,view:outline,squirrel:mad`, parsed in `study/conditions.ts`; a field
+  that is missing has its default.
 
 
 ### ADR-10 "Continue with ChatGPT": assessment and decision
@@ -1000,8 +1055,30 @@ message mode (tune prompts until it is, or report honestly).
         `score_shown` (A only); each with `cond`.
       - Analysis in `research/`: per-participant means, a permutation or Mann-Whitney test,
         effect size with interval, one plot per measure; the turn sample rated blind by two people.
-      - Follow-ups only if A beats B: `scoreStyle` (colour) and `reward` (the squirrel's praise),
-        one at a time.
+      - Follow-ups only if A beats B: the thinking feedback variants below, one at a time.
+- [ ] **Pane view test** (ADR-9, third candidate; PROPOSED 17 Nov, open question 10):
+      - `StudyConfig.paneView: 'tree' | 'outline'` sets the start value of `ui.view`
+        (`designs/ascii/ui.tsx`, today only `?layout=`). `t`, `/outline` and the pane switcher
+        keep working in both groups.
+      - Events, for everyone and not only in the test: `view_change` (from, to, via
+        `key`|`command`|`click`), `pane_action` (`rest_on_leaf` after 400 ms, `open_concept`,
+        `jump_to_chat`, `scrub`; with the view), and the seconds per view on `task_end`.
+      - Analysis in `research/`: pane actions per minute by group, share of time per view, how
+        many leave the start view and when, finding-task time and errors. The pilot's numbers
+        come first, as plain description.
+- [ ] **Thinking feedback variants** (ADR-9, fourth candidate; PROPOSED 17 Nov, open question 10):
+      - `StudyConfig` fields `squirrel`, `aiColour`, `scoreForm`, `scoreTiming`, `leafFill`; the
+        default of each is today's behaviour. One selector per field next to `showScore`, and a
+        test per field that the default renders exactly as before.
+      - `squirrel: 'mad'`: a new `Pose` in `Squirrel.tsx` (back turned, one stamp, never on a
+        loop; with reduced motion only the line) plus one spoken line. `proud` adds its line to
+        today's `cheer` hop. Both react to the judge's label of the sent message, never to the draft.
+      - `aiColour: 'red'`: an attribute on the root swaps `--ai` and `--ai-soft` in the light and
+        the dark theme (contrast at least 4.5:1). Nothing else changes colour.
+      - Blocks: `study/conditions.ts` can change one field every N turns in a balanced order per
+        participant (`block_start` event with the variant); every `turn_sent` carries the
+        variant that was active.
+      - Build `squirrel` and `aiColour` first; the other three only if the team wants them.
 
 **Freeze Dec 5.** After that: bug fixes only, until the study ends.
 
@@ -1153,6 +1230,12 @@ about 3 s of the reveal.
    two factors at once. (b) Are veil and nudges off in both groups during this test, so that the
    only difference is the visible score? (c) One group per person, or both groups per person on
    two topics? Ask the TA with the study design (Dec 4/8).
+10. **More test candidates (M6, ADR-9 third and fourth, proposed by Salomon 17 Nov):** (a) Which
+    ONE comparison is the primary A/B of the course study: organization, score visibility, pane
+    view (tree vs. outline) or one feedback variant (squirrel mad, red vs. purple)? The others run
+    as blocks within a person, on the live site, or not at all. (b) May the feedback variants run
+    on the live site with everyone who uses it (consent line, groups assigned by the server)?
+    (c) Is a scolding squirrel acceptable to the team and the TA? It can make people feel judged.
 
 **Decided:** the study runs on live Claude through the backend relay (department credits);
 ChatGPT sign-in is not viable for the hosted app, so BYOK covers "use your own model" (M7) and
