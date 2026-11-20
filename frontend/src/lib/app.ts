@@ -11,7 +11,7 @@ import { createLive, type Backend, type Live } from './live';
 import { isBusy, reducer, type Action, type DomainState, type State } from './state';
 import { SyncQueue, watchPage, type KeyValue } from './sync';
 import { isQuizAnswer, retryTurn, revealTurn, sendTurn } from './turn';
-import type { Classification, ProviderChoice, Settings } from './types';
+import type { Classification, ProviderChoice, Score, Settings } from './types';
 
 /**
  * The app without React (IMPLEMENTATION_PLAN.md, M1/M2): initial state from the URL and storage,
@@ -268,11 +268,11 @@ export function createApp(opts: AppOptions) {
       else void live.boot();
     },
 
-    send(text: string, cls?: Classification, o?: { veil?: boolean }) {
+    send(text: string, cls?: Classification, o?: { veil?: boolean; thinking?: Score }) {
       const s = store.getState();
       if (isBusy(s.session.turn) || !text.trim()) return;
       if (!s.domain.messagesByConv[s.session.activeConversationId]) return toast('this chat is still loading');
-      run((signal) => sendTurn(deps(), { text, classification: cls ?? classifyDraft(text), veil: o?.veil }, signal));
+      run((signal) => sendTurn(deps(), { text, classification: cls ?? classifyDraft(text), veil: o?.veil, thinking: o?.thinking }, signal));
     },
     stop: abort,
     retry() {
