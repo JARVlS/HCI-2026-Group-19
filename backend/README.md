@@ -166,8 +166,8 @@ because migrations here only add tables and indexes.
 | Migration | Needed by | Applied to `hci-grp19` |
 |---|---|---|
 | `0001_users_usage_events.sql` | session, ai, events, export | 16 Nov 2026 |
-| `0002_graph_and_chats.sql` | `/sync`, `/state`, `/conversations/{id}/messages`, the export of the six new tables | **open**: apply after the merge of the M2 backend PR |
-| `0003_accounts.sql` | `/auth/signup`, `/auth/login`, `/me` | **open**: apply before or right after the merge of the accounts PR |
+| `0002_graph_and_chats.sql` | `/sync`, `/state`, `/conversations/{id}/messages`, the export of the six new tables | 17 Nov 2026 |
+| `0003_accounts.sql` | `/auth/signup`, `/auth/login`, `/me` | 20 Nov 2026 |
 
 From `backend/`, with a Cloudflare login for the account that holds `hci-grp19`:
 
