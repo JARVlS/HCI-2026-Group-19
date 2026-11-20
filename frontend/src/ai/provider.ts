@@ -96,6 +96,11 @@ export interface ScoreResult {
   /** The score, 0..1: how much the student thought along, or how right it is. */
   p: number;
   model?: string;
+  /**
+   * Each option of the scale and its probability (summing to 1), before they are weighed into `p`.
+   * The live word filter learns from it (`liveFilter.ts`); it is never stored with a message.
+   */
+  distribution?: Record<string, number>;
 }
 export type JsonTask = keyof JsonTasks;
 

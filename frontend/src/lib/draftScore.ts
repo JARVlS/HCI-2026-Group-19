@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import type { Provider } from '../ai/provider';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import type { Provider, ScoreResult } from '../ai/provider';
 import type { Message } from './domain';
 import { draftShare, thinkingMode } from './modes';
 import { scoreContext } from './turn';
@@ -20,6 +20,9 @@ import type { Classification, Mode, Score } from './types';
  *   not called on every pause; the line stays on the word rules and says so.
  * A rating of exactly the text that is sent goes with the message (`SendInput.thinking`), so the
  * turn does not ask a second time.
+ * In live mode the word filter (`liveFilter.ts`) is the instant tier below it: it rates every
+ * finished word, and while newer words follow a rated text it moves the model's number by what it
+ * thinks those words changed (`draftGauge`).
  */
 
 export type ScoreFn = NonNullable<Provider['score']>;
@@ -34,7 +37,7 @@ export const MAX_FAILURES = 2;
 interface Rating {
   text: string;
   context: string;
-  score: Score;
+  score: ScoreResult;
 }
 
 export interface DraftScoreState {
@@ -110,10 +113,10 @@ export class DraftScorer {
       apply();
     };
     this.score({ question: 'thinking', text, recent }, call.controller.signal).then(
-      ({ p, model }) =>
+      (score) =>
         settle(() => {
           this.failures = 0;
-          this.set({ rating: { text, context, score: model ? { p, model } : { p } } });
+          this.set({ rating: { text, context, score } });
         }),
       () =>
         settle(() => {
@@ -134,9 +137,11 @@ export class DraftScorer {
 /** What the composer knows about the model's rating of the draft it holds. */
 export interface DraftView {
   /** The model's rating of exactly this draft in this chat: it decides the line and the veil, and goes with the message. */
-  rated: Score | null;
-  /** While this draft waits for its own rating: the model's rating of an earlier draft (shown dimmed). */
+  rated: ScoreResult | null;
+  /** While this draft waits for its own rating: the model's rating of an earlier draft (shown dimmed without the word filter). */
   earlier: Score | null;
+  /** The last rating while the draft still starts with the text it rated, in the same chat: the word filter moves its number (`draftGauge`). */
+  anchor: { text: string; score: Score } | null;
   /** The provider can rate drafts (live mode with a fast model). False: the line looks as it always did. */
   canRate: boolean;
   /** The model failed MAX_FAILURES times in a row: the word rules decide for the rest of the visit. */
@@ -144,28 +149,102 @@ export interface DraftView {
 }
 
 export function draftView(s: DraftScoreState | null, draft: string, recent: Recent): DraftView {
-  if (!s) return { rated: null, earlier: null, canRate: false, unavailable: false };
+  if (!s) return { rated: null, earlier: null, anchor: null, canRate: false, unavailable: false };
   const r = s.unavailable ? null : s.rating;
-  const exact = r !== null && r.text === draft.trim() && r.context === contextKey(recent);
-  return { rated: exact ? r.score : null, earlier: r && !exact && ratable(draft) ? r.score : null, canRate: true, unavailable: s.unavailable };
+  const text = draft.trim();
+  const here = r !== null && r.context === contextKey(recent);
+  const exact = here && r.text === text;
+  return {
+    rated: exact ? r.score : null,
+    earlier: r && !exact && ratable(draft) ? r.score : null,
+    anchor: here && !exact && text.startsWith(r.text) ? { text: r.text, score: r.score } : null,
+    canRate: true,
+    unavailable: s.unavailable,
+  };
+}
+
+/** The word filter's reading of the draft (the instant tier, `liveFilter.ts`). */
+export interface FilterView {
+  /** How much of the thinking is the student's (0..1), from the words up to the last finished one. */
+  you: number;
+  /** The filter is not sure (its certainty is low): the line is dimmed and says so. */
+  unsure: boolean;
+  /** The filter's number for the anchor's text (`DraftView.anchor`); null without an anchor. */
+  anchorYou: number | null;
 }
 
 /** The score line: its label, how much of the thinking is the student's (0..1), and where that comes from. */
 export interface DraftGauge {
   mode: Mode;
   you: number;
-  from: 'model' | 'earlier' | 'rules';
+  from: 'model' | 'adjusted' | 'filter' | 'earlier' | 'rules';
+  /** From the word filter, and it is not sure. */
+  unsure?: boolean;
 }
 
-/** The model's rating when there is one (labels by OWN_FROM and AI_UP_TO, as a sent message), else the word rules' split. */
-export function draftGauge(c: Classification, v: DraftView): DraftGauge {
-  const s = v.rated ?? v.earlier;
-  if (!s) return { mode: c.mode, you: draftShare(c.mode, c.confidence), from: 'rules' };
-  return { mode: thinkingMode(s.p), you: s.p, from: v.rated ? 'model' : 'earlier' };
+/** The model's number for a text P, moved by what the word filter thinks the words typed since P changed. */
+export const adjusted = (rated: number, filterNow: number, filterAtRated: number) => Math.min(1, Math.max(0, rated + filterNow - filterAtRated));
+
+/**
+ * Labels by OWN_FROM and AI_UP_TO, as a sent message. The model's rating of exactly this draft
+ * wins. Else, with the word filter (live mode): the model's last rating adjusted for the words
+ * since (while the draft starts with the rated text), or the filter alone. Without the filter (its
+ * weights load or failed): the model's earlier rating (dimmed), else the word rules' split.
+ */
+export function draftGauge(c: Classification, v: DraftView, f: FilterView | null = null): DraftGauge {
+  if (v.rated) return { mode: thinkingMode(v.rated.p), you: v.rated.p, from: 'model' };
+  if (f && v.anchor && f.anchorYou !== null) {
+    const you = adjusted(v.anchor.score.p, f.you, f.anchorYou);
+    return { mode: thinkingMode(you), you, from: 'adjusted' };
+  }
+  if (f) return { mode: thinkingMode(f.you), you: f.you, from: 'filter', unsure: f.unsure };
+  if (v.earlier) return { mode: thinkingMode(v.earlier.p), you: v.earlier.p, from: 'earlier' };
+  return { mode: c.mode, you: draftShare(c.mode, c.confidence), from: 'rules' };
 }
 
-/** The label at send (it decides the veil): the model's when it rated exactly this text, else the word rules', as before. */
-export const sendMode = (c: Classification, v: DraftView): Mode => (v.rated ? thinkingMode(v.rated.p) : c.mode);
+/** The label the line shows, and a new label waiting for its second word update in a row. */
+export interface Steady {
+  shown: Mode;
+  waiting: Mode | null;
+}
+
+/**
+ * Calm while typing (ADR-15): the number may move with every word, but the label changes only once
+ * a new label has held for two word updates in a row. The first label of a draft shows at once, and
+ * so does the model's rating of exactly the draft (`now`).
+ */
+export function steadyMode(prev: Steady | null, raw: Mode, now = false): Steady {
+  if (!prev || now || raw === prev.shown || raw === prev.waiting) return { shown: raw, waiting: null };
+  return { shown: prev.shown, waiting: raw };
+}
+
+/** Only the model's and the filter's labels are steadied; the word rules' label shows as it always did. */
+const steadied = (g: DraftGauge | null): g is DraftGauge => g !== null && g.from !== 'rules' && g.from !== 'earlier';
+
+/**
+ * The label at send (it decides the veil): the model's when it rated exactly this text; else, with
+ * the word filter, the line's steady label, after one more word update with the whole draft when its
+ * last word was not finished (`whole`: the gauge of the whole draft); else the word rules', as before.
+ */
+export function sendMode(c: Classification, v: DraftView, whole: { gauge: DraftGauge; steady: Steady | null; newWord: boolean } | null = null): Mode {
+  if (v.rated) return thinkingMode(v.rated.p);
+  if (!whole || !steadied(whole.gauge)) return c.mode;
+  return whole.newWord || !whole.steady ? steadyMode(whole.steady, whole.gauge.mode).shown : whole.steady.shown;
+}
+
+/**
+ * `steadyMode` over the word updates of one draft. `step`: the draft's finished words, so a letter
+ * of an unfinished word is no update; a new model rating of exactly the draft is one.
+ */
+export function useSteady(step: string, g: DraftGauge | null): Steady | null {
+  const key = !steadied(g) ? null : g.from === 'model' ? `model\u0000${g.you}\u0000${step}` : `words\u0000${step}`;
+  const [s, setS] = useState<{ key: string | null; steady: Steady | null }>({ key: null, steady: null });
+  if (key === s.key) return s.steady;
+  // Adjusting state while rendering (React's pattern for "state from changed props"): no extra paint.
+  const steady = steadied(g) ? steadyMode(s.steady, g.mode, g.from === 'model') : null;
+  setS({ key, steady });
+  return steady;
+}
 
 const noSubscribe = () => () => {};
 const noState = () => null;

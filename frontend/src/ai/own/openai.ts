@@ -217,10 +217,11 @@ export class OpenAICompatible implements ModelApi {
         }
         throw e;
       }
-      const p = scaleScore(optionProbabilities(data, Object.keys(scale)), scale);
+      const distribution = optionProbabilities(data, Object.keys(scale));
+      const p = scaleScore(distribution, scale);
       if (p === null) throw new ProviderError('The score lacks a probability for an option of the scale.', 'invalid_output');
       const model = (data as { model?: unknown }).model;
-      return { p, model: typeof model === 'string' && model ? model : this.t.model };
+      return { p, model: typeof model === 'string' && model ? model : this.t.model, distribution };
     } catch (e) {
       throw toProviderError(e, signal);
     }

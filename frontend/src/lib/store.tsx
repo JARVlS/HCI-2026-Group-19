@@ -2,11 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { KeySnapshot } from '../ai/own/keys';
 import type { TestReport } from '../ai/own/provider';
 import type { Role } from '../ai/own/setup';
-import type { Provider } from '../ai/provider';
+import type { Provider, ScoreResult } from '../ai/provider';
 import { isLiveChoice } from '../ai/providers';
 import { createApp, save, SETTINGS_KEY, type StoreAction } from './app';
 import type { Conversation, Id, ISO, Message } from './domain';
 import { draftScoreFn, type ScoreFn } from './draftScore';
+import { LiveFilter } from './liveFilter';
 import { conversationsOfTree, treeOfConcept, treesOfConversation } from './links';
 import { remoteBackend } from './live';
 import { crossRoots, projectForest, type CrossRoots } from './project';
@@ -14,7 +15,7 @@ import { session } from './session';
 import { activeConversation, activeMessages, isBusy, type State } from './state';
 import type { SyncStatus } from './sync';
 import { dayGroup, type DayGroup } from './time';
-import type { Classification, Grove, Score, TreeData } from './types';
+import type { Classification, Grove, TreeData } from './types';
 
 export type { State } from './state';
 export type { StoreAction } from './app';
@@ -112,9 +113,11 @@ interface Ctx {
   /** Can the assistant quiz the user on this concept? */
   canQuiz: (conceptId: Id) => boolean;
   /** `veil`: hide the answer until the user guesses or reveals it (predict → reveal). `thinking`: the fast model's rating of exactly this text, from the composer. */
-  send: (text: string, cls?: Classification, opts?: { veil?: boolean; thinking?: Score }) => void;
+  send: (text: string, cls?: Classification, opts?: { veil?: boolean; thinking?: ScoreResult }) => void;
   /** The fast model's rating, for the composer's live score (`draftScore.ts`); null when the provider has none (demo, scores off). */
   scoreDraft: ScoreFn | null;
+  /** The word filter, the composer's instant tier (`liveFilter.ts`); null in demo mode. */
+  filter: LiveFilter | null;
   /** Stop the reply that is streaming. */
   stop: () => void;
   /** Run the failed turn again. */
@@ -148,6 +151,8 @@ export interface OwnControls extends KeySnapshot {
 const StoreContext = createContext<Ctx | null>(null);
 
 export function StoreProvider({ children, provider: given }: { children: ReactNode; provider?: Provider }) {
+  // The word filter learns from every judged message in live mode; its weights load on first use.
+  const [filter] = useState(() => new LiveFilter(browserStorage()));
   const [app] = useState(() =>
     createApp({
       params: urlParams(),
@@ -157,6 +162,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
       build: import.meta.env.VITE_DEFAULT_PROVIDER,
       provider: given,
       page: typeof window === 'undefined' ? null : { win: window, doc: document },
+      judged: filter.learn,
     }),
   );
   const { store } = app;
@@ -279,6 +285,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
       canQuiz,
       send: app.send,
       scoreDraft,
+      filter: isLiveChoice(choice) ? filter : null,
       stop: app.stop,
       retry: app.retry,
       classifyDraft: app.classifyDraft,
@@ -292,7 +299,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
       finishOnboarding: app.finishOnboarding,
       own,
     }),
-    [app, state, choice, sync, conversation, messages, busy, activeTree, graph, provider, canQuiz, scoreDraft, own],
+    [app, state, choice, sync, conversation, messages, busy, activeTree, graph, provider, canQuiz, scoreDraft, filter, own],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

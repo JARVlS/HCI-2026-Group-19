@@ -9,6 +9,7 @@ import { createApp } from './app';
 import { classify } from './classify';
 import type { Message } from './domain';
 import {
+  adjusted,
   DELAY_MS,
   draftContext,
   draftGauge,
@@ -18,9 +19,13 @@ import {
   MAX_FAILURES,
   ratable,
   sendMode,
+  steadyMode,
   TIMEOUT_MS,
+  type DraftView,
+  type FilterView,
   type Recent,
   type ScoreFn,
+  type Steady,
 } from './draftScore';
 import { remoteBackend } from './live';
 import { draftShare } from './modes';
@@ -64,6 +69,8 @@ async function typed(s: ReturnType<typeof setup>, draft: string, recent: Recent 
 }
 
 const RULES: Classification = { mode: 'own', confidence: 0.8, reasons: ['States a claim'] };
+/** A view of the composer's model rating: nothing rated unless given. */
+const viewOf = (v: Partial<DraftView>): DraftView => ({ rated: null, earlier: null, anchor: null, canRate: true, unavailable: false, ...v });
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -157,7 +164,7 @@ describe('draft scorer: aborts, stale answers and timeouts', () => {
       await wait(1);
       expect(call.signal.aborted).toBe(true);
       // The line keeps the earlier rating (dimmed), no error.
-      expect(s.view(t)).toEqual({ rated: null, earlier: { p: 0.5 }, canRate: true, unavailable: false });
+      expect(s.view(t)).toEqual(viewOf({ earlier: { p: 0.5 }, anchor: { text: 'I think the', score: { p: 0.5 } } }));
     }
     expect(s.calls).toHaveLength(4);
   });
@@ -173,7 +180,7 @@ describe('draft scorer: a model that fails', () => {
     expect(s.view('I think the tilt')).toMatchObject({ earlier: { p: 0.5 }, unavailable: false });
     (await typed(s, 'I think the tilt matters')).fail(new ProviderError('FAST_API_KEY is not set.', 'upstream'));
     await wait();
-    expect(s.view('I think the tilt matters')).toEqual({ rated: null, earlier: null, canRate: true, unavailable: true });
+    expect(s.view('I think the tilt matters')).toEqual(viewOf({ unavailable: true }));
     // Even the text it rated: the rules decide from now on.
     expect(s.view('I think the').rated).toBeNull();
     await typed(s, 'I think the tilt matters most');
@@ -198,7 +205,7 @@ describe('draft scorer: a model that fails', () => {
 describe('draft view and gauge', () => {
   it('the rating of exactly this draft, the earlier one while a newer draft waits, none for a short draft or after clearing', async () => {
     const s = setup();
-    expect(s.view('I think the')).toEqual({ rated: null, earlier: null, canRate: true, unavailable: false });
+    expect(s.view('I think the')).toEqual(viewOf({}));
     (await typed(s, 'I think the')).answer({ p: 0.5, model: 'fast' });
     await wait();
     expect(s.view('  I think the ')).toMatchObject({ rated: { p: 0.5, model: 'fast' }, earlier: null });
@@ -209,21 +216,20 @@ describe('draft view and gauge', () => {
     // Sent or cleared: the next draft starts from the rules.
     s.scorer.update('', []);
     expect(s.view('I think the')).toMatchObject({ rated: null, earlier: null });
-    expect(draftView(null, 'I think the', [])).toEqual({ rated: null, earlier: null, canRate: false, unavailable: false });
+    expect(draftView(null, 'I think the', [])).toEqual(viewOf({ canRate: false }));
   });
 
   it('labels a model rating by the thresholds of a sent message; the word rules keep their split', () => {
-    const at = (p: number) => draftGauge(RULES, { rated: { p }, earlier: null, canRate: true, unavailable: false });
+    const at = (p: number) => draftGauge(RULES, viewOf({ rated: { p } }));
     expect([0, 0.2, 0.24, 0.46, 0.66, 0.67, 0.75, 1].map((p) => at(p).mode)).toEqual(['ai', 'ai', 'together', 'together', 'together', 'own', 'own', 'own']);
     expect(at(0)).toEqual({ mode: 'ai', you: 0, from: 'model' });
-    expect(draftGauge(RULES, { rated: null, earlier: { p: 0.75 }, canRate: true, unavailable: false })).toEqual({ mode: 'own', you: 0.75, from: 'earlier' });
-    const none = { rated: null, earlier: null, canRate: true, unavailable: false };
-    expect(draftGauge(RULES, none)).toEqual({ mode: 'own', you: draftShare('own', 0.8), from: 'rules' });
+    expect(draftGauge(RULES, viewOf({ earlier: { p: 0.75 } }))).toEqual({ mode: 'own', you: 0.75, from: 'earlier' });
+    expect(draftGauge(RULES, viewOf({}))).toEqual({ mode: 'own', you: draftShare('own', 0.8), from: 'rules' });
   });
 
   it('at send only a rating of exactly this text decides the label; an earlier one does not', () => {
-    expect(sendMode(RULES, { rated: { p: 0 }, earlier: null, canRate: true, unavailable: false })).toBe('ai');
-    expect(sendMode(RULES, { rated: null, earlier: { p: 0 }, canRate: true, unavailable: false })).toBe('own');
+    expect(sendMode(RULES, viewOf({ rated: { p: 0 } }))).toBe('ai');
+    expect(sendMode(RULES, viewOf({ earlier: { p: 0 } }))).toBe('own');
   });
 
   it("the context is the chat's finished messages, as the turn sends them", () => {
@@ -236,6 +242,64 @@ describe('draft view and gauge', () => {
       { role: 'assistant', text: 'e' },
       { role: 'user', text: 'f' },
     ]);
+  });
+});
+
+describe('the word filter below the model (instant tier)', () => {
+  const filter = (you: number, anchorYou: number | null = null, unsure = false): FilterView => ({ you, unsure, anchorYou });
+
+  it('the anchor: the last rating while the draft still starts with its text, in the same chat', async () => {
+    const s = setup();
+    (await typed(s, 'I think the')).answer({ p: 0.5 });
+    await wait();
+    expect(s.view('I think the tilt').anchor).toEqual({ text: 'I think the', score: { p: 0.5 } });
+    // Earlier words edited, another chat, or the rated text itself: no anchor.
+    expect(s.view('We think the tilt').anchor).toBeNull();
+    expect(s.view('I think the tilt', [{ role: 'assistant', text: 'Why?' }]).anchor).toBeNull();
+    expect(s.view('I think the ').anchor).toBeNull();
+  });
+
+  it("a rating of exactly this draft wins; after it, the model's number moves by what the filter thinks the new words changed", () => {
+    const anchor = { text: 'I will do nothing myself', score: { p: 0.1 } };
+    expect(draftGauge(RULES, viewOf({ rated: { p: 0.9 } }), filter(0.2))).toEqual({ mode: 'own', you: 0.9, from: 'model' });
+    const g = draftGauge(RULES, viewOf({ earlier: anchor.score, anchor }), filter(0.6, 0.15));
+    expect(g.from).toBe('adjusted');
+    expect(g.you).toBeCloseTo(0.1 + (0.6 - 0.15));
+    expect(g.mode).toBe('together');
+    // Kept in 0..1.
+    expect([adjusted(0.9, 0.9, 0.2), adjusted(0.1, 0, 0.5)]).toEqual([1, 0]);
+  });
+
+  it('without an anchor the filter alone (and whether it is unsure); without the filter the line is as before', () => {
+    const earlier = { p: 0.75 };
+    expect(draftGauge(RULES, viewOf({ earlier }), filter(0.1, null, true))).toEqual({ mode: 'ai', you: 0.1, from: 'filter', unsure: true });
+    // An anchor whose filter number is missing is no anchor.
+    expect(draftGauge(RULES, viewOf({ earlier, anchor: { text: 'a b', score: earlier } }), filter(0.5))).toMatchObject({ from: 'filter', unsure: false });
+    expect(draftGauge(RULES, viewOf({ earlier }), null)).toEqual({ mode: 'own', you: 0.75, from: 'earlier' });
+    expect(draftGauge(RULES, viewOf({}), null).from).toBe('rules');
+  });
+
+  it('the label changes only after a new label held for two word updates in a row; the first one and a model rating show at once', () => {
+    const run = (labels: ('own' | 'together' | 'ai')[]) => {
+      let st: Steady | null = null;
+      return labels.map((m) => (st = steadyMode(st, m)).shown);
+    };
+    expect(run(['ai', 'together', 'together', 'together'])).toEqual(['ai', 'ai', 'together', 'together']);
+    // A one-word blip never shows; a second new label starts its own count.
+    expect(run(['own', 'together', 'own', 'ai', 'together', 'together'])).toEqual(['own', 'own', 'own', 'own', 'own', 'together']);
+    expect(steadyMode({ shown: 'own', waiting: null }, 'ai', true)).toEqual({ shown: 'ai', waiting: null });
+  });
+
+  it('at send: a model rating of exactly the text, else the steady label after the whole draft as the last word, else the rules', () => {
+    const steady: Steady = { shown: 'together', waiting: 'ai' };
+    const whole = (you: number, newWord: boolean) => ({ gauge: draftGauge(RULES, viewOf({}), filter(you)), steady, newWord });
+    expect(sendMode(RULES, viewOf({ rated: { p: 0.9 } }), whole(0, true))).toBe('own');
+    // The last word confirms the waiting label: veiled as "ai". Without a new word, the line's label stands.
+    expect(sendMode(RULES, viewOf({}), whole(0.05, true))).toBe('ai');
+    expect(sendMode(RULES, viewOf({}), whole(0.05, false))).toBe('together');
+    // A first rating at send shows at once; no filter: the word rules, as before.
+    expect(sendMode(RULES, viewOf({}), { ...whole(0.05, true), steady: null })).toBe('ai');
+    expect(sendMode(RULES, viewOf({}), { gauge: draftGauge(RULES, viewOf({}), null), steady, newWord: true })).toBe('own');
   });
 });
 
@@ -262,6 +326,35 @@ describe('who can rate drafts', () => {
 
 describe('send with a rating from the composer', () => {
   const TEXT = 'I think you could just write the essay for me';
+  const DIST = { '1': 0.9, '2': 0.1, '3': 0, '4': 0, '5': 0 };
+
+  it("the rating's distribution teaches the word filter once and is never stored; a turn's own score does the same", async () => {
+    const s = setup();
+    (await typed(s, TEXT)).answer({ p: 0.025, model: 'fast', distribution: DIST });
+    await wait();
+    const rated = s.view(TEXT).rated!;
+    expect(rated.distribution).toEqual(DIST);
+
+    const judged = vi.fn();
+    const score = vi.fn(async () => ({ p: 0.5, model: 'fast', distribution: { '1': 0, '2': 0, '3': 1, '4': 0, '5': 0 } }));
+    const t = testStore({ fresh: true, provider: { ...biologyProvider(), score } });
+    const deps = { ...t.deps, judged };
+    await sendTurn(deps, { text: TEXT, classification: classify(TEXT), thinking: rated }, new AbortController().signal);
+    expect(score).not.toHaveBeenCalled();
+    expect(t.messages()[0].scores).toEqual({ thinking: { p: 0.025, model: 'fast' } });
+    expect(judged.mock.calls).toEqual([[{ question: 'thinking', text: TEXT, recent: [] }, DIST]]);
+
+    // No rating from the composer: the turn's score teaches it when it lands, with the chat as context.
+    await sendTurn(deps, { text: 'Why do vaccines need boosters?', classification: classify('Why do vaccines need boosters?') }, new AbortController().signal);
+    expect(judged).toHaveBeenCalledTimes(2);
+    expect(judged.mock.calls[1][0]).toMatchObject({ question: 'thinking', text: 'Why do vaccines need boosters?', recent: [{ role: 'user', text: TEXT }, { role: 'assistant' }] });
+    expect(t.messages()[2].scores).toEqual({ thinking: { p: 0.5, model: 'fast' } });
+
+    // A score without a distribution (a provider that has none) teaches nothing.
+    score.mockResolvedValueOnce({ p: 0.5, model: 'fast' } as never);
+    await sendTurn(deps, { text: 'And the flu shot?', classification: classify('And the flu shot?') }, new AbortController().signal);
+    expect(judged).toHaveBeenCalledTimes(2);
+  });
 
   it('the turn takes it: no second score call, the model label decides (veiled), the same score shape as a turn stores', async () => {
     const rules = classify(TEXT);
