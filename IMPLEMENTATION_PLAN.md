@@ -1042,6 +1042,16 @@ message mode (tune prompts until it is, or report honestly).
       `design`; `pid` and `cond` stay on the server. Still open: `task_start`/`task_end`,
       `quiz_answer`, `nudge_action`, `nav` (waits for `navigate()`, M2b), and the conditions
       (`StudyConfig`).
+      *21 Nov:* the log now carries the texts, on Salomon's word ("Log anything potentially
+      relevant"; this replaces "never texts" of 20 Nov): message, reply, the draft as rated,
+      guess, titles, labels, reasons, command arguments, toasts, each cut to 8,000 characters
+      with the real length beside it. Never: the session token, passwords, own-model keys, a full
+      endpoint URL (only its host), the username. New events: `reply_first`, `load_failed`,
+      `toast`, `draft_fill`, `message_jump`, `draft_paste`, `transcript_copy`, `filter_rated`,
+      `compose`, `draft_abandoned`, `hint_hover`, `message_rest`, `shortcut`, `forest_zoom`,
+      `forest_filter`, `squirrel_tip`, `concept_try`, `model_test`, `online`, `offline`,
+      `resize`, `idle_start`/`idle_end`, `client_error`; `session_start` has the browser and
+      screen. The mirror keeps at most 1 MB of JSON, so the sync queue keeps its room.
 - [ ] Study task script: fixed topic plus seed subject; **live Claude via the `arbor` relay**
       (decided), with fixed models per task and temperature 0 for analysis; a session timer.
       (*16 Nov:* temperature cannot be set on API version 2026-10-21; fixed model and effort instead.)
