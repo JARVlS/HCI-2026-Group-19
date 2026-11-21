@@ -85,6 +85,8 @@ Full reference with request and response shapes, error codes and `curl` examples
 | `GET /api/conversations/{id}/messages` | token | the messages of one of the user's conversations |
 | `POST /api/events` | token | store study events, idempotent by event id |
 | `GET /api/admin/export?table=...` | `X-Admin-Token` | one table as CSV: `events`, `usage`, `users`, `conversations`, `messages`, `attempts`, `concepts`, `concept_edges`, `trees` |
+| `GET /api/admin/visits` | `X-Admin-Token` | the usage log's visits (page loads), newest first, page by page (the logs page) |
+| `GET /api/admin/events` | `X-Admin-Token` | usage events as JSON, filtered by visit, user and type, page by page (the logs page) |
 
 New routes go into `src/routes/` and are mounted in `src/app.py`. Dependencies go in
 `pyproject.toml` (`uv add <pkg>`); only pure-Python packages or ones Pyodide supports work in the
@@ -97,7 +99,7 @@ the Worker bundle (pywrangler bundles only `[project.dependencies]`, see `pylock
 |---|---|---|
 | `ANTHROPIC_API_KEY` | secret | the key for the model API (today a Bedrock key, see the stopgap note in docs/api.md "Budget and cost") |
 | `SESSION_SECRET` | secret | signs session tokens; changing it logs everybody out |
-| `ADMIN_TOKEN` | secret | for `/api/admin/export` |
+| `ADMIN_TOKEN` | secret | for `/api/admin/*` (the CSV export and the logs page) |
 | `FAST_API_KEY` | secret | Bearer key for the fast slot (`FAST_BASE_URL`); read only by `/api/ai/score`, so without it everything else still works |
 | `ENVIRONMENT` | var | shown by `/api/health` |
 | `MODEL_CHAT`, `MODEL_ANALYZE` | var | planned: `claude-sonnet-5-5` for chat, `claude-haiku-5-5` for analyze/tree/quiz; today both `anthropic.claude-sonnet-5` (Bedrock stopgap) |

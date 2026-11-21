@@ -26,6 +26,7 @@ in the Worker (`request.scope["env"]`), so no production code has test-only bran
 | `test_events.py` | storing, idempotency, duplicate ids in one batch, 1..200 limit, `clientTs` must carry a time zone |
 | `test_sync.py` | `PUT /sync`, `GET /state`, `GET /conversations/:id/messages`: round trip of every entity (optional fields left out, nullable fields `null`, times in UTC), entity columns match the migrations, idempotency (same body twice leaves every row unchanged), last write wins on `updatedAt` (older ignored, newer and equal win), messages and attempts always replaced, edges insert or ignore, duplicate ids in one request, another user's rows neither readable (404) nor overwritable, soft delete and restore, message order, opaque message meta round trip with `streaming` dropped, NaN rejected, 401 on all three, unknown fields 422, bad values 422, the 500-row limit (413), the text and JSON size limits (422 naming the field) |
 | `test_admin.py` | CSV content and order for events, usage, users, messages, conversations; every export has every column of its table; 403 before 422, unknown table |
+| `test_admin_logs.py` | `/admin/visits` and `/admin/events` (the logs page): visits grouped by user and visit (no visit and `visit: ""` are one visit `null`), counts, turns, designs, username from accounts and never the password hash, newest first; events in `(server_ts, id)` order with each filter and their combinations, `visit=` for the events without one; paging through ties (one server time for a whole batch) gives every row exactly once; payloads that are not a JSON object (`{not json`, `[1, 2]`, `NaN`) come back as `_raw` and do not break the visits list; 422 for limits, bad or foreign cursors, unknown parameters; 403 before 422 |
 | `test_app.py` | health, error format for 404/405/422/500, `/api/docs`, CORS preflight with `Authorization`, the app imports without the Workers runtime |
 
 ## 2. Smoke test under the real Workers runtime
@@ -40,7 +41,7 @@ migrations to it, starts `tests/fake_anthropic.py` on port 8790 and `uv run pywr
 port 8787 with the made-up values from `tests/smoke.env` (your own `.dev.vars` is not used, so a
 real key in it is never called), runs `tests/smoke.py` and stops both servers. The first run
 downloads the Python packages and takes about a minute, later runs about 20 seconds. Expected last
-line: `43 passed, 0 failed`. The Worker log is in `.wrangler/smoke-dev.log`.
+line: `49 passed, 0 failed`. The Worker log is in `.wrangler/smoke-dev.log`.
 
 What it checks: health, session (also the same participant twice), 401, chat without streaming,
 CORS preflight, chat streaming with `Origin: http://localhost:5173` (CORS header present, the text is
@@ -51,7 +52,10 @@ and mass from the fake's logprobs, then `[off-topic]`, `[no-logprobs]` and `[ups
 accounts (sign up with a guest token keeps the guest, login ignores case and returns the same token,
 wrong password 401, the same username again 409, `/api/me`; this is the only test of the WebCrypto
 password hashing), events twice (3 then 0), the CSV export (the usage CSV has the session's `chat`, `analyze` and
-`score` rows) and its 403, and the 404 format. Then persistence on the local D1: `PUT /api/sync` with one row of
+`score` rows) and its 403, the logs page routes (a visit of 5 events sent in one batch with its
+counts, its events in pages of 2 with each event once, a payload that is not JSON, written straight
+into the database by `smoke.sh`, as visit `null` and `_raw`, a bad cursor 422, a wrong token 403),
+and the 404 format. Then persistence on the local D1: `PUT /api/sync` with one row of
 every entity and `GET /api/state` returns exactly that, messages come back in order with their
 extra fields and without `streaming`, the same body twice changes nothing, an older `updatedAt` is
 ignored, a soft-deleted concept disappears, a second user can neither read (404) nor overwrite the
@@ -145,6 +149,14 @@ tokens.
 | T-37 | Deployed score | after `FAST_API_KEY` is set on the Worker and the deploy: T-35 against `https://hci-backend.leon-grass.workers.dev` | as T-35 |
 | T-38 | Accounts | new token (T-02), then the signup `curl` from `docs/api.md` with it; `POST /api/auth/login` with the username in capitals; again with a wrong password; the signup again; `GET /api/me` | signup 200 with the guest's `userId` and token; login 200, same token, username as stored; 401 `invalid_credentials`; 409 `username_taken`; `/me` names the account |
 | T-39 | Deployed accounts | after `uv run pywrangler d1 migrations apply hci-grp19 --remote` (0003) and the deploy: T-38 against `https://hci-backend.leon-grass.workers.dev`; then T-26 for the signup and login requests | as T-38; CPU time of signup and login below the plan's limit (PBKDF2 runs in WebCrypto) |
+
+**Logs page routes.** Local setup as for T-01, then T-10 with `"visit": "v1", "seq": 1` in the
+payload, and once more with another event id and `"seq": 2`.
+
+| ID | Test | Steps | Expected |
+|---|---|---|---|
+| T-40 | Visits and events | `curl -s 'localhost:8787/api/admin/visits?limit=5' -H 'x-admin-token: <ADMIN_TOKEN from .dev.vars>'`; then `curl -s 'localhost:8787/api/admin/events?visit=v1&userId=<userId>&limit=1' -H ...` and again with `&after=<next>`; both routes with a wrong token, and with `limit=0` | the visit `v1` with `events` 2; one event per page, the second page has the other event and `next` null; wrong token 403; `limit=0` 422 |
+| T-41 | Deployed logs page | after the deploy of backend and frontend: open `https://hci-2026-group-19.pages.dev/logs`, enter the admin token, open a visit, download the events CSV | the live site's visits, newest first; the visit's timeline loads; the CSV downloads; a wrong token shows the 403 message |
 
 ## 4. How we document tests
 

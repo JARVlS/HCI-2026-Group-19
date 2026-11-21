@@ -155,3 +155,53 @@ async def export_rows(db: Any, table: str) -> tuple[tuple[str, ...], list[dict]]
     columns, order = EXPORTS[table]
     result = await db.prepare(f"SELECT {', '.join(columns)} FROM {table} ORDER BY {order}").all()
     return columns, list(result["results"])
+
+
+# --- admin views of the usage log (the logs page) ------------------------------------------
+# No index serves these (events has none besides its id), so every call scans the events table:
+# fine at study size, and no migration needed. docs/api.md has the rows-read cost.
+
+def _payload_text(field: str) -> str:
+    """SQL for one payload field as text, '' when missing or null. json_valid first: json_extract
+    raises on text that is not JSON, and one broken row must not break the whole answer."""
+    return (f"COALESCE(CAST(CASE WHEN json_valid(payload_json) THEN json_extract(payload_json, '$.{field}') END"
+            " AS TEXT), '')")
+
+
+# A visit is one page load: frontend/src/lib/telemetry.ts puts its id into every payload.
+# A user's events without one (logged before 20 Nov 2026) share the visit ''.
+_VISIT = _payload_text("visit")
+
+_VISITS_SQL = (
+    f"WITH v AS (SELECT user_id, {_VISIT} AS visit, MIN(client_ts) AS first_ts, MAX(client_ts) AS last_ts,"
+    " MAX(server_ts) AS last_server_ts, COUNT(*) AS events, COUNT(CASE WHEN type = 'turn_sent' THEN 1 END) AS turns,"
+    f" GROUP_CONCAT(DISTINCT NULLIF({_payload_text('design')}, '')) AS designs FROM events GROUP BY user_id, visit)"
+    " SELECT v.*, u.participant_id, u.condition, a.username FROM v"
+    " LEFT JOIN users u ON u.id = v.user_id LEFT JOIN accounts a ON a.user_id = v.user_id"
+)
+_VISITS_ORDER = " ORDER BY v.last_server_ts DESC, v.user_id DESC, v.visit DESC LIMIT ?"
+
+
+async def visits(db: Any, limit: int, before: tuple[str, str, str] | None) -> list[dict]:
+    """Visits, newest first by their last server time, at most limit + 1 (one more tells the
+    caller there is a next page). `before`: the sort key (last_server_ts, user_id, visit) of the
+    previous page's last visit. Reads the username from accounts, never the password hash."""
+    where = " WHERE (v.last_server_ts, v.user_id, v.visit) < (?, ?, ?)" if before else ""
+    result = await db.prepare(_VISITS_SQL + where + _VISITS_ORDER).bind(*(before or ()), limit + 1).all()
+    return list(result["results"])
+
+
+async def events_page(db: Any, *, visit: str | None, user_id: str | None, type: str | None,
+                      after: tuple[str, str] | None, limit: int) -> list[dict]:
+    """Events ascending by (server_ts, id), at most limit + 1, filtered by any of visit, user_id
+    and type (AND). `after`: the (server_ts, id) of the previous page's last event."""
+    filters = [(f"{_VISIT} = ?", visit), ("user_id = ?", user_id), ("type = ?", type)]
+    where = [sql for sql, value in filters if value is not None]
+    params: list[Any] = [value for _, value in filters if value is not None]
+    if after is not None:
+        where.append("(server_ts, id) > (?, ?)")
+        params.extend(after)
+    sql = ("SELECT id, user_id, condition, type, payload_json, client_ts, server_ts FROM events"
+           + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY server_ts, id LIMIT ?")
+    result = await db.prepare(sql).bind(*params, limit + 1).all()
+    return list(result["results"])

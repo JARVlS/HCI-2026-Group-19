@@ -725,6 +725,8 @@ Errors: `{ error: { code, message } }` with an HTTP status.
 | `POST /ai/complete` | `{ task: 'chat'\|'analyze'\|'tree'\|'quiz', system, messages, schema?, stream? }` (task `grade` proposed, ADR-16) | `chat` + `stream:true` → **SSE**: `event: delta {text}` … `event: done {usage}` / `event: error {code,message}`. Others → `{ output, usage }` (JSON outputs, see note below). 429 `budget_exceeded` when over budget. |
 | `POST /events` | `{ events: StudyEvent[] }` → `{ ok }` | batched, fire-and-forget |
 | `GET /admin/export?table=events\|attempts\|messages` | → CSV | header `X-Admin-Token` |
+| `GET /admin/visits?limit&before` | → `{ visits: [{ visit, userId, participantId, condition, username, design, first, last, lastServerTs, events, turns }], next }` | header `X-Admin-Token`; the logs page (M6, *21 Nov*); newest first, opaque cursor |
+| `GET /admin/events?visit&userId&type&after&limit` | → `{ events: [{ id, userId, condition, type, payload, clientTs, serverTs }], next }` | header `X-Admin-Token`; the logs page (*21 Nov*); by `(serverTs, id)`, filters AND |
 
 *Built 16 Nov* (`backend/docs/api.md`): `health`, `session`, `ai/complete`, `events`, `admin/export`;
 *17 Nov:* `state`, `conversations/:id/messages`, `sync`. All routes of this table exist now.

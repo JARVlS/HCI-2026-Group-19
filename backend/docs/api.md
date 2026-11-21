@@ -553,6 +553,76 @@ curl -s 'http://localhost:8787/api/admin/export?table=events' -H "x-admin-token:
 
 Errors: 403 `forbidden` (checked first, so a wrong token never learns which tables exist), 422 `invalid_request` (unknown table).
 
+## The usage log for the logs page: `GET /api/admin/visits`, `GET /api/admin/events`
+
+Read-only JSON views of the `events` table for the team's logs page (`frontend/logs.html`), page
+by page instead of the whole table. Both need `X-Admin-Token: <ADMIN_TOKEN>` (a wrong or missing
+token is 403 `forbidden`, checked before anything else), take only the query parameters below (an
+unknown one, such as `userid=`, is 422 `invalid_request`) and answer `{ <list>, "next" }`: `next`
+is an opaque cursor for the following page, `null` on the last one. Pass it back unchanged; a
+cursor that this route did not make is 422.
+
+A **visit** is one page load: the frontend puts its id into every event's payload (`visit`, with
+`seq` for the order within it and `design`, `frontend/src/lib/telemetry.ts`). A user's events
+without a `visit` (logged before 20 Nov 2026) form one visit `null` per user.
+
+### `GET /api/admin/visits?limit=100&before=<next>`
+
+Visits, newest first by `lastServerTs` (ties: `userId`, then `visit`, both descending). `limit` 1
+to 500, default 100.
+
+```json
+{ "visits": [{ "visit": "5b1e...", "userId": "6b0c...", "participantId": "P07", "condition": "A",
+               "username": "leon", "design": "ascii", "first": "2026-11-21T09:59:58.120Z",
+               "last": "2026-11-21T10:12:40.004Z", "lastServerTs": "2026-11-21T10:12:44.310Z",
+               "events": 412, "turns": 6 }],
+  "next": "WyIyMDI2LTExLTIxVD..." }
+```
+
+- `username` from the accounts table, `null` for a guest (never the password hash).
+- `participantId` and `condition` from the users table.
+- `design`: the payloads' `design`; comma-separated (`ascii,classic`) if it changed during the visit.
+- `first` and `last`: the earliest and latest `clientTs`; `events`: how many; `turns`: how many `turn_sent`.
+- A visit that is still going gets new events and moves to the top: load the first page again to see it.
+
+```bash
+curl -s 'http://localhost:8787/api/admin/visits?limit=20' -H "x-admin-token: $ADMIN_TOKEN"
+```
+
+### `GET /api/admin/events?visit=&userId=&type=&after=<next>&limit=500`
+
+Events, oldest first by `serverTs`, then `id` (a whole batch of `POST /api/events` shares one
+server time; the cursor handles those ties). Filters, all optional and combined with AND: `visit`
+(`visit=` with nothing after it selects the events without a visit; give `userId` too for one
+user's), `userId`, `type`. `limit` 1 to 1000, default 500. Within a visit, sort by `payload.seq`
+for the order the events happened in.
+
+```json
+{ "events": [{ "id": "0f3a...", "userId": "6b0c...", "condition": "A", "type": "turn_sent",
+               "payload": { "messageId": "m1", "text": "I think it calls itself.", "chars": 24,
+                            "visit": "5b1e...", "seq": 7, "design": "ascii", "conversationId": "c1" },
+               "clientTs": "2026-11-21T10:00:04.000Z", "serverTs": "2026-11-21T10:00:05.512Z" }],
+  "next": null }
+```
+
+`payload` is the stored payload as an object, `conversationId` included. A stored payload that is
+not a JSON object (only possible by writing the table directly) comes back as `{ "_raw": "<the
+stored text>" }`, so one broken row never breaks the page.
+
+```bash
+curl -s 'http://localhost:8787/api/admin/events?visit=5b1e...&userId=6b0c...&limit=1000' -H "x-admin-token: $ADMIN_TOKEN"
+```
+
+Cost: no index serves these filters (the events table has only its primary key), so every call
+reads the whole table, and each row counts as a row read in D1 (limited per day on the free plan:
+https://developers.cloudflare.com/d1/platform/pricing/). That is fine at study size. If it gets
+slow or expensive, one migration with `CREATE INDEX events_user ON events(user_id, server_ts, id)`
+makes events calls with `userId` (the logs page always sends it) read only that user's rows; the
+visits list reads the whole table either way.
+
+Errors: 403 `forbidden`, 422 `invalid_request` (a `limit` out of range, a cursor this route did not
+make, an empty `type` or `userId`, an unknown parameter).
+
 ## Budget and cost
 
 - Every user has a daily budget of `DAILY_TOKEN_BUDGET` tokens (default 200 000), counted per UTC
