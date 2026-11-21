@@ -108,7 +108,7 @@ describe('live mode', () => {
     expect(s.session.activeConversationId).toBe(chat2); // the latest chat opens
     expect(activeMessages(s)).toHaveLength(2);
     // Messages load per chat: only the open one so far.
-    expect(server.calls.map((c) => c.path)).toEqual(['/api/state', `/api/conversations/${chat2}/messages`]);
+    expect(server.calls.map((c) => c.path).filter((p) => p !== '/api/events')).toEqual(['/api/state', `/api/conversations/${chat2}/messages`]);
     expect(s.domain.messagesByConv[chat1]).toBeUndefined();
 
     const vaccines = Object.values(s.domain.concepts).find((c) => c.label === 'Vaccines')!;

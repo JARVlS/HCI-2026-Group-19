@@ -216,8 +216,11 @@ function Keys() {
   );
 }
 
+/** For the usage log: `ok`, `skipped`, or why it failed. */
+const outcome = (c: RoleCheck) => (c.status === 'failed' ? c.code : c.status);
+
 function TestConnection({ setup }: { setup: OwnSetup }) {
-  const { own } = useStore();
+  const { own, track } = useStore();
   const [report, setReport] = useState<TestReport | 'running' | null>(null);
   const running = useRef<AbortController | null>(null);
 
@@ -231,7 +234,9 @@ function TestConnection({ setup }: { setup: OwnSetup }) {
     running.current = c;
     setReport('running');
     const r = await own.test(c.signal);
-    if (!c.signal.aborted) setReport(r);
+    if (c.signal.aborted) return;
+    setReport(r);
+    track({ type: 'model_test', payload: { chat: outcome(r.chat), analysis: outcome(r.analysis), scores: outcome(r.scores) } });
   };
 
   return (

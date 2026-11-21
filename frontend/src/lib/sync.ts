@@ -126,10 +126,10 @@ function bodyOf(rows: Row[]): SyncBody {
   return body as SyncBody;
 }
 
-const reason = (e: unknown) => (e instanceof Error ? e.message : String(e));
+export const reason = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** 413: split the batch. Network, 401 (the session renews itself), 429 and 5xx: try again later. Any other 4xx is a bug. */
-function verdict(e: unknown): 'split' | 'retry' | 'reject' {
+export function verdict(e: unknown): 'split' | 'retry' | 'reject' {
   if (!(e instanceof ApiError)) return 'reject';
   if (e.status === 413) return 'split';
   if (e.status === 0 || e.status === 401 || e.status === 429 || e.status >= 500) return 'retry';
@@ -334,7 +334,7 @@ export class SyncQueue {
   }
 }
 
-function safely<T>(f: () => T): T | undefined {
+export function safely<T>(f: () => T): T | undefined {
   try {
     return f();
   } catch {
@@ -342,8 +342,8 @@ function safely<T>(f: () => T): T | undefined {
   }
 }
 
-/** Page events that matter for saving: back online → send now; hidden or closed → send with keepalive. */
-export function watchPage(queue: SyncQueue, page: { win: EventTarget; doc: EventTarget & { visibilityState: string } }, onOnline?: () => void) {
+/** Page events that matter for a queue (saving, the usage log): back online → send now; hidden or closed → send with keepalive. */
+export function watchPage(queue: { flush(): Promise<void>; hide(): void }, page: { win: EventTarget; doc: EventTarget & { visibilityState: string } }, onOnline?: () => void) {
   const online = () => {
     void queue.flush();
     onOnline?.();

@@ -174,7 +174,7 @@ export function ChatList() {
 /** A leaf's messages (in any chat), to jump to one. */
 export function LeafRefs() {
   const { state, forestTrees, openChat, loadChat } = useStore();
-  const { refs: leafId, setRefs } = useUi();
+  const { refs: leafId, setRefs, paneAction } = useUi();
   const leaf = useMemo(() => (leafId ? findLeaf(forestTrees, leafId) : undefined), [forestTrees, leafId]);
   const refs = useMemo(() => [...(leaf?.refs ?? [])].reverse(), [leaf]);
   const chatIds = useMemo(() => [...new Set(refs.map((r) => r.conversationId))], [refs]);
@@ -198,6 +198,7 @@ export function LeafRefs() {
       label: `${chat?.title ?? 'a chat'}: ${msg?.text.slice(0, 80) ?? ''}`,
       current: r.conversationId === active,
       onPick: () => {
+        paneAction('jump_to_message', leaf.id);
         close();
         openChat(r.conversationId, r.messageId);
       },
@@ -237,14 +238,15 @@ function findLeaf(trees: { branches: { leaves: Leaf[] }[] }[], id: string): Leaf
  */
 export function useLeafJump() {
   const { forestTrees, openChat, state } = useStore();
-  const { setRefs } = useUi();
+  const { setRefs, paneAction } = useUi();
   const active = state.session.activeConversationId;
   return useCallback(
     (messageId: string, leafId: string) => {
       const refs = findLeaf(forestTrees, leafId)?.refs ?? [];
       if (refs.length > 1) return setRefs(leafId);
+      paneAction('jump_to_message', leafId);
       openChat(refs.find((r) => r.messageId === messageId)?.conversationId ?? active, messageId);
     },
-    [forestTrees, openChat, setRefs, active],
+    [forestTrees, openChat, setRefs, paneAction, active],
   );
 }

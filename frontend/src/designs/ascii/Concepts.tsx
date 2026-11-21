@@ -47,7 +47,7 @@ function useConcepts(): Concept[] {
       principle: 'multiple views · object constancy',
       body: 'the same knowledge as a growing plant or as a `tree` outline that is faster to scan and read aloud. switch, and every leaf glides to its place in the other view, so you never lose it.',
       try: 'switch the view',
-      run: () => ui.setView(ui.view === 'tree' ? 'outline' : 'tree'),
+      run: () => ui.setView(ui.view === 'tree' ? 'outline' : 'tree', 'click'),
     },
     {
       name: 'forgetting scrubber',
@@ -106,7 +106,7 @@ function useConcepts(): Concept[] {
 }
 
 export function Concepts() {
-  const { state, dispatch, finishOnboarding } = useStore();
+  const { state, dispatch, finishOnboarding, track } = useStore();
   const { sheet, setSheet } = useUi();
   const concepts = useConcepts();
   const first = useRef<HTMLButtonElement>(null);
@@ -197,6 +197,7 @@ export function Concepts() {
                 <button
                   className="a-c-try"
                   onClick={() => {
+                    track({ type: 'concept_try', payload: { name: c.name } });
                     close();
                     dispatch({ type: 'panel', open: true });
                     c.run();

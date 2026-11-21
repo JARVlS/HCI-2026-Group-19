@@ -4,12 +4,17 @@ import { parseSetup } from '../ai/own/setup';
 import type { Provider, ScoreResult } from '../ai/provider';
 import { chooseProvider, createProvider, isLiveChoice } from '../ai/providers';
 import { demoFixture } from '../ai/scripted/fixture';
+import { readAccount } from './account';
 import { classify } from './classify';
 import { newConversation } from './chats';
 import type { Id, ISO } from './domain';
+import { cut, eventsOf, type EventEnv, type UsageEvent } from './events';
 import { createLive, type Backend, type Live } from './live';
+import { watchUsage } from './pageEvents';
+import { SESSION_KEY } from './session';
 import { isBusy, reducer, type Action, type DomainState, type State } from './state';
 import { SyncQueue, watchPage, type KeyValue } from './sync';
+import { EventLog, fingerprint } from './telemetry';
 import { isQuizAnswer, retryTurn, revealTurn, sendTurn, type TurnDeps } from './turn';
 import type { Classification, ProviderChoice, Settings } from './types';
 
@@ -18,7 +23,8 @@ import type { Classification, ProviderChoice, Settings } from './types';
  * the synchronous store, and everything that has effects: turns, chats, and the two modes.
  *   demo (provider `scripted`):     the scripted fixture, nothing saved, no request to the backend
  *   live (provider `arbor`, `own`): the user's own data, loaded from and saved to the backend (live.ts, sync.ts);
- *                                   `own` sends the model calls to the user's own endpoints (ai/own/)
+ *                                   `own` sends the model calls to the user's own endpoints (ai/own/);
+ *                                   and the usage log (events.ts, pageEvents.ts, telemetry.ts)
  * `store.tsx` binds it to React.
  */
 
@@ -170,7 +176,48 @@ export function createApp(opts: AppOptions) {
     send: backend.sync,
     onReject: (message) => store.dispatch({ type: 'toast', text: message }),
   });
-  const store = createStore(initialState(opts.params, storage, opts.build), (prev, next, a) => live.observe(prev, next, a));
+  const log = new EventLog({
+    storage,
+    send: backend.events,
+    owner: () => fingerprint(stored(storage, SESSION_KEY)),
+    context: () => {
+      const s = store.getState();
+      return { design: s.settings.design, conversationId: s.session.activeConversationId };
+    },
+    onReject: (message) => store.dispatch({ type: 'toast', text: message }),
+    now,
+  });
+  const size = () => ({ width: globalThis.innerWidth ?? 0, height: globalThis.innerHeight ?? 0 });
+  const env = (): EventEnv => ({
+    at: Date.parse(now()),
+    ...size(),
+    signedIn: readAccount(storage)?.kind === 'account',
+    device: {
+      userAgent: globalThis.navigator?.userAgent ?? '',
+      language: globalThis.navigator?.language ?? '',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      screenWidth: globalThis.screen?.width ?? 0,
+      screenHeight: globalThis.screen?.height ?? 0,
+      pixelRatio: globalThis.devicePixelRatio ?? 1,
+      touch: globalThis.matchMedia?.('(pointer: coarse)').matches ?? false,
+      // The parameters the app started with (no app parameter carries a token or key).
+      search: cut(opts.params.toString()),
+      referrer: cut(globalThis.document?.referrer ?? ''),
+    },
+  });
+  /** Usage log: what the store knows (`eventsOf`), in live mode and at the switch to or from it. */
+  const logChange = (prev: State, next: State, a: Action) => {
+    if (!isLiveChoice(prev.settings.provider) && !isLiveChoice(next.settings.provider)) return;
+    try {
+      for (const e of eventsOf(prev, next, a, env)) log.record(e);
+    } catch (e) {
+      console.error(`[arbor events] could not log ${a.type}`, e);
+    }
+  };
+  const store = createStore(initialState(opts.params, storage, opts.build), (prev, next, a) => {
+    live.observe(prev, next, a);
+    logChange(prev, next, a);
+  });
   const live: Live = createLive(store, { backend, queue, newId, now });
 
   /** The own-model keys: on this device only, never in the store, the settings or saved data. */
@@ -186,6 +233,10 @@ export function createApp(opts: AppOptions) {
   };
   const isLive = () => isLiveChoice(store.getState().settings.provider);
   const toast = (text: string) => store.dispatch({ type: 'toast', text });
+  /** Usage log: an event only a design knows. Nothing in the demo. */
+  const track = (e: UsageEvent) => {
+    if (isLive()) log.record(e);
+  };
 
   let controller: AbortController | null = null;
   const abort = () => controller?.abort();
@@ -207,9 +258,12 @@ export function createApp(opts: AppOptions) {
   const enter = (choice: ProviderChoice, before: ProviderChoice) => {
     if (isLiveChoice(choice) === isLiveChoice(before)) return;
     abort();
-    if (isLiveChoice(choice)) void live.boot();
-    else {
+    if (isLiveChoice(choice)) {
+      log.start();
+      void live.boot();
+    } else {
       live.stop();
+      log.stop();
       showDemo(false);
     }
   };
@@ -237,6 +291,8 @@ export function createApp(opts: AppOptions) {
     store,
     queue,
     live,
+    log,
+    track,
     provider,
     /** Settings → model: the keys, test connection and the endpoints' model lists. */
     keys,
@@ -244,13 +300,22 @@ export function createApp(opts: AppOptions) {
 
     /** Start the visit (live mode: load the user's data). Returns the cleanup. */
     start(): () => void {
-      if (isLive()) void live.boot();
+      if (isLive()) {
+        log.start();
+        void live.boot();
+      }
       if (!opts.page) return () => {};
-      return watchPage(queue, opts.page, () => {
-        // Back online after a failed start: try again.
-        const { boot } = store.getState().session;
-        if (isLive() && typeof boot === 'object') void live.boot();
-      });
+      const unwatch = [
+        // First, so `page_hidden` goes out with the keepalive send that hiding starts.
+        watchUsage(opts.page, track, size),
+        watchPage(queue, opts.page, () => {
+          // Back online after a failed start: try again.
+          const { boot } = store.getState().session;
+          if (isLive() && typeof boot === 'object') void live.boot();
+        }),
+        watchPage(log, opts.page),
+      ];
+      return () => unwatch.forEach((stop) => stop());
     },
 
     dispatch(a: StoreAction) {
@@ -270,11 +335,14 @@ export function createApp(opts: AppOptions) {
       else void live.boot();
     },
 
-    send(text: string, cls?: Classification, o?: { veil?: boolean; thinking?: ScoreResult }) {
+    /** Returns the id of the message it sent (undefined: not sent), for the usage log's `compose`. */
+    send(text: string, cls?: Classification, o?: { veil?: boolean; thinking?: ScoreResult }): Id | undefined {
       const s = store.getState();
       if (isBusy(s.session.turn) || !text.trim()) return;
-      if (!s.domain.messagesByConv[s.session.activeConversationId]) return toast('this chat is still loading');
+      if (!s.domain.messagesByConv[s.session.activeConversationId]) return void toast('this chat is still loading');
       run((signal) => sendTurn(deps(), { text, classification: cls ?? classifyDraft(text), veil: o?.veil, thinking: o?.thinking }, signal));
+      // `sendTurn` puts the message into the store before its first await.
+      return store.getState().session.turn.userMessageId;
     },
     stop: abort,
     retry() {

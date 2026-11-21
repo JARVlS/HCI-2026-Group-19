@@ -30,14 +30,19 @@ export function retention(score: number, ageDays: number, visits = 1): number {
 /** Below this, a leaf counts as forgotten: it falls from the tree. */
 export const FALLEN = 0.2;
 
-/** Stable pseudo-random number in [0, 1) for a string. */
-export function hash01(s: string): number {
+/** A stable 32-bit hash of a string (FNV-1a). */
+export function fnv1a(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  return ((h >>> 0) % 100000) / 100000;
+  return h >>> 0;
+}
+
+/** Stable pseudo-random number in [0, 1) for a string. */
+export function hash01(s: string): number {
+  return (fnv1a(s) % 100000) / 100000;
 }
 
 /**

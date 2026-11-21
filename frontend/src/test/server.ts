@@ -3,11 +3,12 @@ import type { TurnAnalysis } from '../ai/schemas/turnAnalysis';
 import type { Message } from '../lib/domain';
 import { createSession } from '../lib/session';
 import type { Kind } from '../lib/sync';
+import type { WireEvent } from '../lib/telemetry';
 import { apiError, fakeBackend, json, type Call } from './backend';
 
 /**
  * The persistence part of the backend Worker in memory (backend/docs/api.md: `GET /api/state`,
- * `GET /api/conversations/:id/messages`, `PUT /api/sync`), behind the fake `fetch`.
+ * `GET /api/conversations/:id/messages`, `PUT /api/sync`, `POST /api/events`, `POST /api/auth/signup|login`), behind the fake `fetch`.
  * `offline = true` makes every call fail like a dropped connection.
  */
 export function fakeServer() {
@@ -25,6 +26,8 @@ export function fakeServer() {
     /** Answer for the next calls to this path instead (one per call), e.g. an error. */
     fail: new Map<string, Response[]>(),
     calls: [] as Call[],
+    /** The usage log as stored, in the order it arrived (each id once, like the real endpoint). */
+    events: [] as WireEvent[],
   };
   const byTime = (xs: Record<string, unknown>[]) => xs.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
   const alive = (k: Kind) => byTime([...db[k].values()].filter((x) => !x.deletedAt));
@@ -55,6 +58,18 @@ export function fakeServer() {
         }
       }
       return json({ ok: true, serverTime: new Date().toISOString() });
+    }
+    // Accounts: any username and password are fine; the token stays the one the call carries (a signup keeps the guest).
+    if ((call.path === '/api/auth/signup' || call.path === '/api/auth/login') && call.method === 'POST') {
+      const token = call.auth?.replace('Bearer ', '') ?? 'account-token';
+      return json({ userId: 'u1', token, username: (call.body as { username: string }).username, participantId: null, condition: null });
+    }
+    if (call.path === '/api/events' && call.method === 'POST') {
+      const { events } = call.body as { events: WireEvent[] };
+      if (!events.length || events.length > 200) return apiError(422, 'invalid_request', 'events: 1 to 200');
+      const fresh = events.filter((e) => !server.events.some((x) => x.id === e.id));
+      server.events.push(...fresh);
+      return json({ ok: true, stored: fresh.length });
     }
     return apiError(404, 'not_found', `No route ${call.method} ${call.path}`);
   });
