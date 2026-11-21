@@ -28,7 +28,7 @@ export default function AsciiApp() {
 }
 
 function Shell() {
-  const { state, dispatch, busy, stop } = useStore();
+  const { state, dispatch, busy, stop, track } = useStore();
   const ui = useUi();
   const { theme } = state.settings;
 
@@ -38,7 +38,7 @@ function Shell() {
     else root.dataset.theme = theme;
   }, [theme]);
 
-  // Global keys (when no text field has focus). Overlays handle their own keys first.
+  // Global keys (when no text field has focus). Overlays handle their own keys first. Each one used is logged.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -56,13 +56,13 @@ function Shell() {
         if (busy) stop();
         ui.setWhy(null);
         dispatch({ type: 'highlight', ids: [] });
-        return;
       } else return;
-      e.preventDefault();
+      track({ type: 'shortcut', payload: { key, where: 'chat' } });
+      if (key !== 'Escape') e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [ui, state.ui.forest.open, dispatch, busy, stop]);
+  }, [ui, state.ui.forest.open, dispatch, busy, stop, track]);
 
   return (
     <div className="ascii">

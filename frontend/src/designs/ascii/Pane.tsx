@@ -242,6 +242,7 @@ function Companion() {
               className="a-btn"
               onClick={() => {
                 shown.action!.run();
+                track({ type: 'squirrel_tip', payload: { text: shown.text, action: shown.action!.label } });
                 setTip(null);
               }}
             >

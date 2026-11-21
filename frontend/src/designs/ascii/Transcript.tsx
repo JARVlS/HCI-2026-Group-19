@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { prefersReducedMotion } from '../../lib/hooks';
 import { MODE_META, mean, pct } from '../../lib/modes';
 import { guessScoreWords, messageScoreWords, scoreView, type ScoreView, type ScoreWord } from '../../lib/scores';
+import { cut } from '../../lib/events';
 import { useStore } from '../../lib/store';
 import type { ChatMessage, Classification, Evidence, Mode } from '../../lib/types';
 import { Md, parseMd } from './Md';
@@ -10,7 +11,7 @@ import { G, K, Radios, lower, lowerProse, shortReason, typing, useUi } from './u
 /* The conversation as a two-column log: who · what. */
 
 export function Transcript() {
-  const { state, dispatch, messages, busy, conversation, mode } = useStore();
+  const { state, dispatch, messages, busy, conversation, mode, track } = useStore();
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const { flash } = state.ui;
@@ -37,6 +38,17 @@ export function Transcript() {
   const prompts = messages.filter((m) => m.role === 'user').length;
   const load = state.session.chatLoad[conversation.id];
 
+  /** Usage log: text copied from the chat, and the message it lies in (null when it spans several). */
+  const onCopy = () => {
+    const sel = document.getSelection();
+    const text = sel?.toString() ?? '';
+    if (!sel || !text) return;
+    const msgOf = (n: Node | null) => (n instanceof Element ? n : n?.parentElement)?.closest('.a-msg')?.id;
+    const at = msgOf(sel.anchorNode);
+    const m = at && at === msgOf(sel.focusNode) ? messages.find((x) => `a-msg-${x.id}` === at) : undefined;
+    track({ type: 'transcript_copy', payload: { messageId: m?.id ?? null, role: m?.role ?? null, text: cut(text), chars: text.length } });
+  };
+
   return (
     <div
       className="a-scroll"
@@ -45,6 +57,7 @@ export function Transcript() {
         const el = e.currentTarget;
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
       }}
+      onCopy={onCopy}
     >
       <div className="a-log" aria-live="polite">
         <header className="a-chat-title">
@@ -133,19 +146,21 @@ function LoadError({ error }: { error: string }) {
 
 /* ───────────── Your messages ───────────── */
 
-/** Brushing: hovering a message lights its leaves, and the link overlay draws a line to them. */
+/** Brushing: hovering a message lights its leaves, and the link overlay draws a line to them. A rest on any message is logged. */
 function useBrush(m: ChatMessage) {
-  const { state, dispatch } = useStore();
-  const { setLink } = useUi();
+  const { state, dispatch, track } = useStore();
+  const { setLink, restOn } = useUi();
   const on = state.settings.enabled && m.conceptIds.length > 0;
   return {
     related: state.settings.enabled && m.conceptIds.some((id) => state.ui.highlight.includes(id)),
     onMouseEnter: () => {
+      restOn('message', m.id, () => track({ type: 'message_rest', payload: { messageId: m.id, role: m.role } }));
       if (!on) return;
       dispatch({ type: 'highlight', ids: m.conceptIds });
       setLink({ kind: 'message', id: m.id });
     },
     onMouseLeave: () => {
+      restOn('message', null);
       if (!on) return;
       dispatch({ type: 'highlight', ids: [] });
       setLink(null);
@@ -470,7 +485,7 @@ function useDecode(veiled: boolean) {
 
 /** "Make it yours": explain it back (generation) or get quizzed (retrieval). Keys e / q. */
 function Reflect({ id, label }: { id: string; label: string }) {
-  const { send } = useStore();
+  const { send, track } = useStore();
   const { fill } = useUi();
   const explain = () => fill(`In my own words, ${label.toLowerCase()} is `);
   const quiz = () => send(`Quiz me on ${label.toLowerCase()}`);
@@ -478,18 +493,15 @@ function Reflect({ id, label }: { id: string; label: string }) {
   ref.current = { explain, quiz };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'e') {
-        e.preventDefault();
-        ref.current.explain();
-      } else if (e.key === 'q') {
-        e.preventDefault();
-        ref.current.quiz();
-      }
+      if (typing(e) || e.metaKey || e.ctrlKey || e.altKey || (e.key !== 'e' && e.key !== 'q')) return;
+      e.preventDefault();
+      if (e.key === 'e') ref.current.explain();
+      else ref.current.quiz();
+      track({ type: 'shortcut', payload: { key: e.key, where: 'reply' } });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [id]);
+  }, [id, track]);
   return (
     <p className="a-reflect" aria-label="Arbor suggestion">
       <span className="a-dim">↳ make “{label.toLowerCase()}” yours</span>

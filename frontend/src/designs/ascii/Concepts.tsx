@@ -106,7 +106,7 @@ function useConcepts(): Concept[] {
 }
 
 export function Concepts() {
-  const { state, dispatch, finishOnboarding } = useStore();
+  const { state, dispatch, finishOnboarding, track } = useStore();
   const { sheet, setSheet } = useUi();
   const concepts = useConcepts();
   const first = useRef<HTMLButtonElement>(null);
@@ -197,6 +197,7 @@ export function Concepts() {
                 <button
                   className="a-c-try"
                   onClick={() => {
+                    track({ type: 'concept_try', payload: { name: c.name } });
                     close();
                     dispatch({ type: 'panel', open: true });
                     c.run();

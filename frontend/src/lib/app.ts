@@ -8,8 +8,9 @@ import { readAccount } from './account';
 import { classify } from './classify';
 import { newConversation } from './chats';
 import type { Id, ISO } from './domain';
-import { eventsOf, type EventEnv, type UsageEvent } from './events';
+import { cut, eventsOf, type EventEnv, type UsageEvent } from './events';
 import { createLive, type Backend, type Live } from './live';
+import { watchUsage } from './pageEvents';
 import { SESSION_KEY } from './session';
 import { isBusy, reducer, type Action, type DomainState, type State } from './state';
 import { SyncQueue, watchPage, type KeyValue } from './sync';
@@ -23,7 +24,7 @@ import type { Classification, ProviderChoice, Settings } from './types';
  *   demo (provider `scripted`):     the scripted fixture, nothing saved, no request to the backend
  *   live (provider `arbor`, `own`): the user's own data, loaded from and saved to the backend (live.ts, sync.ts);
  *                                   `own` sends the model calls to the user's own endpoints (ai/own/);
- *                                   and the usage log (events.ts, telemetry.ts)
+ *                                   and the usage log (events.ts, pageEvents.ts, telemetry.ts)
  * `store.tsx` binds it to React.
  */
 
@@ -186,11 +187,23 @@ export function createApp(opts: AppOptions) {
     onReject: (message) => store.dispatch({ type: 'toast', text: message }),
     now,
   });
+  const size = () => ({ width: globalThis.innerWidth ?? 0, height: globalThis.innerHeight ?? 0 });
   const env = (): EventEnv => ({
     at: Date.parse(now()),
-    width: globalThis.innerWidth ?? 0,
-    height: globalThis.innerHeight ?? 0,
+    ...size(),
     signedIn: readAccount(storage)?.kind === 'account',
+    device: {
+      userAgent: globalThis.navigator?.userAgent ?? '',
+      language: globalThis.navigator?.language ?? '',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      screenWidth: globalThis.screen?.width ?? 0,
+      screenHeight: globalThis.screen?.height ?? 0,
+      pixelRatio: globalThis.devicePixelRatio ?? 1,
+      touch: globalThis.matchMedia?.('(pointer: coarse)').matches ?? false,
+      // The parameters the app started with (no app parameter carries a token or key).
+      search: cut(opts.params.toString()),
+      referrer: cut(globalThis.document?.referrer ?? ''),
+    },
   });
   /** Usage log: what the store knows (`eventsOf`), in live mode and at the switch to or from it. */
   const logChange = (prev: State, next: State, a: Action) => {
@@ -292,11 +305,9 @@ export function createApp(opts: AppOptions) {
         void live.boot();
       }
       if (!opts.page) return () => {};
-      const { doc } = opts.page;
-      // Registered before `watchPage`, so `page_hidden` goes out with the keepalive send that hiding starts.
-      const visibility = () => track({ type: doc.visibilityState === 'hidden' ? 'page_hidden' : 'page_visible', payload: {} });
-      doc.addEventListener('visibilitychange', visibility);
       const unwatch = [
+        // First, so `page_hidden` goes out with the keepalive send that hiding starts.
+        watchUsage(opts.page, track, size),
         watchPage(queue, opts.page, () => {
           // Back online after a failed start: try again.
           const { boot } = store.getState().session;
@@ -304,10 +315,7 @@ export function createApp(opts: AppOptions) {
         }),
         watchPage(log, opts.page),
       ];
-      return () => {
-        doc.removeEventListener('visibilitychange', visibility);
-        unwatch.forEach((stop) => stop());
-      };
+      return () => unwatch.forEach((stop) => stop());
     },
 
     dispatch(a: StoreAction) {
@@ -327,11 +335,14 @@ export function createApp(opts: AppOptions) {
       else void live.boot();
     },
 
-    send(text: string, cls?: Classification, o?: { veil?: boolean; thinking?: ScoreResult }) {
+    /** Returns the id of the message it sent (undefined: not sent), for the usage log's `compose`. */
+    send(text: string, cls?: Classification, o?: { veil?: boolean; thinking?: ScoreResult }): Id | undefined {
       const s = store.getState();
       if (isBusy(s.session.turn) || !text.trim()) return;
-      if (!s.domain.messagesByConv[s.session.activeConversationId]) return toast('this chat is still loading');
+      if (!s.domain.messagesByConv[s.session.activeConversationId]) return void toast('this chat is still loading');
       run((signal) => sendTurn(deps(), { text, classification: cls ?? classifyDraft(text), veil: o?.veil, thinking: o?.thinking }, signal));
+      // `sendTurn` puts the message into the store before its first await.
+      return store.getState().session.turn.userMessageId;
     },
     stop: abort,
     retry() {

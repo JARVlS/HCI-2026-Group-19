@@ -37,12 +37,20 @@ interface Ui {
   paneAction: (kind: PaneKind, conceptId: string) => void;
   /** The pointer is on this leaf (null: on none); resting there REST_MS is logged once. */
   rest: (leafId: string | null) => void;
+  /**
+   * Usage log: the pointer is on `key` (null: on none of this slot's places); once it has rested
+   * there REST_MS, `log` runs, once per visit of the place. One slot per kind of place, so a late
+   * "left" of one kind never cancels another.
+   */
+  restOn: (slot: RestSlot, key: string | null, log?: () => void) => void;
 }
 
-/** A pointer that stays this long on a leaf rests there (usage log, `pane_action`). */
+export type RestSlot = 'leaf' | 'message' | 'word' | 'line';
+
+/** A pointer that stays this long on a leaf, a message or a hint rests there (usage log). */
 const REST_MS = 400;
-/** The forgetting scrubber is logged once it has stayed put this long, not at every step. */
-const SCRUB_MS = 800;
+/** The forgetting scrubber and the forest's search are logged once they have stayed put this long, not at every step. */
+export const SETTLE_MS = 800;
 
 const UiContext = createContext<Ui | null>(null);
 
@@ -56,12 +64,13 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const [refs, showRefs] = useState<string | null>(null);
 
   /* The usage log (lib/events.ts). The setters read the current values from a ref, so they keep one identity like plain state setters. */
-  const current = useRef({ view, sheet, why, refs, days, forest: state.ui.forest.open });
-  current.current = { view, sheet, why, refs, days, forest: state.ui.forest.open };
+  const current = useRef({ view, sheet, why, refs, days, forest: state.ui.forest.open, concepts: state.domain.concepts });
+  current.current = { view, sheet, why, refs, days, forest: state.ui.forest.open, concepts: state.domain.concepts };
   const paneAction = useCallback(
     (kind: PaneKind, conceptId: string | null) => {
-      const { forest, view, days } = current.current;
-      track({ type: 'pane_action', payload: { kind, view: forest ? 'forest' : view, conceptId, days } });
+      const { forest, view, days, concepts } = current.current;
+      const label = (conceptId && concepts[conceptId]?.label) || null;
+      track({ type: 'pane_action', payload: { kind, view: forest ? 'forest' : view, conceptId, label, days } });
     },
     [track],
   );
@@ -95,17 +104,16 @@ export function UiProvider({ children }: { children: ReactNode }) {
     },
     [paneAction],
   );
-  const resting = useRef<{ id: string | null; timer?: number }>({ id: null });
-  const rest = useCallback(
-    (leafId: string | null) => {
-      const r = resting.current;
-      if (leafId === r.id) return;
-      clearTimeout(r.timer);
-      resting.current = { id: leafId, timer: leafId ? window.setTimeout(() => paneAction('rest_on_leaf', leafId), REST_MS) : undefined };
-    },
-    [paneAction],
-  );
-  useEffect(() => () => clearTimeout(resting.current.timer), []);
+  const resting = useRef(new Map<RestSlot, { key: string; timer?: number }>());
+  const restOn = useCallback((slot: RestSlot, key: string | null, log?: () => void) => {
+    const r = resting.current.get(slot);
+    if ((r?.key ?? null) === key) return;
+    clearTimeout(r?.timer);
+    if (key) resting.current.set(slot, { key, timer: log && window.setTimeout(log, REST_MS) });
+    else resting.current.delete(slot);
+  }, []);
+  useEffect(() => () => resting.current.forEach((r) => clearTimeout(r.timer)), []);
+  const rest = useCallback((leafId: string | null) => restOn('leaf', leafId, leafId ? () => paneAction('rest_on_leaf', leafId) : undefined), [restOn, paneAction]);
   const setLink = useCallback(
     (l: LinkSource) => {
       pointAt(l);
@@ -114,15 +122,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
     [rest],
   );
   // The scrubber's value once it settles (also from `[` `]`, /time and the squirrel); not at the start.
-  const scrubbed = useRef(false);
-  useEffect(() => {
-    if (!scrubbed.current) {
-      scrubbed.current = true;
-      return;
-    }
-    const t = window.setTimeout(() => paneAction('scrub', null), SCRUB_MS);
-    return () => clearTimeout(t);
-  }, [days, paneAction]);
+  useSettled(days, () => paneAction('scrub', null));
 
   const focusPrompt = useCallback(() => {
     requestAnimationFrame(() => {
@@ -135,10 +135,28 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const fill = useCallback((text: string) => dispatch({ type: 'draft', text }), [dispatch]);
 
   const value = useMemo(
-    () => ({ days, setDays, view, setView, sheet, setSheet, why, setWhy, link, setLink, refs, setRefs, fill, focusPrompt, paneAction, rest }),
-    [days, view, setView, sheet, setSheet, why, setWhy, link, setLink, refs, setRefs, fill, focusPrompt, paneAction, rest],
+    () => ({ days, setDays, view, setView, sheet, setSheet, why, setWhy, link, setLink, refs, setRefs, fill, focusPrompt, paneAction, rest, restOn }),
+    [days, view, setView, sheet, setSheet, why, setWhy, link, setLink, refs, setRefs, fill, focusPrompt, paneAction, rest, restOn],
   );
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>;
+}
+
+/**
+ * Usage log: runs `log` once `value` has stayed the same for SETTLE_MS, never for the value it
+ * started with or settled on last (so a scrub there and back logs nothing).
+ */
+export function useSettled(value: string | number, log: () => void) {
+  const settled = useRef(value);
+  const latest = useRef(log);
+  latest.current = log;
+  useEffect(() => {
+    if (value === settled.current) return;
+    const t = window.setTimeout(() => {
+      settled.current = value;
+      latest.current();
+    }, SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [value]);
 }
 
 export function useUi() {

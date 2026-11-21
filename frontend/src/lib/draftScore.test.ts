@@ -8,6 +8,7 @@ import { biologyProvider, fakeServer, serverMessages, testSession } from '../tes
 import { createApp } from './app';
 import { classify } from './classify';
 import type { Message } from './domain';
+import { MAX_TEXT } from './events';
 import {
   adjusted,
   DELAY_MS,
@@ -151,11 +152,16 @@ describe('draft scorer: aborts, stale answers and timeouts', () => {
     now.answer({ p: 0.75 });
     await wait();
     expect(s.view('I think the tilt').rated).toEqual({ p: 0.75 });
-    // Only the rating that landed reaches the usage log (draft_rated), as numbers and a length.
+    // Only the rating that landed reaches the usage log (draft_rated): the draft as rated, its length and the numbers.
     expect(s.rated).toEqual([['I think the tilt', { p: 0.75 }]]);
-    expect(draftRated('I think the tilt', { p: 0.75, model: 'fast' })).toEqual({ type: 'draft_rated', payload: { percent: 75, mode: 'own', model: 'fast', chars: 16 } });
+    expect(draftRated('I think the tilt', { p: 0.75, model: 'fast' })).toEqual({ type: 'draft_rated', payload: { text: 'I think the tilt', percent: 75, mode: 'own', model: 'fast', chars: 16 } });
     for (let i = 0; i < MAX_FAILURES + 1; i++) await typed(s, `draft number ${i}`);
     expect(s.scorer.snapshot().unavailable).toBe(false);
+  });
+
+  it('draft_rated: a draft longer than MAX_TEXT is cut, its length is the real one', () => {
+    const { payload } = draftRated('z'.repeat(MAX_TEXT + 1), { p: 0.1 }) as { payload: { text: string; chars: number } };
+    expect([payload.text.length, payload.chars]).toEqual([MAX_TEXT, MAX_TEXT + 1]);
   });
 
   it(`gives up after ${TIMEOUT_MS} ms and keeps what was shown; slow calls do not stop the model`, async () => {

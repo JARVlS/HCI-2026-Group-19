@@ -113,8 +113,8 @@ interface Ctx {
   demoPrompts: string[];
   /** Can the assistant quiz the user on this concept? */
   canQuiz: (conceptId: Id) => boolean;
-  /** `veil`: hide the answer until the user guesses or reveals it (predict → reveal). `thinking`: the fast model's rating of exactly this text, from the composer. */
-  send: (text: string, cls?: Classification, opts?: { veil?: boolean; thinking?: ScoreResult }) => void;
+  /** `veil`: hide the answer until the user guesses or reveals it (predict → reveal). `thinking`: the fast model's rating of exactly this text, from the composer. Returns the new message's id (undefined: not sent). */
+  send: (text: string, cls?: Classification, opts?: { veil?: boolean; thinking?: ScoreResult }) => Id | undefined;
   /** The fast model's rating, for the composer's live score (`draftScore.ts`); null when the provider has none (demo, scores off). */
   scoreDraft: ScoreFn | null;
   /** The word filter, the composer's instant tier (`liveFilter.ts`); null in demo mode. */

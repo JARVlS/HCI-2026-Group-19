@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { Provider, ScoreResult } from '../ai/provider';
 import type { Message } from './domain';
-import type { UsageEvent } from './events';
+import { cut, type UsageEvent } from './events';
 import { draftShare, pct, thinkingMode } from './modes';
 import { scoreContext } from './turn';
 import type { Classification, Mode, Score } from './types';
@@ -252,10 +252,10 @@ export function useSteady(step: string, g: DraftGauge | null): Steady | null {
   return steady;
 }
 
-/** The usage log's record of a rating: numbers and the draft's length, never its text. */
+/** The usage log's record of a rating: the draft as it was rated (cut to MAX_TEXT), its length and the numbers. */
 export const draftRated = (text: string, s: ScoreResult): UsageEvent => ({
   type: 'draft_rated',
-  payload: { percent: pct(s.p), mode: thinkingMode(s.p), model: s.model ?? null, chars: text.length },
+  payload: { text: cut(text), percent: pct(s.p), mode: thinkingMode(s.p), model: s.model ?? null, chars: text.length },
 });
 
 const noSubscribe = () => () => {};

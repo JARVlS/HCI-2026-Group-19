@@ -8,7 +8,7 @@ import { apiError, fakeBackend, json, type Call } from './backend';
 
 /**
  * The persistence part of the backend Worker in memory (backend/docs/api.md: `GET /api/state`,
- * `GET /api/conversations/:id/messages`, `PUT /api/sync`, `POST /api/events`), behind the fake `fetch`.
+ * `GET /api/conversations/:id/messages`, `PUT /api/sync`, `POST /api/events`, `POST /api/auth/signup|login`), behind the fake `fetch`.
  * `offline = true` makes every call fail like a dropped connection.
  */
 export function fakeServer() {
@@ -58,6 +58,11 @@ export function fakeServer() {
         }
       }
       return json({ ok: true, serverTime: new Date().toISOString() });
+    }
+    // Accounts: any username and password are fine; the token stays the one the call carries (a signup keeps the guest).
+    if ((call.path === '/api/auth/signup' || call.path === '/api/auth/login') && call.method === 'POST') {
+      const token = call.auth?.replace('Bearer ', '') ?? 'account-token';
+      return json({ userId: 'u1', token, username: (call.body as { username: string }).username, participantId: null, condition: null });
     }
     if (call.path === '/api/events' && call.method === 'POST') {
       const { events } = call.body as { events: WireEvent[] };

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { DraftLog } from '../../lib/draftLog';
 import { draftGauge, sendMode, useDraftScore, useSteady, type DraftGauge, type DraftView } from '../../lib/draftScore';
+import { cut, wordCount } from '../../lib/events';
 import { useFilterView } from '../../lib/liveFilter';
 import { MODE_META, pct } from '../../lib/modes';
 import { useStore } from '../../lib/store';
@@ -23,9 +25,12 @@ const AFTER: Record<Mode, string> = {
   ai: 'totally fine, just good to know',
 };
 
+/** Usage log: commands whose argument is not logged, although they take one (a confused user might paste a key after `/provider own`). */
+const UNLOGGED_ARGS = new Set(['provider']);
+
 export function Composer() {
   const { state, dispatch, send, stop, classifyDraft, busy, demoPrompts, messages, scoreDraft, filter, track } = useStore();
-  const { focusPrompt } = useUi();
+  const { focusPrompt, restOn } = useUi();
   const { enabled: arborOn, nudge } = state.settings;
   const lint = arborOn && nudge !== 'off';
   /** Predict → reveal: a delegating prompt's answer arrives veiled (no keyword match: the linter decides). */
@@ -42,6 +47,9 @@ export function Composer() {
   const model = useDraftScore(lint ? scoreDraft : null, text, messages, track);
   // Live mode: the word filter rates every finished word at once, and moves the model's last number by the words since.
   const words = useFilterView(lint ? filter : null, text, messages, model.anchor?.text ?? null);
+  // Usage log: how this draft came about (keys, pastes, time to send; abandoned drafts).
+  const draftLog = useMemo(() => new DraftLog(track), [track]);
+  useEffect(() => draftLog.change(text), [draftLog, text]);
 
   const isCmd = text.startsWith('/') && !text.includes('\n');
   const [word, ...rest] = isCmd ? text.slice(1).split(' ') : [''];
@@ -63,7 +71,10 @@ export function Composer() {
 
   useEffect(() => setSel(0), [word]);
   // Typing moves the words: the reason under the mouse waits for the next mouse move.
-  useEffect(() => setTip(null), [text]);
+  useEffect(() => {
+    setTip(null);
+    restOn('word', null);
+  }, [text, restOn]);
 
   // What the score line says; its label changes only once a new one held for two finished words.
   const lensGauge = lint && lens ? draftGauge(lens.c, model, words.view) : null;
@@ -75,9 +86,17 @@ export function Composer() {
     dispatch({ type: 'composer', lens: live, nudge: false });
   }, [live, dispatch]);
 
+  // Usage log: the line's number each time the word filter changes it (once per change, not per render).
+  const fromFilter = line && (line.from === 'filter' || line.from === 'adjusted') ? { percent: pct(line.you), mode: line.mode, from: line.from, unsure: Boolean(line.unsure) } : null;
+  const filtered = fromFilter && `${fromFilter.percent} ${fromFilter.mode} ${fromFilter.from} ${fromFilter.unsure}`;
+  useEffect(() => {
+    if (fromFilter) track({ type: 'filter_rated', payload: { ...fromFilter, words: wordCount(words.step), chars: words.step.length } });
+  }, [filtered]);
+
   const run = (cmd: Cmd, a: string) => {
     setText('');
-    track({ type: 'command', payload: { name: cmd.name } }); // the name only: an argument can be any text
+    draftLog.command();
+    track({ type: 'command', payload: { name: cmd.name, arg: cmd.args && !UNLOGGED_ARGS.has(cmd.name) ? cut(a) : null } });
     cmd.run(a);
   };
 
@@ -93,11 +112,13 @@ export function Composer() {
     // The model's rating of exactly this text decides the veil and goes with the message; else the
     // line's steady label with the whole draft rated by the word filter (live), or the rules; the turn asks the model.
     const whole = { gauge: draftGauge(c, model, words.whole(text)), steady, newWord: words.step.trimEnd() !== text.trim() };
-    send(text, c, { veil: arborOn && willVeil(sendMode(c, model, whole)), thinking: model.rated ?? undefined });
+    const id = send(text, c, { veil: arborOn && willVeil(sendMode(c, model, whole)), thinking: model.rated ?? undefined });
+    draftLog.sent(text, id ?? null);
     setText('');
   };
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    draftLog.key(e.key);
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       submit();
@@ -128,20 +149,26 @@ export function Composer() {
   const c = lint && lens && lens.text === text ? lens.c : null;
   const g = c && line;
 
+  /** The word's reason pops up: logged once the pointer rested on it (usage log). */
+  const showTip = (t: { i: number; x: number; y: number } | null) => {
+    setTip(t);
+    const ev = t && c?.evidence?.[t.i];
+    restOn('word', ev ? `${t.i}:${ev.start}` : null, ev ? () => track({ type: 'hint_hover', payload: { which: 'word', mode: ev.mode, word: text.slice(ev.start, ev.end), reason: ev.reason } }) : undefined);
+  };
   /** The textarea lies over the underlines, so find the underlined word under the mouse by its boxes. */
   const onHover = (e: MouseEvent<HTMLTextAreaElement>) => {
     const box = composerRef.current?.getBoundingClientRect();
-    if (!c || !box) return tip && setTip(null);
+    if (!c || !box) return tip && showTip(null);
     for (const el of backdropRef.current?.querySelectorAll<HTMLElement>('.a-ev[data-i]') ?? []) {
       for (const r of el.getClientRects()) {
         if (e.clientX >= r.left - 1 && e.clientX <= r.right + 1 && e.clientY >= r.top - 2 && e.clientY <= r.bottom + 4) {
           const i = Number(el.dataset.i);
-          if (tip?.i !== i) setTip({ i, x: Math.max(0, Math.min(r.left - box.left, box.width - 340)), y: r.top - box.top });
+          if (tip?.i !== i) showTip({ i, x: Math.max(0, Math.min(r.left - box.left, box.width - 340)), y: r.top - box.top });
           return;
         }
       }
     }
-    if (tip) setTip(null);
+    if (tip) showTip(null);
   };
   const tipEvidence: Evidence | undefined = c && tip ? c.evidence?.[tip.i] : undefined;
   const next = demoPrompts.length ? demoPrompts[(demoPrompts.indexOf(text) + 1) % demoPrompts.length] : null;
@@ -228,8 +255,9 @@ export function Composer() {
             aria-describedby="a-lint"
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKey}
+            onPaste={(e) => draftLog.paste(e.clipboardData.getData('text'))}
             onMouseMove={onHover}
-            onMouseLeave={() => setTip(null)}
+            onMouseLeave={() => showTip(null)}
           />
         </div>
       </div>
@@ -272,9 +300,17 @@ function source(g: DraftGauge, model: DraftView, c: Classification, words: { lea
  * Hovering it lists every reason the linter found.
  */
 function Gauge({ c, g, from, text, after }: { c: Classification; g: DraftGauge; from: string; text: string; after: string }) {
+  const { track } = useStore();
+  const { restOn } = useUi();
   const you = pct(g.you);
   return (
-    <div className={`a-gauge m-${g.mode}${g.from === 'earlier' || g.unsure ? ' stale' : ''}`} tabIndex={0} aria-describedby="a-lint">
+    <div
+      className={`a-gauge m-${g.mode}${g.from === 'earlier' || g.unsure ? ' stale' : ''}`}
+      tabIndex={0}
+      aria-describedby="a-lint"
+      onMouseEnter={() => restOn('line', 'line', () => track({ type: 'hint_hover', payload: { which: 'line', mode: g.mode, percent: you, from: g.from } }))}
+      onMouseLeave={() => restOn('line', null)}
+    >
       <G mode={g.mode} /> <strong>{lower(MODE_META[g.mode].lens)}</strong>
       <span className="a-gauge-bar" aria-hidden="true">
         <span style={{ width: `${you}%` }} />

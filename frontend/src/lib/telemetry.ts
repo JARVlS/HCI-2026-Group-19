@@ -14,8 +14,12 @@ import type { Design } from './types';
  * - Network trouble, 401, 429 and 5xx: sent again with backoff, and at once when back online. Silent.
  * - Any other refusal is a bug in what we send: those events are dropped (a broken event is not
  *   worth keeping), the console says why, and one toast per visit.
- * - The mirror holds at most `cap` events. Past that the oldest go, and an `events_dropped` event
- *   says how many, so the loss shows in the data.
+ * - The mirror holds at most `cap` events and MIRROR_BYTES of JSON: it shares localStorage (about
+ *   5 MB per site) with the sync queue that saves the chats (`arbor.sync.v1`), and events carry
+ *   texts since 21 Nov, so it must never starve it. Past either cap the oldest go, and an
+ *   `events_dropped` event says how many, so the loss shows in the data.
+ * - With `keepalive` a batch stays within KEEPALIVE_BYTES; an event bigger than that goes alone.
+ *   If its send fails, it stays queued and in the mirror (backoff, or the next visit).
  * - Users: the backend files an event under the token that sends it. This page's events go out
  *   with this page's session. The mirror carries the user it belongs to (a fingerprint of the
  *   token, never the token), and a page signed in as someone else discards it.
@@ -26,6 +30,8 @@ export const EVENTS_KEY = 'arbor.events.v1';
 export const MAX_BATCH = 200;
 /** Most events the mirror keeps. */
 export const CAP = 2000;
+/** Most characters of JSON the mirror keeps (about 1 MB; localStorage has about 5 MB per site, shared with the sync queue). */
+export const MIRROR_BYTES = 1_000_000;
 /** Events are not urgent: the first one waiting goes out after this, with all that came since. */
 export const DEBOUNCE_MS = 4000;
 /** Browsers allow 64 KB of keepalive bodies per page in flight, and the sync queue may use 60 KB (sync.ts). */
@@ -67,6 +73,8 @@ export interface EventLogOptions {
   newId?: () => Id;
   debounceMs?: number;
   cap?: number;
+  /** Tests: MIRROR_BYTES. */
+  maxBytes?: number;
 }
 
 export class EventLog {
@@ -105,15 +113,16 @@ export class EventLog {
     try {
       const { design, conversationId } = this.opts.context();
       this.queue.push(this.wire(e, design, e.conversationId ?? conversationId));
-      const over = this.queue.length - (this.opts.cap ?? CAP);
-      if (over > 0) {
-        // Make room for a while, so a full queue does not log a drop with every event.
-        const count = over + Math.ceil((this.opts.cap ?? CAP) / 10);
-        this.queue.splice(0, count);
-        console.warn(`[arbor events] the queue is full: the ${count} oldest events were dropped`);
-        this.queue.push(this.wire({ type: 'events_dropped', payload: { count } }, design, undefined));
+      // Past a cap, make room for a while (a tenth more), so a full queue does not log a drop with every event.
+      const cap = this.opts.cap ?? CAP;
+      if (this.queue.length > cap) this.drop(this.queue.length - cap + Math.ceil(cap / 10), design);
+      const maxBytes = this.opts.maxBytes ?? MIRROR_BYTES;
+      let json = this.json();
+      if (json.length > maxBytes) {
+        this.drop(this.oldest(json.length - maxBytes + Math.ceil(maxBytes / 10)), design);
+        json = this.json();
       }
-      this.write();
+      this.write(json);
       this.schedule();
     } catch (err) {
       console.error(`[arbor events] could not log ${e.type}`, err);
@@ -162,6 +171,20 @@ export class EventLog {
       clientTs: (this.opts.now ?? (() => new Date().toISOString()))(),
       ...(conversationId ? { conversationId } : {}),
     };
+  }
+
+  /** Drop the `count` oldest events, and say so in the data (`events_dropped`) and the console. */
+  private drop(count: number, design: Design) {
+    this.queue.splice(0, count);
+    console.warn(`[arbor events] the queue is full: the ${count} oldest events were dropped`);
+    this.queue.push(this.wire({ type: 'events_dropped', payload: { count } }, design, undefined));
+  }
+
+  /** How many of the oldest events take at least `chars` characters of the mirror. */
+  private oldest(chars: number) {
+    let n = 0;
+    for (let sum = 0; sum < chars && n < this.queue.length; n++) sum += JSON.stringify(this.queue[n]).length + 1;
+    return n;
   }
 
   private schedule() {
@@ -242,13 +265,19 @@ export class EventLog {
     }
   }
 
-  private write() {
-    const { storage } = this.opts;
-    if (!storage) return;
+  /** The mirror as it is stored. */
+  private json() {
     // A first visit gets its session after the page started: its events are that session's.
     this.owner ??= this.opts.owner();
+    return JSON.stringify({ owner: this.owner, events: this.queue } satisfies Mirror);
+  }
+
+  /** `json`: the mirror, when the caller has it already. */
+  private write(json?: string) {
+    const { storage } = this.opts;
+    if (!storage) return;
     try {
-      if (this.queue.length) storage.setItem(EVENTS_KEY, JSON.stringify({ owner: this.owner, events: this.queue } satisfies Mirror));
+      if (this.queue.length) storage.setItem(EVENTS_KEY, json ?? this.json());
       else storage.removeItem(EVENTS_KEY);
       this.storageFailed = false;
     } catch (e) {

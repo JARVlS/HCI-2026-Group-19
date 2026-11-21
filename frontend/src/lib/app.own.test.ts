@@ -99,7 +99,7 @@ describe('own model', () => {
     expect(synced).not.toContain(KEY);
     expect(serverMessages(server, conv).map((m) => m.model ?? null)).toEqual([null, 'test-model']);
     for (const k of [SYNC_KEY, SETTINGS_KEY, PROVIDER_KEY, KEYS_KEY, EVENTS_KEY]) expect(a.local.getItem(k) ?? '').not.toContain(KEY);
-    // The usage log has neither the key nor the endpoint.
+    // The usage log has neither the key nor the endpoint's URL (at most its host, `ownSetup`).
     const logged = JSON.stringify([...server.events, ...a.log.pending()]);
     expect(logged).toContain('turn_sent');
     expect(logged).not.toContain(KEY);

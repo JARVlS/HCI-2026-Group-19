@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '../test/storage';
 import { ApiError } from './api';
 import { backoff } from './sync';
-import { DEBOUNCE_MS, EVENTS_KEY, EventLog, fingerprint, KEEPALIVE_BYTES, MAX_BATCH, type EventLogOptions, type EventsBody } from './telemetry';
+import { DEBOUNCE_MS, EVENTS_KEY, EventLog, fingerprint, KEEPALIVE_BYTES, MAX_BATCH, MIRROR_BYTES, type EventLogOptions, type EventsBody } from './telemetry';
 
-/** The usage log's queue (IMPLEMENTATION_PLAN.md M6, "Event log"): batching, retries, the mirror, the cap, keepalive, refusals, users. */
+/** The usage log's queue (IMPLEMENTATION_PLAN.md M6, "Event log"): batching, retries, the mirror, the caps, keepalive, refusals, users. */
 
 const page = { type: 'page_visible', payload: {} } as const;
+/** An event with a text of `n` characters. */
+const toast = (n: number) => ({ type: 'toast', payload: { text: 'x'.repeat(n) } }) as const;
 
 function setup({ owner = 'user-a', ...opts }: Partial<Omit<EventLogOptions, 'owner'>> & { owner?: string | null } = {}) {
   const storage = opts.storage ?? memoryStorage();
@@ -40,14 +42,14 @@ describe('event log: sending', () => {
     t.log.start();
     t.log.record({ type: 'view_start', payload: { view: 'tree' } });
     await wait(DEBOUNCE_MS - 1000);
-    t.log.record({ type: 'chat_rename', conversationId: 'chat-9', payload: {} }); // does not push the send back
+    t.log.record({ type: 'chat_new', conversationId: 'chat-9', payload: {} }); // does not push the send back
     await wait(999);
     expect(t.sent).toEqual([]);
     await wait(1);
     expect(t.sent).toHaveLength(1);
     const [a, b] = t.sent[0].body.events;
     expect(a).toEqual({ id: expect.any(String), type: 'view_start', payload: { view: 'tree', visit: expect.any(String), seq: 1, design: 'ascii' }, clientTs: '2026-11-20T10:00:00.000Z', conversationId: 'chat-1' });
-    expect(b).toMatchObject({ type: 'chat_rename', payload: { visit: a.payload.visit, seq: 2 }, conversationId: 'chat-9' });
+    expect(b).toMatchObject({ type: 'chat_new', payload: { visit: a.payload.visit, seq: 2 }, conversationId: 'chat-9' });
     expect(a.id).not.toBe(b.id);
     expect(t.sent[0].keepalive).toBe(false);
     expect(t.storage.getItem(EVENTS_KEY)).toBeNull(); // sent: the mirror is empty
@@ -119,7 +121,7 @@ describe('event log: sending', () => {
   it('hidden or closed: what is left goes out at once with keepalive, within its budget; the rest follows', async () => {
     const t = setup();
     t.log.start();
-    for (let i = 0; i < 60; i++) t.log.record({ type: 'pane_action', payload: { kind: 'rest_on_leaf', view: 'tree', conceptId: crypto.randomUUID(), days: 0 } });
+    for (let i = 0; i < 60; i++) t.log.record({ type: 'pane_action', payload: { kind: 'rest_on_leaf', view: 'tree', conceptId: crypto.randomUUID(), label: 'gradient descent', days: 0 } });
     t.log.hide();
     await wait(0);
     expect(t.sent.length).toBeGreaterThan(1);
@@ -127,6 +129,37 @@ describe('event log: sending', () => {
     expect(JSON.stringify(t.sent[0].body).length).toBeLessThanOrEqual(KEEPALIVE_BYTES);
     expect(t.sent.slice(1).every((s) => !s.keepalive)).toBe(true);
     expect(t.sent.reduce((n, s) => n + s.body.events.length, 0)).toBe(60);
+  });
+
+  it(`an event bigger than KEEPALIVE_BYTES goes alone with keepalive; the rest follows without`, async () => {
+    const t = setup();
+    t.log.start();
+    t.log.record(toast(KEEPALIVE_BYTES + 100));
+    t.log.record(page);
+    t.log.hide();
+    await wait(0);
+    expect(t.sent.map((s) => [s.body.events.map((e) => e.type), s.keepalive])).toEqual([
+      [['toast'], true],
+      [['page_visible'], false],
+    ]);
+    expect(t.log.pending()).toEqual([]);
+  });
+
+  it('if that send fails, it stays queued and in the mirror, and goes out on the next try (no loop)', async () => {
+    const t = setup();
+    t.send.mockRejectedValueOnce(new ApiError(0, 'network', 'keepalive body too large'));
+    t.log.start();
+    t.log.record(toast(KEEPALIVE_BYTES + 100));
+    t.log.hide();
+    await wait(0);
+    expect(t.send).toHaveBeenCalledTimes(1);
+    expect(t.log.pending().map((e) => e.type)).toEqual(['toast']);
+    expect(t.mirror().events.map((e: { type: string }) => e.type)).toEqual(['toast']);
+    await wait(backoff(0));
+    expect(t.send.mock.calls.map(([, o]) => o.keepalive)).toEqual([true, false]);
+    expect(t.log.pending()).toEqual([]);
+    await wait(60_000);
+    expect(t.send).toHaveBeenCalledTimes(2);
   });
 
   it('back online (flush): sends at once, without waiting for the backoff', async () => {
@@ -163,6 +196,24 @@ describe('event log: the mirror', () => {
     expect(left.at(-1)).toMatchObject({ type: 'events_dropped', payload: { count: 2 } });
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('the 2 oldest events were dropped'));
     expect(t.mirror().events).toHaveLength(10);
+  });
+
+  it(`past MIRROR_BYTES of JSON (${MIRROR_BYTES}) the oldest go the same way, so the sync queue keeps its room in localStorage`, () => {
+    const t = setup({ maxBytes: 5000 });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (let i = 0; i < 12; i++) t.log.record(toast(500));
+    const raw = t.storage.getItem(EVENTS_KEY)!;
+    expect(raw.length).toBeLessThanOrEqual(5000);
+    const left = t.log.pending();
+    expect(left.at(-1)).toMatchObject({ type: 'events_dropped' });
+    const dropped = left.filter((e) => e.type === 'events_dropped').reduce((n, e) => n + (e.payload.count as number), 0);
+    // Every event is either still queued or counted as dropped.
+    expect(left.filter((e) => e.type === 'toast').length + dropped).toBe(12);
+    // Kept: the newest, in order.
+    const seqs = left.filter((e) => e.type === 'toast').map((e) => e.payload.seq as number);
+    expect(seqs).toEqual([...seqs].sort((a, b) => a - b));
+    expect(seqs.at(-1)).toBeGreaterThan(10);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('oldest events were dropped'));
   });
 
   it('a broken mirror is ignored and said so', () => {

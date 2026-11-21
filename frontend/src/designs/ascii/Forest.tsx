@@ -9,7 +9,7 @@ import type { TreeData } from '../../lib/types';
 import { AsciiTreeView } from '../../shared/AsciiTreeView';
 import { useLeafJump } from './Chats';
 import { Scrubber } from './Pane';
-import { G, K, Radios, lower, typing, useUi } from './ui';
+import { G, K, Radios, lower, typing, useSettled, useUi } from './ui';
 
 /* ───────────────────────── Forest: semantic zoom ─────────────────────────
  *   forest — every chat is a small tree whose crown is made of its leaves (one glyph each).
@@ -81,7 +81,7 @@ function useForestData(days: number) {
 }
 
 export function Forest() {
-  const { state, dispatch, activeTree, groves } = useStore();
+  const { state, dispatch, activeTree, groves, track } = useStore();
   const { days, setDays, refs } = useUi();
   const { infos, byId } = useForestData(days);
   const startFocus = state.ui.forest.focus && byId.has(state.ui.forest.focus) ? state.ui.forest.focus : null;
@@ -98,6 +98,17 @@ export function Forest() {
   const busy = useRef(false);
 
   const close = useCallback(() => dispatch({ type: 'forest', open: false }), [dispatch]);
+
+  // Usage log: the zoom level as it changes (`forest_open` has where it started), and the search once it settles.
+  const zoomed = useRef(level);
+  useEffect(() => {
+    if (level === zoomed.current) return;
+    zoomed.current = level;
+    const tree = level === 'tree' ? byId.get(focus)?.tree : undefined;
+    track({ type: 'forest_zoom', payload: { to: level, treeId: tree?.id ?? null, title: tree?.title ?? null } });
+  }, [level, focus, byId, track]);
+  const groveLabel = groves.find((g) => g.id === grove)?.label ?? null;
+  useSettled(`${query}\u0000${filter}\u0000${groveLabel}`, () => track({ type: 'forest_filter', payload: { query, filter, grove: groveLabel } }));
 
   const zoomIn = useCallback((id: string) => {
     if (busy.current) return;
@@ -155,7 +166,8 @@ export function Forest() {
         e.preventDefault();
         e.stopImmediatePropagation();
         (document.activeElement as HTMLElement | null)?.blur?.();
-        return zoomOut();
+        zoomOut();
+        return track({ type: 'shortcut', payload: { key: e.key, where: 'forest' } });
       }
       if (typing(e)) return;
       if (e.key === '-' || e.key === '_') zoomOut();
@@ -167,10 +179,11 @@ export function Forest() {
         search.current?.focus();
       } else return;
       e.stopImmediatePropagation();
+      track({ type: 'shortcut', payload: { key: e.key, where: 'forest' } });
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [zoomOut, zoomIn, level, hover, query, refs]);
+  }, [zoomOut, zoomIn, level, hover, query, refs, track]);
 
   // Pinch / ctrl+wheel: in over a tree zooms into it, out steps back.
   useEffect(() => {
