@@ -22,5 +22,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     base: './',
     define: Object.fromEntries(missing.map(([name, value]) => [`import.meta.env.${name}`, JSON.stringify(value)])),
+    // Two pages: the app, and the study team's logs page (`logs.html`, served at /logs; src/logs/).
+    // Paths relative to this folder, where `npm run build` runs.
+    build: { rolldownOptions: { input: { index: 'index.html', logs: 'logs.html' } } },
   };
 });

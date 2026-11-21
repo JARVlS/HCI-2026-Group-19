@@ -1,0 +1,480 @@
+/* ───────────── The logs page (logs.html) ─────────────
+ * The ASCII design's look (src/designs/ascii/ascii.css): one monospace voice, ink on paper, green
+ * for the person, violet for the AI, dashed rules, [buttons]. Its colours are copied here because
+ * that sheet would bring the whole app's styles along. Only logs.html loads this file; every class
+ * is prefixed `l-`.
+ */
+:root {
+  color-scheme: light;
+  --bg: #f2f0e9;
+  --surface: #f9f8f3;
+  --surface-2: #e8e5db;
+  --text: #1c1b18;
+  --text-2: #45423b;
+  --text-3: #6c685f;
+  --rule: #d3cec1;
+  --you: #1f7a4c;
+  --you-soft: #d9eadf;
+  --ai: #6a4dc6;
+  --ai-soft: #e6e0f6;
+  --focus: #2f6fde;
+  --error: #b3261e;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #11110f;
+    --surface: #191916;
+    --surface-2: #23221e;
+    --text: #e8e5dc;
+    --text-2: #bdb9ae;
+    --text-3: #8e8a7f;
+    --rule: #33322c;
+    --you: #4fc38a;
+    --you-soft: #16301f;
+    --ai: #a993f3;
+    --ai-soft: #262040;
+    --focus: #6aa0ff;
+    --error: #ff8a80;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/20px var(--mono);
+  font-variant-ligatures: none;
+  -webkit-font-smoothing: antialiased;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+::selection {
+  background: var(--you-soft);
+}
+:where(button, input, select) {
+  font: inherit;
+  color: inherit;
+}
+:where(h1, h2, h3, p) {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: 1px;
+}
+code {
+  font: inherit;
+  color: var(--text-2);
+}
+
+.l-dim {
+  color: var(--text-3);
+}
+.l-error {
+  color: var(--error);
+  margin: 8px 0;
+}
+.l-pad {
+  padding: 10px 2ch 24px;
+}
+
+/* [buttons], as in the ASCII design */
+.l-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.l-btn::before {
+  content: '[';
+  color: var(--text-3);
+}
+.l-btn::after {
+  content: ']';
+  color: var(--text-3);
+}
+.l-btn:hover:not(:disabled),
+.l-btn:hover:not(:disabled)::before,
+.l-btn:hover:not(:disabled)::after {
+  color: var(--text);
+}
+.l-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.l-input {
+  min-width: 0;
+  padding: 1px 0;
+  border: 0;
+  border-bottom: 1px dashed var(--rule);
+  background: none;
+}
+.l-input::placeholder {
+  color: var(--text-3);
+}
+
+/* The token gate */
+.l-gate {
+  display: grid;
+  gap: 12px;
+  max-width: 60ch;
+  margin: 12vh auto 0;
+  padding: 0 2ch;
+}
+.l-gate h1 {
+  font-weight: 700;
+}
+.l-gate-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1ch 2ch;
+  align-items: baseline;
+}
+.l-gate-form label {
+  display: flex;
+  flex: 1 1 30ch;
+  gap: 2ch;
+  align-items: baseline;
+}
+.l-gate-form .l-input {
+  flex: 1;
+}
+
+/* Layout: the visits beside the timeline; on a phone the list above it */
+.l-app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100dvh;
+}
+.l-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 2ch;
+  align-items: baseline;
+  padding: 6px 2ch;
+  border-bottom: 1px dashed var(--rule);
+}
+.l-top h1 {
+  font-weight: 700;
+}
+.l-top-actions {
+  display: flex;
+  gap: 2ch;
+  margin-left: auto;
+}
+.l-main {
+  display: grid;
+  grid-template-columns: minmax(34ch, 54ch) minmax(0, 1fr);
+  min-height: 0;
+}
+.l-side {
+  overflow-y: auto;
+  padding: 10px 2ch 24px;
+  border-right: 1px dashed var(--rule);
+}
+.l-detail {
+  overflow-y: auto;
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .l-app {
+    height: auto;
+  }
+  .l-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .l-side {
+    max-height: 55vh;
+    border-right: 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+}
+
+/* Visits */
+.l-visits {
+  display: grid;
+  gap: 8px;
+}
+.l-visits-head {
+  display: flex;
+  gap: 2ch;
+  align-items: baseline;
+}
+.l-visits-head h2,
+.l-downloads h2,
+.l-detail-head h2 {
+  font-weight: 700;
+}
+.l-visits-head .l-btn {
+  margin-left: auto;
+}
+.l-visit-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.l-visit {
+  display: grid;
+  grid-template-columns: 17ch 10ch minmax(0, 1fr);
+  gap: 0 1ch;
+  width: 100%;
+  padding: 3px 1ch;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.l-visit:hover {
+  background: var(--surface);
+}
+.l-visit.on {
+  border-left-color: var(--you);
+  background: var(--surface-2);
+}
+.l-visit-who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.l-visit-meta {
+  grid-column: 1 / -1;
+}
+.l-downloads {
+  display: grid;
+  gap: 6px;
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule);
+}
+.l-downloads p:not(.l-dim, .l-error) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 2ch;
+}
+
+/* One visit */
+.l-detail-head {
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--rule);
+  overflow-wrap: anywhere;
+}
+.l-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(30ch, 1fr));
+  gap: 0 3ch;
+  margin: 8px 0;
+}
+.l-facts div {
+  display: grid;
+  grid-template-columns: 10ch minmax(0, 1fr);
+}
+.l-facts dt {
+  color: var(--text-3);
+}
+.l-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.l-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 2ch;
+  align-items: baseline;
+  margin: 10px 0 4px;
+  padding: 6px 0;
+  border-top: 1px dashed var(--rule);
+}
+.l-filters > span {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 1.5ch;
+  align-items: baseline;
+}
+.l-filters .l-input[type='search'] {
+  flex: 1 1 24ch;
+}
+.l-off {
+  opacity: 0.5;
+}
+.l-chip {
+  padding: 0 0.5ch;
+  border: 1px dashed var(--rule);
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.l-chip.on {
+  border-style: solid;
+  border-color: currentColor;
+  color: var(--g, var(--text));
+}
+.l-check {
+  display: inline-flex;
+  gap: 0.5ch;
+  align-items: baseline;
+  color: var(--text-2);
+}
+
+/* Groups: green = what the person wrote, violet = the AI's side, ink for the rest */
+.l-g-writing {
+  --g: var(--you);
+}
+.l-g-replies {
+  --g: var(--ai);
+}
+.l-g-tree-pane,
+.l-g-navigation,
+.l-g-page,
+.l-g-other {
+  --g: var(--text-2);
+}
+.l-legend-group h3 {
+  color: var(--g);
+}
+
+/* The timeline */
+.l-events {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.l-ev {
+  border-bottom: 1px dashed color-mix(in srgb, var(--rule) 60%, transparent);
+}
+.l-ev-head {
+  display: grid;
+  grid-template-columns: 6ch 18ch minmax(0, 1fr);
+  gap: 0 1ch;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.l-ev-head:hover {
+  background: var(--surface);
+}
+.l-ev-at {
+  color: var(--text-3);
+}
+.l-ev-type {
+  color: var(--g);
+  overflow-wrap: anywhere;
+}
+.l-ev-line {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.l-text {
+  display: grid;
+  grid-template-columns: 8ch minmax(0, 1fr);
+  gap: 0 1ch;
+  margin: 0 0 4px 7ch;
+}
+.l-text p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.l-raw {
+  margin: 2px 0 6px 7ch;
+  padding: 6px 1ch;
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  font: inherit;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .l-ev-head {
+    grid-template-columns: 6ch minmax(0, 1fr);
+  }
+  .l-ev-line {
+    grid-column: 2;
+  }
+  .l-text,
+  .l-raw {
+    margin-left: 0;
+  }
+  .l-text {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .l-visit {
+    grid-template-columns: minmax(0, 1fr) 10ch;
+  }
+  .l-visit-who {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The legend sheet */
+.l-sheet {
+  width: min(100% - 32px, 100ch);
+  max-height: calc(100dvh - 48px);
+  padding: 14px 3ch 18px;
+  border: 1px solid var(--text);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 6px 6px 0 var(--rule);
+}
+.l-sheet::backdrop {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+}
+.l-sheet > p,
+.l-sheet > h3,
+.l-sheet > section {
+  margin-top: 12px;
+}
+.l-sheet h3 {
+  font-weight: 700;
+}
+.l-sheet-head {
+  display: flex;
+  gap: 2ch;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--rule);
+}
+.l-sheet-head .l-btn {
+  margin-left: auto;
+}
+.l-never {
+  margin: 4px 0 0;
+  padding-left: 3ch;
+}
+.l-legend {
+  margin: 4px 0 0;
+}
+.l-legend div {
+  display: grid;
+  grid-template-columns: 18ch minmax(0, 1fr);
+  gap: 0 2ch;
+}
+.l-legend dt {
+  color: var(--text-2);
+}
+.l-legend dd {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .l-legend div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .l-legend dd {
+    margin-bottom: 4px;
+    color: var(--text-3);
+  }
+}
