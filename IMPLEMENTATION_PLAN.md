@@ -671,7 +671,7 @@ and neither says *which* idea of the guess was right:
   answer about germs) lights up as if it had been right.
 - **The number** comes from the fast model (`scoreGuess`: the 1–5 thinking scale and the 1–3
   "is it right" scale against the reply). That does judge meaning, but it is a single number,
-  and on the live site it fails on every call while `FAST_API_KEY` is missing (M9).
+  and on the live site it failed on every call until `FAST_API_KEY` was set on 20 Nov (M9).
 
 **Decision:** after the reveal, once the reply is complete, one structured LLM call grades the
 guess against the answer (new task `grade` on `POST /api/ai/complete`, `MODEL_ANALYZE`, JSON
@@ -1164,7 +1164,9 @@ a prompt squeezed to two words, and a linter that made the prompt jump.
 - [x] **Linter rework** (ADR-14): underlines with hover reasons, one fixed score line above the
       prompt, nothing below it.
 - [ ] Apply migration 0003 to `hci-grp19` and check T-39 on the deployed Worker (needs the
-      Cloudflare login).
+      Cloudflare login). *20 Nov:* the migration is applied (on Salomon's go); one signup on the
+      deployed Worker answered 200 and its account was removed again. Still open of T-39: login,
+      and the CPU time of both.
 - [ ] Rate limit for `/api/auth/login` before the site is shared widely.
 - [ ] Classic design: an account entry in its settings (the welcome screen already covers both
       designs; §8 says no new features in classic, so only if the team wants it).
@@ -1184,9 +1186,12 @@ never moves anything but the prompt itself.
       missed case. Rules and naive Bayes run offline; the fast model with `VITE_API_URL`.
 - [x] First numbers (`eval/results/linter-2026-11-17.md`): rules 68 % / κ 0.52, naive Bayes
       57 % / κ 0.35, rules change label in 63 % of prompts while typing (at most twice).
-- [ ] **Set `FAST_API_KEY` on the deployed Worker** (`uv run pywrangler secret put FAST_API_KEY`).
+- [x] **Set `FAST_API_KEY` on the deployed Worker** (`uv run pywrangler secret put FAST_API_KEY`).
       *17 Nov:* it is missing, so every fast score fails on the live site (the after-send percent
       and PR #14's score line), and the eval could not measure the fast model.
+      *20 Nov:* set (the Bedrock key, as for Claude). On the live site the score line gets the
+      fast model's rating after a pause and a sent message gets its percent. The eval with the
+      fast model is still to run.
 - [ ] Two team members label the 136 prompts independently (without the draft labels); report
       their κ, settle disagreements, record `rater`. Add real-looking prompts from the pilot
       (with consent) toward 300.
@@ -1213,7 +1218,8 @@ ADR-15 decided with those numbers. The same numbers feed R4.
       words, partly right, wrong with shared words, misconception, "idk"), expected verdict and the
       idea that should match; report verdict agreement and how often the expected idea is quoted.
       Run the lexical overlap on the same triples as the baseline.
-- [ ] Set `FAST_API_KEY` on the Worker (M9), so the guess's numbers work on the live site too.
+- [x] Set `FAST_API_KEY` on the Worker (M9), so the guess's numbers work on the live site too.
+      *20 Nov:* set.
 
 *Acceptance:* on the eval triples the verdict agrees with the expected one at least 85 % of the
 time, every "right in other words" case highlights the matching idea, and no "wrong with shared
