@@ -34,7 +34,7 @@ def shortlist_recall(emb: Embedder, session: Session, gold: dict, ks: list[int],
 
 
 def judge_agreement(judge: Judge, session: Session, gold: dict, order_seed: int = 0, max_prompts: int | None = None,
-                    examples: int = 3) -> pd.DataFrame:
+                    examples: int = 3, repeat: int = 0) -> pd.DataFrame:
     """Per prompt: the judge's top-1 existing topic vs the gold topic (all gold-forest topics are
     candidates, no shortlist), whether it proposed something when the gold topic is new, latency."""
     rows = []
@@ -43,7 +43,7 @@ def judge_agreement(judge: Judge, session: Session, gold: dict, order_seed: int 
         f = gold_forest(session, gold, p.step)
         target = gold_topic_id(gold[p.id])
         cands = [Candidate(c, f.path(c), [f.prompts[x].text for x in f.prompts_in(c)[-examples:]]) for c in sorted(f.topics)]
-        req = PlacementRequest(p.id, p.text, cands, [(g, grp.label) for g, grp in f.groups.items()], f, order_seed)
+        req = PlacementRequest(p.id, p.text, cands, [(g, grp.label) for g, grp in f.groups.items()], f, order_seed, repeat)
         t0 = time.time()
         try:
             out, meta = judge.placement(req)
@@ -69,6 +69,14 @@ def position_bias(judge: Judge, session: Session, gold: dict, seeds=(0, 1), max_
     m = a.merge(b, on="prompt", suffixes=("_a", "_b"))
     m = m[m["top1_a"].notna() & m["top1_b"].notna()]
     return float((m["top1_a"] != m["top1_b"]).mean()) if len(m) else float("nan")
+
+
+def consistency(a: pd.DataFrame, b: pd.DataFrame) -> float:
+    """Share of prompts with identical fits and proposals in two runs of the same input."""
+    m = a.merge(b, on="prompt", suffixes=("_a", "_b"))
+    m = m[m["fits_a"].notna() & m["fits_b"].notna()]
+    same = [(x.fits_a == x.fits_b) and (x.proposed_a == x.proposed_b) for x in m.itertuples()]
+    return float(np.mean(same)) if same else float("nan")
 
 
 def fit_spearman(df: pd.DataFrame, human: pd.DataFrame) -> float:

@@ -28,6 +28,14 @@ def _decode(s: str) -> np.ndarray:
 
 @lru_cache(maxsize=4)
 def _st_model(name: str):
+    import logging
+    import os
+    import warnings
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+    logging.getLogger("torch.distributed.elastic.multiprocessing.redirects").setLevel(logging.ERROR)
+    warnings.filterwarnings("ignore", module="tqdm")
     from sentence_transformers import SentenceTransformer  # heavy; only on a cache miss
     return SentenceTransformer(name)
 

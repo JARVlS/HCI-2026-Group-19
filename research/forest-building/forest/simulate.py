@@ -67,8 +67,10 @@ def run(method: str, session: Session, ctx: StepContext, params: IPParams | None
     forest = Forest()
     rows, forests, log = [], [], []
     for p in session.prompts[:upto]:
-        for opened in session.accesses_at(p.step):
-            forest.access_log[opened] = p.step
+        if session.accesses_at(p.step):
+            forest = forest.copy()  # never mutate the previous step's snapshot
+            for opened in session.accesses_at(p.step):
+                forest.access_log[opened] = p.step
         prev = forest
         t0 = time.time()
         rec: dict = {"session": session.id, "method": method, "step": p.step, "prompt": p.id}
@@ -100,6 +102,23 @@ def run(method: str, session: Session, ctx: StepContext, params: IPParams | None
     if save_dir is not None:
         write_jsonl(Path(save_dir) / "decisions.jsonl", log)
     return pd.DataFrame(rows), forests
+
+
+def trace_ip(session: Session, ctx: StepContext, params: IPParams | None = None, upto: int | None = None) -> list[dict]:
+    """Replay the IP and keep every step's input: [{'before', 'prompt', 'result', 'input', 'view'}].
+    An input can be re-solved with other parameters (ip.place(input, params)) for a what-if on one step."""
+    params = params or ctx.params
+    ctx = StepContext(ctx.cfg, ctx.emb, ctx.judge, params, ScoreMemo(), ctx.order_seed)
+    forest, out = Forest(), []
+    for p in session.prompts[:upto]:
+        if session.accesses_at(p.step):
+            forest = forest.copy()  # never mutate the previous step's snapshot
+            for opened in session.accesses_at(p.step):
+                forest.access_log[opened] = p.step
+        res, inp, view = ip_step(forest, p, ctx, params)
+        out.append({"before": forest, "prompt": p, "result": res, "input": inp, "view": view})
+        forest = res.forest
+    return out
 
 
 def compare(methods: list[str], session: Session, ctx: StepContext, gold: dict | None = None,

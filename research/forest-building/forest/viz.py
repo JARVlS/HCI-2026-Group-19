@@ -33,7 +33,7 @@ def style() -> None:
     plt.rcParams.update({
         "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
         "axes.edgecolor": AXIS, "axes.labelcolor": TEXT_2, "axes.titlecolor": TEXT, "axes.titlesize": 11,
-        "axes.titleweight": "semibold", "axes.titlelocation": "left", "axes.labelsize": 9,
+        "axes.titleweight": "bold", "axes.titlelocation": "left", "axes.labelsize": 9,
         "xtick.color": MUTED, "ytick.color": MUTED, "xtick.labelsize": 8, "ytick.labelsize": 8,
         "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.6, "axes.axisbelow": True,
         "axes.spines.top": False, "axes.spines.right": False, "legend.frameon": False, "legend.fontsize": 8,
@@ -96,7 +96,7 @@ def plot_forest(f: Forest, ax=None, title: str = "", new: set[str] = frozenset()
 
     for g, grp in f.groups.items():
         gx, gy = pos[g]
-        ax.text(gx, gy, wrapped(grp.label), ha="center", va="center", fontsize=8, fontweight="semibold", color=SURFACE,
+        ax.text(gx, gy, wrapped(grp.label), ha="center", va="center", fontsize=8, fontweight="bold", color=SURFACE,
                 bbox=dict(boxstyle="round,pad=0.35", fc=TEXT_2, ec="none"), zorder=3)
     for c, t in f.topics.items():
         cx, cy = pos[c]

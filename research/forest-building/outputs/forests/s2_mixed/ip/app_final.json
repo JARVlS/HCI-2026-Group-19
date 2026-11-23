@@ -1,0 +1,899 @@
+{
+ "format": "arbor-forest/1",
+ "session": "s2_mixed",
+ "method": "ip",
+ "judge": "offline-heuristic-v1",
+ "embedding": "sentence-transformers/all-MiniLM-L6-v2",
+ "concepts": [
+  {
+   "id": "g01a",
+   "label": "Linear Algebra",
+   "slug": "linear algebra",
+   "aliases": [],
+   "kind": "subject",
+   "parentId": null,
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:02:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "g11a",
+   "label": "Probability",
+   "slug": "probability",
+   "aliases": [],
+   "kind": "subject",
+   "parentId": null,
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:22:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t01a",
+   "label": "Eigenvalues",
+   "slug": "eigenvalue",
+   "aliases": [],
+   "kind": "topic",
+   "parentId": "g01a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:02:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t02a",
+   "label": "Eigenvector",
+   "slug": "eigenvector",
+   "aliases": [],
+   "kind": "concept",
+   "parentId": "t01a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:04:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t04a",
+   "label": "Test Positive",
+   "slug": "test positive",
+   "aliases": [],
+   "kind": "topic",
+   "parentId": "g01a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:08:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t05a",
+   "label": "Matrix Diagonalizable",
+   "slug": "matrix diagonalizable",
+   "aliases": [],
+   "kind": "concept",
+   "parentId": "t02a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:10:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t06a",
+   "label": "Inner Join",
+   "slug": "inner join",
+   "aliases": [],
+   "kind": "topic",
+   "parentId": "g01a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:12:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t07a",
+   "label": "Mutually Exclusive Events",
+   "slug": "mutually exclusive event",
+   "aliases": [],
+   "kind": "topic",
+   "parentId": "g01a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:14:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t11a",
+   "label": "Expected Value",
+   "slug": "expected value",
+   "aliases": [],
+   "kind": "topic",
+   "parentId": "g11a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:22:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t18a",
+   "label": "Matrix Has Eigenvalue",
+   "slug": "matrix ha eigenvalue",
+   "aliases": [],
+   "kind": "concept",
+   "parentId": "t01a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:36:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t20a",
+   "label": "Total Probability",
+   "slug": "total probability",
+   "aliases": [],
+   "kind": "concept",
+   "parentId": "t07a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:40:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t23a",
+   "label": "Probability Density Function",
+   "slug": "probability density function",
+   "aliases": [],
+   "kind": "concept",
+   "parentId": "t20a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:46:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t13b",
+   "label": "Svd and Eigendecomposition",
+   "slug": "svd and eigendecomposition",
+   "aliases": [],
+   "kind": "concept",
+   "parentId": "t02a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T09:26:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t30a",
+   "label": "Orders Join Customers",
+   "slug": "order join customer",
+   "aliases": [],
+   "kind": "concept",
+   "parentId": "t06a",
+   "createdBy": "llm",
+   "createdAt": "2026-12-01T10:00:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  }
+ ],
+ "trees": [
+  {
+   "id": "t:t01a",
+   "rootConceptId": "t01a",
+   "title": "Eigenvalues",
+   "groveId": "g01a",
+   "createdAt": "2026-12-01T09:02:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t:t04a",
+   "rootConceptId": "t04a",
+   "title": "Test Positive",
+   "groveId": "g01a",
+   "createdAt": "2026-12-01T09:08:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t:t06a",
+   "rootConceptId": "t06a",
+   "title": "Inner Join",
+   "groveId": "g01a",
+   "createdAt": "2026-12-01T09:12:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t:t07a",
+   "rootConceptId": "t07a",
+   "title": "Mutually Exclusive Events",
+   "groveId": "g01a",
+   "createdAt": "2026-12-01T09:14:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t:t11a",
+   "rootConceptId": "t11a",
+   "title": "Expected Value",
+   "groveId": "g11a",
+   "createdAt": "2026-12-01T09:22:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  }
+ ],
+ "attempts": [
+  {
+   "id": "a:s2_p01",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p01",
+   "conceptId": "t01a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:02:00Z"
+  },
+  {
+   "id": "a:s2_p02",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p02",
+   "conceptId": "t02a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:04:00Z"
+  },
+  {
+   "id": "a:s2_p03",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p03",
+   "conceptId": "t07a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:06:00Z"
+  },
+  {
+   "id": "a:s2_p04",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p04",
+   "conceptId": "t04a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:08:00Z"
+  },
+  {
+   "id": "a:s2_p05",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p05",
+   "conceptId": "t05a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:10:00Z"
+  },
+  {
+   "id": "a:s2_p06",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p06",
+   "conceptId": "t06a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:12:00Z"
+  },
+  {
+   "id": "a:s2_p07",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p07",
+   "conceptId": "t07a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:14:00Z"
+  },
+  {
+   "id": "a:s2_p08",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p08",
+   "conceptId": "t05a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:16:00Z"
+  },
+  {
+   "id": "a:s2_p09",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p09",
+   "conceptId": "t06a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:18:00Z"
+  },
+  {
+   "id": "a:s2_p10",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p10",
+   "conceptId": "t05a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:20:00Z"
+  },
+  {
+   "id": "a:s2_p11",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p11",
+   "conceptId": "t11a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:22:00Z"
+  },
+  {
+   "id": "a:s2_p12",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p12",
+   "conceptId": "t04a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:24:00Z"
+  },
+  {
+   "id": "a:s2_p13",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p13",
+   "conceptId": "t13b",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:26:00Z"
+  },
+  {
+   "id": "a:s2_p14",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p14",
+   "conceptId": "t11a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:28:00Z"
+  },
+  {
+   "id": "a:s2_p15",
+   "conversationId": "s2_mixed:c1",
+   "messageId": "s2_p15",
+   "conceptId": "t13b",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:30:00Z"
+  },
+  {
+   "id": "a:s2_p16",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p16",
+   "conceptId": "t13b",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:32:00Z"
+  },
+  {
+   "id": "a:s2_p17",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p17",
+   "conceptId": "t07a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:34:00Z"
+  },
+  {
+   "id": "a:s2_p18",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p18",
+   "conceptId": "t18a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:36:00Z"
+  },
+  {
+   "id": "a:s2_p19",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p19",
+   "conceptId": "t13b",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:38:00Z"
+  },
+  {
+   "id": "a:s2_p20",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p20",
+   "conceptId": "t20a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:40:00Z"
+  },
+  {
+   "id": "a:s2_p21",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p21",
+   "conceptId": "t18a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:42:00Z"
+  },
+  {
+   "id": "a:s2_p22",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p22",
+   "conceptId": "t30a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:44:00Z"
+  },
+  {
+   "id": "a:s2_p23",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p23",
+   "conceptId": "t23a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:46:00Z"
+  },
+  {
+   "id": "a:s2_p24",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p24",
+   "conceptId": "t05a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:48:00Z"
+  },
+  {
+   "id": "a:s2_p25",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p25",
+   "conceptId": "t13b",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:50:00Z"
+  },
+  {
+   "id": "a:s2_p26",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p26",
+   "conceptId": "t23a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:52:00Z"
+  },
+  {
+   "id": "a:s2_p27",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p27",
+   "conceptId": "t23a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:54:00Z"
+  },
+  {
+   "id": "a:s2_p28",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p28",
+   "conceptId": "t04a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:56:00Z"
+  },
+  {
+   "id": "a:s2_p29",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p29",
+   "conceptId": "t13b",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T09:58:00Z"
+  },
+  {
+   "id": "a:s2_p30",
+   "conversationId": "s2_mixed:c2",
+   "messageId": "s2_p30",
+   "conceptId": "t30a",
+   "mode": "together",
+   "independence": 0.5,
+   "correctness": null,
+   "confidence": 1.0,
+   "reasons": [
+    "placed by the forest IP"
+   ],
+   "evidence": [],
+   "source": "prompt",
+   "createdAt": "2026-12-01T10:00:00Z"
+  }
+ ],
+ "messages": [
+  {
+   "id": "s2_p01",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "How do I find the eigenvalues of a 2x2 matrix? I know it's det(A - λI) = 0 but I get lost after that.",
+   "createdAt": "2026-12-01T09:02:00Z"
+  },
+  {
+   "id": "s2_p02",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "What does it mean geometrically that a vector is an eigenvector?",
+   "createdAt": "2026-12-01T09:04:00Z"
+  },
+  {
+   "id": "s2_p03",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "What's the difference between P(A|B) and P(B|A)? I always mix them up.",
+   "createdAt": "2026-12-01T09:06:00Z"
+  },
+  {
+   "id": "s2_p04",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "A test is 99% accurate and the disease has 1% prevalence. If I test positive, what's the chance I have it? I got 99% but that seems wrong.",
+   "createdAt": "2026-12-01T09:08:00Z"
+  },
+  {
+   "id": "s2_p05",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "When is a matrix diagonalizable? Is it enough that the eigenvalues are distinct?",
+   "createdAt": "2026-12-01T09:10:00Z"
+  },
+  {
+   "id": "s2_p06",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "What's the difference between an INNER JOIN and a LEFT JOIN?",
+   "createdAt": "2026-12-01T09:12:00Z"
+  },
+  {
+   "id": "s2_p07",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "Are independent events the same as mutually exclusive events?",
+   "createdAt": "2026-12-01T09:14:00Z"
+  },
+  {
+   "id": "s2_p08",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "How do I compute the rank of a matrix with row reduction?",
+   "createdAt": "2026-12-01T09:16:00Z"
+  },
+  {
+   "id": "s2_p09",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "My LEFT JOIN returns more rows than the left table has. How is that possible?",
+   "createdAt": "2026-12-01T09:18:00Z"
+  },
+  {
+   "id": "s2_p10",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "Is the rank of A the same as the rank of A transpose? Why?",
+   "createdAt": "2026-12-01T09:20:00Z"
+  },
+  {
+   "id": "s2_p11",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "How do I compute the expected value of a die roll?",
+   "createdAt": "2026-12-01T09:22:00Z"
+  },
+  {
+   "id": "s2_p12",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "What is 3NF and how do I check if my schema is in it?",
+   "createdAt": "2026-12-01T09:24:00Z"
+  },
+  {
+   "id": "s2_p13",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "What's the difference between SVD and eigendecomposition?",
+   "createdAt": "2026-12-01T09:26:00Z"
+  },
+  {
+   "id": "s2_p14",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "Var(X+Y) = Var(X) + Var(Y), does that only hold if X and Y are independent?",
+   "createdAt": "2026-12-01T09:28:00Z"
+  },
+  {
+   "id": "s2_p15",
+   "conversationId": "s2_mixed:c1",
+   "role": "user",
+   "text": "When should I add an index to a column?",
+   "createdAt": "2026-12-01T09:30:00Z"
+  },
+  {
+   "id": "s2_p16",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "How is SVD used for low-rank approximation of an image?",
+   "createdAt": "2026-12-01T09:32:00Z"
+  },
+  {
+   "id": "s2_p17",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "When should I use a binomial vs a Poisson distribution?",
+   "createdAt": "2026-12-01T09:34:00Z"
+  },
+  {
+   "id": "s2_p18",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "If a matrix has eigenvalue 0, does that mean it's not invertible?",
+   "createdAt": "2026-12-01T09:36:00Z"
+  },
+  {
+   "id": "s2_p19",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "Why is a B-tree index good for range queries but a hash index isn't?",
+   "createdAt": "2026-12-01T09:38:00Z"
+  },
+  {
+   "id": "s2_p20",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "Can you explain the law of total probability with an example?",
+   "createdAt": "2026-12-01T09:40:00Z"
+  },
+  {
+   "id": "s2_p21",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "I diagonalized A = PDP^-1, how do I use that to compute A^10?",
+   "createdAt": "2026-12-01T09:42:00Z"
+  },
+  {
+   "id": "s2_p22",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "How do I write a query that finds customers with no orders?",
+   "createdAt": "2026-12-01T09:44:00Z"
+  },
+  {
+   "id": "s2_p23",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "What is a probability density function, and why can it be bigger than 1?",
+   "createdAt": "2026-12-01T09:46:00Z"
+  },
+  {
+   "id": "s2_p24",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "Is denormalization ever a good idea?",
+   "createdAt": "2026-12-01T09:48:00Z"
+  },
+  {
+   "id": "s2_p25",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "Is the number of nonzero singular values equal to the rank?",
+   "createdAt": "2026-12-01T09:50:00Z"
+  },
+  {
+   "id": "s2_p26",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "Bayes: prior, likelihood, posterior, which is which in the formula?",
+   "createdAt": "2026-12-01T09:52:00Z"
+  },
+  {
+   "id": "s2_p27",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "What's a functional dependency? The lecture defines it but I don't see the point.",
+   "createdAt": "2026-12-01T09:54:00Z"
+  },
+  {
+   "id": "s2_p28",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "Is the normal distribution's 68-95-99.7 rule exact?",
+   "createdAt": "2026-12-01T09:56:00Z"
+  },
+  {
+   "id": "s2_p29",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "Does an index slow down INSERTs?",
+   "createdAt": "2026-12-01T09:58:00Z"
+  },
+  {
+   "id": "s2_p30",
+   "conversationId": "s2_mixed:c2",
+   "role": "user",
+   "text": "Can you check my query: SELECT name, COUNT(*) FROM orders JOIN customers USING (id) GROUP BY name. Is joining on id right?",
+   "createdAt": "2026-12-01T10:00:00Z"
+  }
+ ]
+}

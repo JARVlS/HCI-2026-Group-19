@@ -1,0 +1,66 @@
+{
+ "version": 1,
+ "step": 4,
+ "groups": [
+  {
+   "id": "g01a",
+   "label": "Machine Learning"
+  }
+ ],
+ "topics": [
+  {
+   "id": "t01a",
+   "label": "Supervised and Unsupervised",
+   "parent_id": "g01a",
+   "parent_kind": "group"
+  },
+  {
+   "id": "t04a",
+   "label": "Bias-variance Tradeoff",
+   "parent_id": "g01a",
+   "parent_kind": "group"
+  }
+ ],
+ "prompts": [
+  {
+   "id": "s3_p01",
+   "text": "What's the difference between supervised and unsupervised learning?",
+   "step": 1,
+   "session_id": "s3_drift",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p02",
+   "text": "Why do we need a separate test set if we already have a validation set?",
+   "step": 2,
+   "session_id": "s3_drift",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p03",
+   "text": "What is overfitting and how can I tell it's happening from the loss curves?",
+   "step": 3,
+   "session_id": "s3_drift",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p04",
+   "text": "Can you explain the bias-variance tradeoff with a simple example?",
+   "step": 4,
+   "session_id": "s3_drift",
+   "chat_id": "c1"
+  }
+ ],
+ "assignment": {
+  "s3_p01": "t01a",
+  "s3_p02": "t01a",
+  "s3_p03": "t01a",
+  "s3_p04": "t04a"
+ },
+ "access_log": {
+  "s3_p01": 1,
+  "s3_p02": 2,
+  "s3_p03": 3,
+  "s3_p04": 4
+ }
+}

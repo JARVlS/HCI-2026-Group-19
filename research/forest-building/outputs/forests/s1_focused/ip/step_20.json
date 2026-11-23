@@ -1,0 +1,258 @@
+{
+ "version": 1,
+ "step": 20,
+ "groups": [
+  {
+   "id": "g01a",
+   "label": "Deep Learning"
+  }
+ ],
+ "topics": [
+  {
+   "id": "t01a",
+   "label": "Backpropagation",
+   "parent_id": "g01a",
+   "parent_kind": "group"
+  },
+  {
+   "id": "t02b",
+   "label": "Layer Mlp",
+   "parent_id": "t01a",
+   "parent_kind": "topic"
+  },
+  {
+   "id": "t03a",
+   "label": "Computational Graph",
+   "parent_id": "t01a",
+   "parent_kind": "topic"
+  },
+  {
+   "id": "t04a",
+   "label": "Sigmoid in Hidden",
+   "parent_id": "t02b",
+   "parent_kind": "topic"
+  },
+  {
+   "id": "t07a",
+   "label": "Local Gradients",
+   "parent_id": "g01a",
+   "parent_kind": "group"
+  },
+  {
+   "id": "t09a",
+   "label": "Derivative of Softmax",
+   "parent_id": "g01a",
+   "parent_kind": "group"
+  },
+  {
+   "id": "t10a",
+   "label": "Leaky Relu",
+   "parent_id": "g01a",
+   "parent_kind": "group"
+  },
+  {
+   "id": "t13a",
+   "label": "Gradient Checking",
+   "parent_id": "t07a",
+   "parent_kind": "topic"
+  },
+  {
+   "id": "t18b",
+   "label": "Vanishing Gradients",
+   "parent_id": "t07a",
+   "parent_kind": "topic"
+  },
+  {
+   "id": "t19a",
+   "label": "Learning Rate",
+   "parent_id": "t09a",
+   "parent_kind": "topic"
+  }
+ ],
+ "prompts": [
+  {
+   "id": "s1_p01",
+   "text": "We're doing backprop on exercise sheet 4. Can you explain what backpropagation actually computes? I get that it's the gradient but not why it goes backwards.",
+   "step": 1,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p02",
+   "text": "For a 2-layer MLP with sigmoid hidden units I wrote dL/dW1 = dL/dy * W2 * x. Is that missing something?",
+   "step": 2,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p03",
+   "text": "how does the chain rule work on a computational graph when one node feeds into two others?",
+   "step": 3,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p04",
+   "text": "Why do people use ReLU instead of sigmoid in hidden layers?",
+   "step": 4,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p05",
+   "text": "I computed the gradient of the loss wrt the bias in layer 1 as the sum of the deltas over the batch. Is summing right or should it be the mean?",
+   "step": 5,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p06",
+   "text": "what is the derivative of tanh? I think it's 1 - tanh^2 but I'm not sure why",
+   "step": 6,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p07",
+   "text": "In the computational graph for f = (x+y)*z, what are the local gradients at each node?",
+   "step": 7,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p08",
+   "text": "Our network trains fine with 3 layers but with 10 layers the loss barely moves. Is that the vanishing gradient problem?",
+   "step": 8,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p09",
+   "text": "What's the derivative of softmax combined with cross-entropy? The sheet says it simplifies to y_hat - y",
+   "step": 9,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p10",
+   "text": "Leaky ReLU vs ReLU, does the small negative slope really matter in practice?",
+   "step": 10,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p11",
+   "text": "Should I use SGD or Adam for the exercise? The sheet doesn't say.",
+   "step": 11,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p12",
+   "text": "Why exactly does the gradient shrink layer by layer with sigmoid? Is it because the derivative is at most 0.25?",
+   "step": 12,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p13",
+   "text": "How do I do gradient checking with finite differences? What epsilon should I pick?",
+   "step": 13,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p14",
+   "text": "My gradient check gives a relative error of 1e-3. Is that good enough or is my backward pass wrong?",
+   "step": 14,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p15",
+   "text": "Does ReLU fix vanishing gradients completely, or can it still happen?",
+   "step": 15,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p16",
+   "text": "What does momentum do in SGD, intuitively?",
+   "step": 16,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p17",
+   "text": "When I backprop through a max pooling layer, where does the gradient go?",
+   "step": 17,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p18",
+   "text": "Do residual connections help with vanishing gradients? How?",
+   "step": 18,
+   "session_id": "s1_focused",
+   "chat_id": "c1"
+  },
+  {
+   "id": "s1_p19",
+   "text": "My learning rate of 0.1 makes the loss explode and 0.001 is super slow. How do people choose the learning rate?",
+   "step": 19,
+   "session_id": "s1_focused",
+   "chat_id": "c2"
+  },
+  {
+   "id": "s1_p20",
+   "text": "What's the bias correction in Adam for? I don't get why the first steps are biased.",
+   "step": 20,
+   "session_id": "s1_focused",
+   "chat_id": "c2"
+  }
+ ],
+ "assignment": {
+  "s1_p01": "t01a",
+  "s1_p02": "t02b",
+  "s1_p03": "t03a",
+  "s1_p04": "t04a",
+  "s1_p05": "t04a",
+  "s1_p06": "t03a",
+  "s1_p07": "t07a",
+  "s1_p08": "t07a",
+  "s1_p09": "t09a",
+  "s1_p10": "t10a",
+  "s1_p11": "t09a",
+  "s1_p12": "t04a",
+  "s1_p13": "t13a",
+  "s1_p14": "t13a",
+  "s1_p15": "t10a",
+  "s1_p16": "t09a",
+  "s1_p17": "t01a",
+  "s1_p18": "t18b",
+  "s1_p19": "t19a",
+  "s1_p20": "t19a"
+ },
+ "access_log": {
+  "s1_p01": 1,
+  "s1_p02": 2,
+  "s1_p03": 3,
+  "s1_p04": 4,
+  "s1_p05": 5,
+  "s1_p06": 6,
+  "s1_p07": 7,
+  "s1_p08": 12,
+  "s1_p09": 9,
+  "s1_p10": 10,
+  "s1_p11": 20,
+  "s1_p12": 15,
+  "s1_p13": 13,
+  "s1_p14": 14,
+  "s1_p15": 15,
+  "s1_p16": 16,
+  "s1_p17": 17,
+  "s1_p18": 18,
+  "s1_p19": 19,
+  "s1_p20": 20
+ }
+}

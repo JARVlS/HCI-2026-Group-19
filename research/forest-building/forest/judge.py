@@ -120,6 +120,7 @@ class PlacementRequest:
     groups: list[tuple[str, str]]  # (id, label)
     forest: Forest = field(repr=False, default=None)  # only the offline judge reads it
     order_seed: int = 0
+    repeat: int = 0  # only in the cache key: a second live call with the same input (consistency check)
 
 
 @dataclass
@@ -460,9 +461,10 @@ class LLMJudge:
                 self._client = anthropic.Anthropic()
         return self._client
 
-    def _call(self, kind: str, system: str, user: str, out_model: type[BaseModel]) -> tuple[BaseModel, JudgeMeta]:
+    def _call(self, kind: str, system: str, user: str, out_model: type[BaseModel], repeat: int = 0) -> tuple[BaseModel, JudgeMeta]:
         meta = JudgeMeta(model=self.model)
-        k = cache.key("judge", kind, self.backend, self.model, TEMPLATE_VERSION, self.jcfg["effort"], system, user)
+        k = cache.key("judge", kind, self.backend, self.model, TEMPLATE_VERSION, self.jcfg["effort"], system, user,
+                      *([repeat] if repeat else []))
         store = cache.store("judge")
         hit = store.get(k)
         if hit is not None:
@@ -521,7 +523,8 @@ class LLMJudge:
 
     def placement(self, req: PlacementRequest) -> tuple[PlacementOut, JudgeMeta]:
         system = PLACEMENT_SYSTEM.replace("{max_proposed}", str(self.jcfg["max_proposed"]))
-        return self._call("placement", system, render_placement(req, self.jcfg["examples_per_topic"]), PlacementOut)
+        return self._call("placement", system, render_placement(req, self.jcfg["examples_per_topic"]), PlacementOut,
+                          repeat=req.repeat)
 
     def neighbourhood(self, req: NeighbourhoodRequest) -> tuple[NeighbourhoodOut, JudgeMeta]:
         return self._call("neighbourhood", NEIGHBOURHOOD_SYSTEM, render_neighbourhood(req), NeighbourhoodOut)
