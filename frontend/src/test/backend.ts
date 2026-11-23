@@ -26,6 +26,8 @@ export interface Call {
   method: string;
   keepalive: boolean;
   auth: string | null;
+  /** The `X-Admin-Token` header (the logs page). */
+  admin: string | null;
   body: Record<string, unknown> | null;
   signal: AbortSignal | null;
 }
@@ -43,6 +45,7 @@ export function fakeBackend(answer: (call: Call) => Response | Promise<Response>
       method: init.method ?? 'GET',
       keepalive: Boolean(init.keepalive),
       auth: new Headers(init.headers).get('authorization'),
+      admin: new Headers(init.headers).get('x-admin-token'),
       body: typeof init.body === 'string' ? JSON.parse(init.body) : null,
       signal: init.signal ?? null,
     };

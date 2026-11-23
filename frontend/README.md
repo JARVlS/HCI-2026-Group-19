@@ -220,7 +220,20 @@ Each event has an `id`, its `type`, `clientTs`, and `conversationId` (the chat i
 
 **Users on one browser:** the backend files an event under the token that sends it. A page's events go out with that page's session. The mirror carries a fingerprint of the token (a hash, never the token), and a page signed in as someone else (after a log out or a log in) discards it instead of sending it under the wrong user.
 
-**Look at it:** `curl -s 'https://hci-backend.leon-grass.workers.dev/api/admin/export?table=events' -H "x-admin-token: $ADMIN_TOKEN" -o events.csv` (columns `id, user_id, condition, type, payload_json, client_ts, server_ts`; `conversationId` is inside `payload_json`; see `backend/docs/api.md`). Locally: `uv run pywrangler d1 execute hci-grp19 --local --command "SELECT type, payload_json FROM events ORDER BY server_ts, id"` in `backend/`.
+**Look at it:** `curl -s 'https://hci-backend.leon-grass.workers.dev/api/admin/export?table=events' -H "x-admin-token: $ADMIN_TOKEN" -o events.csv` (columns `id, user_id, condition, type, payload_json, client_ts, server_ts`; `conversationId` is inside `payload_json`; see `backend/docs/api.md`). Locally: `uv run pywrangler d1 execute hci-grp19 --local --command "SELECT type, payload_json FROM events ORDER BY server_ts, id"` in `backend/`. Or the logs page below.
+
+## Logs page
+
+**https://hci-2026-group-19.pages.dev/logs** (no slash at the end): the usage log for the study team, so you can see what one person did in one visit and get the data out. Not linked from the app; share the address in the team. `noindex`, so search engines skip it. Code: `logs.html` (a second Vite entry next to `index.html`, see `vite.config.ts`) and `src/logs/`.
+
+- **Token:** the backend's admin token (`ADMIN_TOKEN`, ask whoever runs the Worker). Kept in this tab's sessionStorage (`arbor.logs.token`, gone when the tab closes), never in localStorage, the url or the console; *forget token* drops it. A wrong token shows the backend's message.
+- **Visits** (`GET /api/admin/visits`, newest first, *load older* for the next 100): start in your local time, how long it lasted, who (username, else participant id, else the start of the user id; *guest* without an account), condition, design, events and turns. The filter looks at the loaded visits only.
+- **One visit** (all its events, `GET /api/admin/events`, 1,000 per request, with a running count): mm:ss since the start, the type, one readable line from the payload, and the texts in full (message, reply, draft, guess, paste, copied text). Click a row for its raw JSON. Filters: the groups (writing, replies, tree pane, navigation, page), one type (then groups and noise do not apply), a search over the payload values, and *hide noise* (on at first: `filter_rated`, `message_rest`, `hint_hover`, `resize`, `idle_start`, `idle_end`). The header: browser, window (and its last size), screen, language, answers, theme, account, url parameters, turns, and the pane's time as tree vs. outline (`paneTime` in `src/logs/visit.ts`: only while the ASCII pane is open, the forest closed, the tab visible and the visitor not idle; sheets over the pane are not taken out; left out when the visit has no `view_start` or no `session_start`).
+- **What is logged:** every event type with its group and one sentence (`src/logs/legend.ts`, a `Record` over `UsageEvent['type']`: a new event does not compile without its line, and `src/logs/summary.ts` needs its readable line too), what is never logged, and that the demo logs nothing.
+- **Data out:** *this visit (json)* (the visit row and all its events) and every table as CSV through `GET /api/admin/export` (events, users, conversations, messages, attempts, concepts, trees, usage).
+- Failures show the error with *retry*, never an empty list.
+- Locally: backend on `:8787` (`ADMIN_TOKEN` from `backend/.dev.vars`), `npm run dev`, then http://localhost:5173/logs.html. Cloudflare Pages serves `logs.html` at `/logs` (an HTML file that matches the path wins over the single-page fallback; `/logs.html` redirects there).
+- Cost: each events request reads the whole events table in D1 (no index; `backend/docs/api.md`).
 
 ## Demo script, ASCII style (≈ 3 minutes)
 

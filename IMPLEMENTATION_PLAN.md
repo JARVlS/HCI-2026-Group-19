@@ -1054,6 +1054,11 @@ message mode (tune prompts until it is, or report honestly).
       `forest_filter`, `squirrel_tip`, `concept_try`, `model_test`, `online`, `offline`,
       `resize`, `idle_start`/`idle_end`, `client_error`; `session_start` has the browser and
       screen. The mirror keeps at most 1 MB of JSON, so the sync queue keeps its room.
+      *21 Nov:* logs page for the team at `/logs` (`frontend/logs.html`, `src/logs/`; Salomon:
+      "add a page to see the logs / access them for our members"): admin token gate, visits
+      newest first, one visit's timeline with readable lines, full texts, filters and raw JSON,
+      the legend of every event, JSON and CSV downloads. Backend: `GET /admin/visits`,
+      `GET /admin/events` (§4). Not linked from the app.
 - [ ] Study task script: fixed topic plus seed subject; **live Claude via the `arbor` relay**
       (decided), with fixed models per task and temperature 0 for analysis; a session timer.
       (*16 Nov:* temperature cannot be set on API version 2026-10-21; fixed model and effort instead.)
