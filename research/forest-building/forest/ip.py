@@ -416,10 +416,11 @@ def decode(sol: Solution, inp: IPInput, h: Handles, params: IPParams) -> tuple[F
     else:
         pid, kind = sol.parent[c_star]
         placement = "b" if kind == "topic" else ("c" if pid in old.groups else "d")
-    action: Action = "e" if sol.z else placement
-
     renamed = {R[r]: {"from": old.topics[R[r]].label, "to": inp.new_topics[r].label}
                for r in R if sol.y.get(r)}
+    # z = 1 means (e). When F = 0 the solver may also set z = 1 without any change (a tie), so (e)
+    # additionally needs a moved prompt, a moved or removed category, or a rename.
+    action: Action = "e" if sol.z and (sol.m or sol.k or renamed) else placement
     diff = {
         "moved_prompts": sorted(p for p in old.prompts if new.assignment[p] != old.assignment[p]),
         "moved_topics": sorted(c for c in old.topics if c in new.topics
