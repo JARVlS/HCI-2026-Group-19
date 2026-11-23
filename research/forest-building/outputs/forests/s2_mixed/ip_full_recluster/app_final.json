@@ -175,8 +175,8 @@
    "label": "Matrix Has Eigenvalue",
    "slug": "matrix ha eigenvalue",
    "aliases": [],
-   "kind": "concept",
-   "parentId": "t01a",
+   "kind": "topic",
+   "parentId": "g01a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:36:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -208,8 +208,8 @@
    "label": "Diagonalized",
    "slug": "diagonalized",
    "aliases": [],
-   "kind": "topic",
-   "parentId": "g01a",
+   "kind": "concept",
+   "parentId": "t18a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:42:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -323,19 +323,19 @@
    "updatedAt": "2026-12-01T10:00:00Z"
   },
   {
+   "id": "t:t18a",
+   "rootConceptId": "t18a",
+   "title": "Matrix Has Eigenvalue",
+   "groveId": "g01a",
+   "createdAt": "2026-12-01T09:36:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
    "id": "t:t20a",
    "rootConceptId": "t20a",
    "title": "Total Probability",
    "groveId": "g11a",
    "createdAt": "2026-12-01T09:40:00Z",
-   "updatedAt": "2026-12-01T10:00:00Z"
-  },
-  {
-   "id": "t:t21a",
-   "rootConceptId": "t21a",
-   "title": "Diagonalized",
-   "groveId": "g01a",
-   "createdAt": "2026-12-01T09:42:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
   },
   {
@@ -424,7 +424,7 @@
    "id": "a:s2_p05",
    "conversationId": "s2_mixed:c1",
    "messageId": "s2_p05",
-   "conceptId": "t18a",
+   "conceptId": "t01a",
    "mode": "together",
    "independence": 0.5,
    "correctness": null,

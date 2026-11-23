@@ -7,8 +7,9 @@ the plan's §2, with constraints C1 to C18 and the rename extension R1 to R5, in
 [`forest/ip.py`](forest/ip.py).
 
 ```
-new prompt -> [1. shortlist (embeddings)] -> [2. judge (scores + candidate names)]
-           -> [3. integer program (Gurobi)] -> [4. new forest + action]
+new prompt -> [1. judge (scores + candidate names), on the whole forest]
+           -> [2. scores: judge mixed with embedding cosine] -> [3. integer program (Gurobi)]
+           -> [4. new forest + action]
 ```
 
 ## Status (23 Nov 2026)
@@ -17,7 +18,7 @@ new prompt -> [1. shortlist (embeddings)] -> [2. judge (scores + candidate names
 |---|---|
 | 0 Setup | done. Pinned requirements, `config/default.yaml`, a disk cache with a committed snapshot, a cost guard and ledger |
 | 1 Data | done, **drafts**. Three sessions (30, 30, 25 prompts) and gold labels written by Claude Opus 5.5; empty templates for the group |
-| 2 Shortlist | done. MiniLM + `mix` topic vector, `k = 5` (recall@3 0.98 on draft labels). The API embedding model is open (no key) |
+| 2 Embeddings | done. **No shortlist** (removed 24 Nov): the judge rates every topic. MiniLM + `mix` finds the gold topic first for 82.5 % of prompts (draft labels). The API embedding model is open (no key) |
 | 3 Judge | templates, Pydantic outputs, Claude backends and a validation sample done. **Only the offline stand-in has run**; the live model comparison is open |
 | 4 IP | done. 17 unit tests, one per outcome. Every step solves in under 15 ms with at most 375 variables and 534 constraints |
 | 5 Simulation | done. Six methods on three sessions, all forests valid, metrics, figures, export in the app's data model |
@@ -69,14 +70,14 @@ reject `temperature`, so the plan's "temperature 0" cannot be set; consistency i
 |---|---|
 | `forest/model.py` | `Forest` (groups, topics, prompts, assignment, access log), `validate()`, JSON |
 | `forest/io.py` | sessions, gold labels, gold-forest replay, snapshots |
-| `forest/embed.py` | cached embeddings (MiniLM, bge-small, TF-IDF), calibration, shortlist, key phrases |
+| `forest/embed.py` | cached embeddings (MiniLM, bge-small, TF-IDF), calibration, key phrases |
 | `forest/judge.py` | templates (`TEMPLATE_VERSION`), Pydantic outputs, offline stand-in, Claude backends |
 | `forest/scores.py` | `s`, `h`, `hg` from judge and cosine; score memo across steps; `w`, `v` |
 | `forest/ip.py` | prune (C18), build, solve, decode; size-limit handling |
-| `forest/pipeline.py` | one step: shortlist, judge, scores, IP; the judge-argmax decision for comparison |
+| `forest/pipeline.py` | one step: judge (whole forest), scores, IP; the judge-argmax decision for comparison |
 | `forest/baselines.py` | `chronological`, `greedy`, `judge_argmax`, `judge_restructure` |
 | `forest/simulate.py` | a method over a session (`run`, `compare`, `trace_ip`) |
-| `forest/metrics.py`, `forest/evaluate.py` | per-step metrics; recall@k, judge agreement, kappa |
+| `forest/metrics.py`, `forest/evaluate.py` | per-step metrics; nearest-topic accuracy, judge agreement, kappa |
 | `forest/viz.py`, `forest/export.py` | figures; app-format export |
 | `data/sessions/`, `data/gold/` | drafted sessions, draft gold labels, templates for raters, judge validation sample |
 | `data/frozen/` | committed cache snapshot (embeddings; judge answers once a live judge ran) |
@@ -101,35 +102,38 @@ independence) are placeholders. `planner-params.json` is meant for
 ## Deviations from the plan, and why
 
 1. **Folder.** `optimization/` became `research/forest-building/`, next to `research/thinking-filter/`.
-2. **Judge.** The offline stand-in is the default; the live backends are wired but have not been
+2. **No shortlist** (decided 24 Nov). The judge rates every topic of the forest: at most 12 in the
+   gold forests and at most 26 in the method runs, which fits one prompt easily. Phase 2 now only
+   picks the embedding model, by how often its cosine ranks the gold topic first.
+3. **Judge.** The offline stand-in is the default; the live backends are wired but have not been
    called (no key was available, and plan §6 asks the group to choose the provider first).
-3. **Hierarchy call merged.** Parent fits of proposed topics come with the placement call, as the
+4. **Hierarchy call merged.** Parent fits of proposed topics come with the placement call, as the
    plan allows. Children of proposed topics and trees under proposed groups come with the
    neighbourhood call, so a step makes at most 2 calls.
-4. **Calibrated cosine.** `s` mixes the judge (0 to 1) with a cosine mapped to 0 to 1 per
+5. **Calibrated cosine.** `s` mixes the judge (0 to 1) with a cosine mapped to 0 to 1 per
    embedding model (`scores.calibration`; rule in `forest/embed.py fit_calibration`). Raw cosines
    sit on different scales per model (bge: unrelated 0.56, own topic 0.70).
-5. **`lam_G = 0.5`, not 1.0.** A new group costs `lam_G + lam + beta (L - 1)` and gains at most
+6. **`lam_G = 0.5`, not 1.0.** A new group costs `lam_G + lam + beta (L - 1)` and gains at most
    `1 + alpha_G`. With the start values (1.7 against 1.5) no group can ever be created
    (`notebooks/04`).
-6. **Action (e)** needs `z = 1` *and* an actual move, removal or rename. With `F = 0` the solver
+7. **Action (e)** needs `z = 1` *and* an actual move, removal or rename. With `F = 0` the solver
    may set `z = 1` without any change. `ip_full_recluster` uses a cost of 1e-4 instead of exactly 0,
    so ties do not move prompts for nothing.
-7. **Extra pruning (part of C18).** At most 4 alternatives per old prompt and 4 candidate parents
+8. **Extra pruning (part of C18).** At most 4 alternatives per old prompt and 4 candidate parents
    per topic, on top of `tau`. No edge links two proposed topics.
-8. **Cache.** `data/cache/` stays git-ignored as planned. Phase 7 needs cached inputs in git, so
+9. **Cache.** `data/cache/` stays git-ignored as planned. Phase 7 needs cached inputs in git, so
    `data/frozen/` holds a snapshot, and `cache.REQUIRE_CACHED` turns any miss into an error.
-9. **Evaluation fit.** All methods are scored by the calibrated cosine of each prompt to its
+10. **Evaluation fit.** All methods are scored by the calibrated cosine of each prompt to its
    topic's label (no judge scores, since every method sees different judge calls). This rewards
    many narrowly named topics; read it together with topics, `under_L` and the limit violations.
-10. **Baselines respect `D`** (a new topic that would be too deep goes one level up), so every
+11. **Baselines respect `D`** (a new topic that would be too deep goes one level up), so every
     forest validates. `K_T` and `K_G` breaches are counted, not prevented.
 
 ## What the stand-in runs show (to be redone with a live judge)
 
 - **Non-trivial:** given the same judge answer, the IP decides differently from the judge's
-  argmax in 47 %, 60 % and 80 % of the steps.
-- **Fit:** it scores below the judge-based baselines on the shared fit (e.g. 23.7 vs 28.8 on s1),
+  argmax in 50 %, 60 % and 80 % of the steps.
+- **Fit:** it scores below the judge-based baselines on the shared fit (e.g. 23.5 vs 28.8 on s1),
   with far fewer topics.
 - **Limits and stability:** it never breaks `K_T`, where `greedy` and `judge_argmax` exceed it by 5
   to 12 trees, and it moves at most 2 old prompts per session.

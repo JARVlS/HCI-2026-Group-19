@@ -198,7 +198,7 @@
    "slug": "matrix ha eigenvalue",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t05a",
+   "parentId": "t01a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:36:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -319,7 +319,7 @@
    "slug": "order join customer",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t22a",
+   "parentId": "t06a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T10:00:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"

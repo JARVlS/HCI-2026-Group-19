@@ -43,8 +43,8 @@
    "label": "Sigmoid Hidden Units",
    "slug": "sigmoid hidden unit",
    "aliases": [],
-   "kind": "topic",
-   "parentId": "g06a",
+   "kind": "concept",
+   "parentId": "t20a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:04:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -98,8 +98,8 @@
    "label": "Leaky Relu",
    "slug": "leaky relu",
    "aliases": [],
-   "kind": "topic",
-   "parentId": "g01a",
+   "kind": "concept",
+   "parentId": "t21a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:20:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -143,7 +143,7 @@
    "slug": "gradient checking",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t07a",
+   "parentId": "t03a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:26:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -154,7 +154,7 @@
    "slug": "gradient",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t03a",
+   "parentId": "t07a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:28:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -193,25 +193,25 @@
    "updatedAt": "2026-12-01T10:00:00Z"
   },
   {
-   "id": "t21b",
-   "label": "Relu",
-   "slug": "relu",
+   "id": "t21a",
+   "label": "Xavier",
+   "slug": "xavier",
    "aliases": [],
-   "kind": "concept",
-   "parentId": "t10a",
+   "kind": "topic",
+   "parentId": "g01a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:42:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
   },
   {
-   "id": "t22a",
-   "label": "Weights to Zero",
-   "slug": "weight to zero",
+   "id": "t23b",
+   "label": "Weights",
+   "slug": "weight",
    "aliases": [],
-   "kind": "concept",
-   "parentId": "t20a",
+   "kind": "topic",
+   "parentId": "g06a",
    "createdBy": "llm",
-   "createdAt": "2026-12-01T09:44:00Z",
+   "createdAt": "2026-12-01T09:46:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
   },
   {
@@ -220,7 +220,7 @@
    "slug": "weight decay",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t22a",
+   "parentId": "t23b",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:48:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -253,7 +253,7 @@
    "slug": "backprop",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t13a",
+   "parentId": "t14a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T10:00:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -264,7 +264,7 @@
    "slug": "gradient myself",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t13a",
+   "parentId": "t14a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T10:00:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -277,14 +277,6 @@
    "title": "Backpropagation",
    "groveId": "g01a",
    "createdAt": "2026-12-01T09:02:00Z",
-   "updatedAt": "2026-12-01T10:00:00Z"
-  },
-  {
-   "id": "t:t02a",
-   "rootConceptId": "t02a",
-   "title": "Sigmoid Hidden Units",
-   "groveId": "g06a",
-   "createdAt": "2026-12-01T09:04:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
   },
   {
@@ -304,19 +296,27 @@
    "updatedAt": "2026-12-01T10:00:00Z"
   },
   {
-   "id": "t:t10a",
-   "rootConceptId": "t10a",
-   "title": "Leaky Relu",
-   "groveId": "g01a",
-   "createdAt": "2026-12-01T09:20:00Z",
-   "updatedAt": "2026-12-01T10:00:00Z"
-  },
-  {
    "id": "t:t20a",
    "rootConceptId": "t20a",
    "title": "Correction in Adam",
    "groveId": "g06a",
    "createdAt": "2026-12-01T09:40:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t:t21a",
+   "rootConceptId": "t21a",
+   "title": "Xavier",
+   "groveId": "g01a",
+   "createdAt": "2026-12-01T09:42:00Z",
+   "updatedAt": "2026-12-01T10:00:00Z"
+  },
+  {
+   "id": "t:t23b",
+   "rootConceptId": "t23b",
+   "title": "Weights",
+   "groveId": "g06a",
+   "createdAt": "2026-12-01T09:46:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
   },
   {
@@ -437,7 +437,7 @@
    "id": "a:s1_p07",
    "conversationId": "s1_focused:c1",
    "messageId": "s1_p07",
-   "conceptId": "t14a",
+   "conceptId": "t07a",
    "mode": "together",
    "independence": 0.5,
    "correctness": null,
@@ -549,7 +549,7 @@
    "id": "a:s1_p14",
    "conversationId": "s1_focused:c1",
    "messageId": "s1_p14",
-   "conceptId": "t14a",
+   "conceptId": "t13a",
    "mode": "together",
    "independence": 0.5,
    "correctness": null,
@@ -565,7 +565,7 @@
    "id": "a:s1_p15",
    "conversationId": "s1_focused:c1",
    "messageId": "s1_p15",
-   "conceptId": "t21b",
+   "conceptId": "t10a",
    "mode": "together",
    "independence": 0.5,
    "correctness": null,
@@ -661,7 +661,7 @@
    "id": "a:s1_p21",
    "conversationId": "s1_focused:c2",
    "messageId": "s1_p21",
-   "conceptId": "t21b",
+   "conceptId": "t21a",
    "mode": "together",
    "independence": 0.5,
    "correctness": null,
@@ -677,7 +677,7 @@
    "id": "a:s1_p22",
    "conversationId": "s1_focused:c2",
    "messageId": "s1_p22",
-   "conceptId": "t22a",
+   "conceptId": "t24a",
    "mode": "together",
    "independence": 0.5,
    "correctness": null,
@@ -693,7 +693,7 @@
    "id": "a:s1_p23",
    "conversationId": "s1_focused:c2",
    "messageId": "s1_p23",
-   "conceptId": "t24a",
+   "conceptId": "t23b",
    "mode": "together",
    "independence": 0.5,
    "correctness": null,

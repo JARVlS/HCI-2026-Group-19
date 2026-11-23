@@ -51,8 +51,8 @@
    "parent_kind": "group"
   },
   {
-   "id": "t13a",
-   "label": "Gradient Checking",
+   "id": "t13b",
+   "label": "Finite Differences",
    "parent_id": "t07a",
    "parent_kind": "topic"
   },
@@ -264,8 +264,8 @@
   "s1_p10": "t10a",
   "s1_p11": "t09a",
   "s1_p12": "t04a",
-  "s1_p13": "t13a",
-  "s1_p14": "t13a",
+  "s1_p13": "t13b",
+  "s1_p14": "t07a",
   "s1_p15": "t10a",
   "s1_p16": "t09a",
   "s1_p17": "t01a",

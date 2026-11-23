@@ -1,4 +1,4 @@
-"""One placement step: shortlist -> judge -> scores -> IP -> new forest (plan §1.3)."""
+"""One placement step: judge (on the whole forest) -> scores -> IP -> new forest (plan §1.3, no shortlist)."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 
 from .config import IPParams
-from .embed import Embedder, shortlist
+from .embed import Embedder
 from .ip import IPInput, StepResult, place
 from .judge import NEW_GROUP, Candidate, Judge, JudgeMeta, NeighbourhoodOut, NeighbourhoodRequest, PlacementOut, PlacementRequest
 from .model import Forest, Prompt
@@ -26,7 +26,7 @@ class StepContext:
 
 @dataclass
 class JudgeView:
-    shortlist: list[str]
+    candidates: list[str]  # the topics the judge rated: every topic of the forest
     placement: PlacementOut
     neighbourhood: NeighbourhoodOut | None
     metas: list[JudgeMeta]
@@ -38,8 +38,7 @@ class JudgeView:
 
 def judge_step(forest: Forest, n: Prompt, ctx: StepContext) -> JudgeView:
     cfg = ctx.cfg
-    sl = cfg["shortlist"]
-    ids = shortlist(ctx.emb, forest, n.text, sl["k"], cfg["embed"]["topic_vector"], sl["include_parents"], sl["enabled"])
+    ids = sorted(forest.topics)  # no shortlist: the judge sees the whole forest
     k_ex = cfg["judge"]["examples_per_topic"]
     cands = [Candidate(c, forest.path(c), [forest.prompts[p].text for p in forest.prompts_in(c)[-k_ex:]]) for c in ids]
     req = PlacementRequest(prompt_id=n.id, text=n.text, candidates=cands,

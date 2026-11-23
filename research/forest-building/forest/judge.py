@@ -1,7 +1,7 @@
 """The judge: scores and candidate names for one placement step. It never decides placement.
 
 Three calls (plan Phase 3):
-  1. placement     one per new prompt: fit of the prompt to shortlisted topics, up to
+  1. placement     one per new prompt: fit of the prompt to every topic of the forest, up to
                    `max_proposed` new topics with parent fits (hierarchy call merged in, as the plan
                    allows), optional renames.
   2. neighbourhood only when topics are proposed: fit of nearby old prompts to the proposed topics,

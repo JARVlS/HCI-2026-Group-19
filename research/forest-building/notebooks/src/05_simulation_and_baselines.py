@@ -157,18 +157,18 @@ for sid in SESSION_IDS:
 #
 # - All six methods ran on all three sessions, and every one of the 510 forests validated.
 # - **Non-trivial:** given the same judge answer, the IP placed the prompt elsewhere than the
-#   judge's argmax in 47 %, 60 % and 80 % of the steps (s1, s2, s3). The IP without stability
+#   judge's argmax in 50 %, 60 % and 80 % of the steps (s1, s2, s3). The IP without stability
 #   costs did so in 23 to 40 %.
 # - **Fit:** on the shared label-cosine fit, the IP scores below the judge-based baselines
-#   (s1 23.7 vs 28.8 for `judge_argmax`, s2 19.0 vs 28.4, s3 16.2 vs 24.0) but far above the
+#   (s1 23.5 vs 28.8 for `judge_argmax`, s2 19.0 vs 28.4, s3 16.2 vs 24.0) but far above the
 #   chat-sidebar status quo (`chronological`: 8.4, 5.3, 7.3). It also builds far fewer topics
 #   (15, 12, 10 vs 21, 26, 19). This metric rewards many topics named after their own prompts,
 #   which the IP prices with `lam` and `L`.
 # - **Structure and stability:** the IP never breaks the tree limit `K_T`, while `greedy` and
-#   `judge_argmax` exceed it by 5 to 12 trees per session and leave 6 to 18 topics below `L`. The
+#   `judge_argmax` exceed it by 5 to 12 trees per session and leave 6 to 19 topics below `L`. The
 #   IP moved at most 2 old prompts per session (weighted disruption 0 to 3.1). The IP without
-#   stability costs moved 18 to 42 (78 to 182), and the periodic judge restructure up to 21 (24 to 67).
-# - **Gold agreement (draft labels):** mixed. Topic ARI for the IP is 0.30, 0.32 and 0.06, against
+#   stability costs moved 18 to 38 (83 to 172), and the periodic judge restructure up to 21 (24 to 67).
+# - **Gold agreement (draft labels):** mixed. Topic ARI for the IP is 0.26, 0.32 and 0.06, against
 #   0.30, 0.19 and 0.44 for `judge_argmax`. The drifting session is the IP's weak case with the
 #   stand-in judge.
 # - *Caveat:* offline stand-in judge, draft gold labels. Re-run with a live judge before quoting

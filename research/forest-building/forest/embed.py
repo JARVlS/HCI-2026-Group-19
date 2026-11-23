@@ -1,4 +1,4 @@
-"""Text embeddings (pluggable backend, cached) and the topic shortlist.
+"""Text embeddings (pluggable backend, cached), cosine calibration and key phrases.
 
 Every vector is L2-normalised, so a dot product is the cosine. Sentence-transformers models are
 loaded only on a cache miss, so a run from data/frozen/ needs neither torch nor a download.
@@ -140,21 +140,6 @@ def prompt_topic_cosine(emb: Embedder, forest: Forest, text: str, topic_id: str,
     cen = cen / (np.linalg.norm(cen) or 1)
     c_cen = float(v @ cen)
     return c_cen if option == "centroid" else 0.5 * (c_cen + c_label)
-
-
-def shortlist(emb: Embedder, forest: Forest, text: str, k: int, option: TopicVector = "mix",
-              include_parents: bool = True, enabled: bool = True) -> list[str]:
-    """The k topics most similar to the prompt (all topics when disabled), plus their parents."""
-    if not enabled or len(forest.topics) <= k:
-        return sorted(forest.topics)
-    scored = sorted(forest.topics, key=lambda c: -prompt_topic_cosine(emb, forest, text, c, option))
-    top = scored[:k]
-    if include_parents:
-        for c in list(top):
-            t = forest.topics[c]
-            if t.parent_kind == "topic" and t.parent_id not in top:
-                top.append(t.parent_id)
-    return top
 
 
 # --- key phrases (used by the offline judge to name candidate topics) ---------------------------

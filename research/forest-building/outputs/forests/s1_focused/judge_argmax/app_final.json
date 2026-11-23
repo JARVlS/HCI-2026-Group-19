@@ -132,7 +132,7 @@
    "slug": "sgd",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t04a",
+   "parentId": "t01a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:22:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -154,7 +154,7 @@
    "slug": "momentum",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t04a",
+   "parentId": "t11a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:32:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -209,7 +209,7 @@
    "slug": "weight to zero",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t04a",
+   "parentId": "t02a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:44:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"
@@ -253,7 +253,7 @@
    "slug": "gradient clipping",
    "aliases": [],
    "kind": "concept",
-   "parentId": "t18a",
+   "parentId": "t03a",
    "createdBy": "llm",
    "createdAt": "2026-12-01T09:54:00Z",
    "updatedAt": "2026-12-01T10:00:00Z"

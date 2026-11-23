@@ -49,7 +49,7 @@ disruption:
 scores:
   gamma: 0.7            # start; s = gamma * judge + (1 - gamma) * cosine
   # Calibrated cosine, per embedding backend: raw cosine mapped linearly so that lo -> 0 and
-  # hi -> 1, clipped. Rule (forest.embed.fit_calibration, run in notebooks/02_shortlist.ipynb):
+  # hi -> 1, clipped. Rule (forest.embed.fit_calibration, run in notebooks/02_embeddings.ipynb):
   # lo = median cosine of a prompt to the gold topic labels of the OTHER sessions (unrelated),
   # hi = 75th percentile of a prompt's cosine to its own gold topic label. Draft gold labels.
   calibration:
@@ -58,19 +58,16 @@ scores:
     tfidf: {lo: 0.0, hi: 0.4}
   dedup_threshold: 0.85  # label cosine above which two proposed names are the same candidate
 
-# --- Embeddings and shortlist (plan Phase 2) --------------------------------------------------------
+# --- Embeddings (plan Phase 2) -----------------------------------------------------------------------
+# No shortlist (decided 24 Nov 2026): the judge rates every topic of the forest. Embeddings
+# feed the cosine part of s, the offline stand-in and the evaluation fit.
 embed:
-  backend: minilm       # chosen in 02_shortlist.ipynb (best recall@k on the draft gold labels)
+  backend: minilm       # chosen in 02_embeddings.ipynb (best nearest-topic accuracy, draft gold labels)
   backends:
     minilm: {kind: sentence-transformers, model: sentence-transformers/all-MiniLM-L6-v2}
     bge-small: {kind: sentence-transformers, model: BAAI/bge-small-en-v1.5}
     tfidf: {kind: tfidf}  # no model; a lexical floor for the comparison
-  topic_vector: mix      # centroid | label | mix; chosen in 02_shortlist.ipynb
-
-shortlist:
-  enabled: true
-  k: 5
-  include_parents: true
+  topic_vector: mix      # centroid | label | mix; chosen in 02_embeddings.ipynb
 
 # --- Judge LLM (plan Phase 3) ------------------------------------------------------------------------
 judge:

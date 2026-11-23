@@ -1,4 +1,4 @@
-"""Evaluation against the (draft) gold labels: shortlist recall@k and judge agreement.
+"""Evaluation against the (draft) gold labels: nearest-topic accuracy of the embeddings, judge agreement.
 
 Both replay the gold forest: at step t the forest holds the gold placement of prompts 1..t-1, and
 prompt t is scored against it. A prompt whose gold topic does not exist yet at step t ("new") is
@@ -13,30 +13,31 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from .embed import Embedder, shortlist
+from .embed import Embedder, prompt_topic_cosine
 from .io import Session, gold_forest, gold_topic_id
 from .judge import Candidate, Judge, PlacementRequest
 
 
-def shortlist_recall(emb: Embedder, session: Session, gold: dict, ks: list[int], option: str,
-                     include_parents: bool = False) -> pd.DataFrame:
+def nearest_topic(emb: Embedder, session: Session, gold: dict, option: str) -> pd.DataFrame:
+    """Per prompt whose gold topic exists: the rank of the gold topic among all topics by cosine
+    (1 = the most similar). This is the signal the cosine part of s adds to the judge."""
     rows = []
     for p in session.prompts:
         f = gold_forest(session, gold, p.step)
         target = gold_topic_id(gold[p.id])
         if target not in f.topics:
             continue
-        for k in ks:
-            sl = shortlist(emb, f, p.text, k, option, include_parents, enabled=True)
-            rows.append({"session": session.id, "prompt": p.id, "k": k, "hit": target in sl,
-                         "n_topics": len(f.topics), "shortlist_len": len(sl)})
+        cos = {c: prompt_topic_cosine(emb, f, p.text, c, option) for c in f.topics}
+        # ties count against the gold topic: it is first only if strictly the most similar
+        rank = 1 + sum(v >= cos[target] for c, v in cos.items() if c != target)
+        rows.append({"session": session.id, "prompt": p.id, "rank": rank, "top1": rank == 1, "n_topics": len(f.topics)})
     return pd.DataFrame(rows)
 
 
 def judge_agreement(judge: Judge, session: Session, gold: dict, order_seed: int = 0, max_prompts: int | None = None,
                     examples: int = 3, repeat: int = 0) -> pd.DataFrame:
     """Per prompt: the judge's top-1 existing topic vs the gold topic (all gold-forest topics are
-    candidates, no shortlist), whether it proposed something when the gold topic is new, latency."""
+    candidates, as in the pipeline), whether it proposed something when the gold topic is new, latency."""
     rows = []
     prompts = session.prompts[:max_prompts] if max_prompts else session.prompts
     for p in prompts:

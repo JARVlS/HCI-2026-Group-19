@@ -177,12 +177,13 @@ pd.DataFrame(rows).round(3)
 # ## Findings
 #
 # - **`mu` x `F`:** on `s1_focused`, rebalances fall steadily from 17 steps (`mu = F = 0.01`) to
-#   none once `mu >= 1` or `F = 3`. Final fit falls from 26.8 to 23.7, and weighted disruption
-#   from 69 to 0. Fit ranges from 23.5 to 27.2 over the whole grid, so the stability weights cost
+#   none once `mu >= 1` or `F = 3`. Final fit falls from 27.0 to 23.5, and weighted disruption
+#   from 77 to 0. Fit ranges from 23.5 to 27.2 over the whole grid, so the stability weights cost
 #   up to about 13 % of fit.
 # - **Operating point:** the configured weights (`mu = 0.3`, `F = 0.5`) sit at the stable end:
-#   no rebalance on s1. On the frontier, `mu = 0.1..0.3` with `F = 0.1..0.3` buys 2 to 3 fit
-#   points for 2 to 3 rebalances (disruption 5 to 6). The group picks the point to report.
+#   no rebalance on s1 (fit 23.5 in 05). `mu = 0.3, F = 0.1` (fit 25.4, 2 rebalances, disruption 5.2)
+#   and `mu = 0.1, F = 0.3` (26.1, 3 rebalances, 6.4) buy about 2 to 2.6 fit points for 2 to 3
+#   rebalances. The group picks the point to report.
 # - **Single-step flip** (s1 step 13, "gradient checking with finite differences"): the IP opens a
 #   new branch (b) when `mu >= 1` or `F >= 1`, and rebalances (e) for `mu <= 0.1` with `F <= 0.3`
 #   (and at `mu = 0.3` with `F <= 0.03`), moving earlier prompts into the new subtopic. Adding to an

@@ -58,7 +58,7 @@ print(render_placement(req, cfg["judge"]["examples_per_topic"]))
 
 # %% [markdown]
 # ## Agreement with the gold labels
-# The gold forest is replayed, and every gold topic is a candidate (no shortlist). Top-1 accuracy
+# The gold forest is replayed, and the judge rates every gold topic, as in the pipeline. Top-1 accuracy
 # counts the prompts whose gold topic already exists. When the gold topic is new, we check
 # whether the judge proposes a new topic at all.
 

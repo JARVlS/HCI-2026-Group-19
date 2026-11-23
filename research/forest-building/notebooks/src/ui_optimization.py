@@ -58,8 +58,9 @@ print("judge:", ctx.judge.backend, ctx.judge.model, "| embeddings:", ctx.emb.mod
 # One placement step runs this pipeline:
 #
 # ```
-# new prompt -> [1. shortlist (embeddings)] -> [2. judge (scores + candidate names)]
-#            -> [3. integer program (Gurobi)] -> [4. new forest + action]
+# new prompt -> [1. judge (scores + candidate names), on the whole forest]
+#            -> [2. scores: judge mixed with embedding cosine] -> [3. integer program (Gurobi)]
+#            -> [4. new forest + action]
 # ```
 #
 # The judge never decides. It rates fits and proposes candidate topics, groups and renames. The IP
@@ -148,7 +149,7 @@ pd.DataFrame([{"parameter": k, "value": getattr(P, k), "why": v} for k, v in why
 #
 # `SESSION` is a scripted session of student prompts (a **draft** by Claude Opus 5.5, to be
 # reviewed by the group). The embedding model is `sentence-transformers/all-MiniLM-L6-v2`, chosen
-# in `notebooks/02` for the best shortlist recall. The judge is the one printed above. With
+# in `notebooks/02` because its cosine finds the gold topic most often. The judge is the one printed above. With
 # `offline-heuristic-v1` the judge's fits are calibrated cosines, not an LLM: no LLM-derived
 # estimate enters these results until a live judge has been run and frozen (`notebooks/03`, model
 # and version are then printed above).

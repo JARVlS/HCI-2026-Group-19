@@ -72,7 +72,7 @@ print(before.render())
 
 # %% [markdown]
 # ### What the judge said
-# Fits on the 1 to 5 scale for the shortlisted topics, and the proposed new topics with their
+# Fits on the 1 to 5 scale for every topic of the forest, and the proposed new topics with their
 # rated parents. The judge does not decide anything.
 
 # %%
