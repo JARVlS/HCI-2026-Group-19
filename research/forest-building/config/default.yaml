@@ -15,7 +15,10 @@ ip:
   alpha: 0.5      # start; weight of topic-under-topic fit h
   alpha_G: 0.5    # start; weight of tree-root-in-group fit hg
   lam: 0.4        # start; cost of a new topic
-  lam_G: 1.0      # start; cost of a new group
+  # Plan start value 1.0. With it a new group can never pay off: it costs lam_G + lam + beta*(L-1)
+  # but gains at most 1 + alpha_G (see notebooks/04_ip.ipynb), so lam_G must stay below
+  # 1 + alpha_G - lam - beta*(L-1) = 0.8. Tuned in 06_whatif.ipynb.
+  lam_G: 0.5      # cost of a new group
   beta: 0.3       # start; cost per unit of imbalance slack (o, u, b)
   mu: 0.3         # start; cost per weighted moved prompt
   nu: 0.5         # start; cost per weighted moved or removed category
@@ -45,15 +48,19 @@ disruption:
 # --- Scores (plan Phase 4) ---------------------------------------------------------------------------
 scores:
   gamma: 0.7            # start; s = gamma * judge + (1 - gamma) * cosine
-  # Calibrated cosine: raw cosine mapped linearly so that cos_lo -> 0 and cos_hi -> 1, clipped.
-  # Set in notebooks/02_shortlist.ipynb from the draft gold labels (see the notebook for the values).
-  cos_lo: 0.10
-  cos_hi: 0.60
+  # Calibrated cosine, per embedding backend: raw cosine mapped linearly so that lo -> 0 and
+  # hi -> 1, clipped. Rule (forest.embed.fit_calibration, run in notebooks/02_shortlist.ipynb):
+  # lo = median cosine of a prompt to the gold topic labels of the OTHER sessions (unrelated),
+  # hi = 75th percentile of a prompt's cosine to its own gold topic label. Draft gold labels.
+  calibration:
+    minilm: {lo: 0.046, hi: 0.555}
+    bge-small: {lo: 0.560, hi: 0.776}
+    tfidf: {lo: 0.0, hi: 0.4}
   dedup_threshold: 0.85  # label cosine above which two proposed names are the same candidate
 
 # --- Embeddings and shortlist (plan Phase 2) --------------------------------------------------------
 embed:
-  backend: bge-small    # chosen in 02_shortlist.ipynb
+  backend: minilm       # chosen in 02_shortlist.ipynb (best recall@k on the draft gold labels)
   backends:
     minilm: {kind: sentence-transformers, model: sentence-transformers/all-MiniLM-L6-v2}
     bge-small: {kind: sentence-transformers, model: BAAI/bge-small-en-v1.5}

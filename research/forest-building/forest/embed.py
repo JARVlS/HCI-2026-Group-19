@@ -94,6 +94,26 @@ def calibrate(cos: float | np.ndarray, lo: float, hi: float):
     return np.clip((np.asarray(cos) - lo) / (hi - lo), 0.0, 1.0)
 
 
+def cal_bounds(cfg: dict, backend: str) -> tuple[float, float]:
+    c = cfg["scores"]["calibration"][backend]
+    return float(c["lo"]), float(c["hi"])
+
+
+def fit_calibration(emb: "Embedder", sessions: dict, golds: dict) -> dict[str, float]:
+    """lo = median cosine of a prompt to the gold topic labels of the other sessions (unrelated);
+    hi = 75th percentile of a prompt's cosine to its own gold topic label."""
+    own, other = [], []
+    labels = {sid: sorted({g.topic for g in gold.values()}) for sid, gold in golds.items()}
+    for sid, s in sessions.items():
+        V = emb.embed([p.text for p in s.prompts])
+        for i, p in enumerate(s.prompts):
+            own.append(float(V[i] @ emb.one(golds[sid][p.id].topic)))
+            for sid2, labs in labels.items():
+                if sid2 != sid:
+                    other.extend((emb.embed(labs) @ V[i]).tolist())
+    return {"lo": round(float(np.median(other)), 3), "hi": round(float(np.percentile(own, 75)), 3)}
+
+
 def prompt_topic_cosine(emb: Embedder, forest: Forest, text: str, topic_id: str, option: TopicVector,
                         exclude: str | None = None, label: str | None = None) -> float:
     """Cosine of a prompt to a topic. centroid: mean of the topic's prompts (without `exclude`);
@@ -135,7 +155,14 @@ why how when where can could should would will shall may might must not no yes s
 over under again further once all any both each few more most other some such only own same also
 get got really actually like still even ever please thanks thank exactly does doesn't don't isn't i'm
 i've it's what's that's can't let's whats im sure need want use used using understand mean means meant think
-know make makes made give tell explain help someone something anything way ways people one ones first""".split())
+know make makes made give tell explain help someone something anything way ways people one ones first
+compute computes computed computing doing goes going go happen happens happening matter matters pick say says
+seem seems keep kept tried try trying wrote write derived look looks stuck confused confusing confuse mix
+wrong right good bad enough small big practice completely intuitively super else always never every
+exercise sheet lecture homework quiz question questions example simple separate whole hand lot part thing
+things stuff step steps work works check fine instead difference different between ok okay supposed
+come comes came where's why's them they their he she his her us one's""".split())
+CONNECTORS = {"of", "and", "vs", "in", "for", "to"}
 
 _WORD = re.compile(r"[A-Za-z][A-Za-z0-9'\-^]*")
 
@@ -149,7 +176,7 @@ def candidate_phrases(text: str, max_len: int = 3) -> list[str]:
             g = words[i:i + n]
             if g[0] in STOP or g[-1] in STOP or len(g[0]) < 3 or len(g[-1]) < 3:
                 continue
-            if any(len(w) < 2 for w in g):
+            if any(w in STOP and w not in CONNECTORS for w in g) or any(len(w) < 2 for w in g):
                 continue
             out.append(" ".join(g))
     return list(dict.fromkeys(out))

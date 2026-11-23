@@ -29,7 +29,7 @@ import numpy as np
 from pydantic import BaseModel, Field, ValidationError
 
 from . import cache
-from .embed import Embedder, calibrate, keyphrases, prompt_topic_cosine
+from .embed import Embedder, cal_bounds, calibrate, keyphrases, prompt_topic_cosine
 from .model import Forest
 
 TEMPLATE_VERSION = "2026-11-23.1"
@@ -321,7 +321,7 @@ class OfflineJudge:
 
     def __init__(self, cfg: dict, emb: Embedder):
         self.emb = emb
-        self.lo, self.hi = cfg["scores"]["cos_lo"], cfg["scores"]["cos_hi"]
+        self.lo, self.hi = cal_bounds(cfg, emb.name)
         self.max_proposed = cfg["judge"]["max_proposed"]
         self.dedup = cfg["scores"]["dedup_threshold"]
         self.option = cfg["embed"]["topic_vector"]
@@ -332,16 +332,22 @@ class OfflineJudge:
     def _cos(self, a: str, b: str) -> float:
         return float(self.emb.one(a) @ self.emb.one(b))
 
-    def _group_cos(self, forest: Forest, text: str, gid: str) -> float:
+    def group_fit(self, forest: Forest, text: str, gid: str) -> int:
+        """Nearest-neighbour similarity to the group's prompts (its label if it has none), mapped
+        coarsely: unrelated subjects get 1, so their pairs fall under tau."""
         members = forest.group_prompts(gid)
-        c_label = self._cos(text, forest.groups[gid].label)
-        if not members:
-            return c_label
-        cen = self.emb.embed([forest.prompts[p].text for p in members]).mean(axis=0)
-        cen = cen / (np.linalg.norm(cen) or 1)
-        return 0.5 * (c_label + float(self.emb.one(text) @ cen))
+        if members:
+            cos = float((self.emb.embed([forest.prompts[p].text for p in members]) @ self.emb.one(text)).max())
+        else:
+            cos = self._cos(text, forest.groups[gid].label)
+        cal = float(calibrate(cos, self.lo, self.hi))
+        # 0.25 = 10th percentile of a prompt's nearest same-group neighbour (minilm, draft gold labels)
+        return 1 if cal < 0.25 else 3 if cal < 0.5 else 4 if cal < 0.75 else 5
 
     def placement(self, req: PlacementRequest) -> tuple[PlacementOut, JudgeMeta]:
+        """Fits are calibrated cosines. Proposals follow the rubric: a topic rated 4 ("a subtopic of
+        this that does not exist yet") is the natural parent (fit 5), a topic rated 3 a possible one
+        (fit 3); groups by group_fit; a new group (fit 5) only when no group is related."""
         f = req.forest
         existing = [ExistingFit(topic_id=c.id, fit=self.fit(prompt_topic_cosine(self.emb, f, req.text, c.id, self.option)))
                     for c in req.candidates]
@@ -349,19 +355,17 @@ class OfflineJudge:
         proposed: list[ProposedTopic] = []
         if not fits or max(fits) < 5 or 4 in fits:
             labels = [t.label for t in f.topics.values()]
+            related = sorted((e for e in existing if e.fit >= 3), key=lambda e: -e.fit)[:3]
+            gfits = sorted(((g, self.group_fit(f, req.text, g)) for g, _ in req.groups), key=lambda x: -x[1])
             for name in keyphrases(self.emb, [req.text], k=self.max_proposed + 2):
                 if labels and max(self._cos(name, lab) for lab in labels) >= self.dedup:
                     continue
-                parents: list[ParentFit] = []
-                ranked = sorted(req.candidates, key=lambda c: -prompt_topic_cosine(self.emb, f, name, c.id, self.option))
-                for c in ranked[:3]:
-                    parents.append(ParentFit(id=c.id, fit=self.fit(prompt_topic_cosine(self.emb, f, name, c.id, self.option))))
-                gfits = sorted(((g, self.fit(self._group_cos(f, req.text, g))) for g, _ in req.groups), key=lambda x: -x[1])
+                parents = [ParentFit(id=e.topic_id, fit=5 if e.fit >= 4 else 3) for e in related]
                 parents += [ParentFit(id=g, fit=fit) for g, fit in gfits[:2]]
-                if not gfits or gfits[0][1] <= 3:
+                if not gfits or gfits[0][1] == 1:
                     subj = max(SUBJECTS, key=lambda s: self._cos(req.text, s))
                     if subj.lower() not in {lab.lower() for _, lab in req.groups}:
-                        parents.append(ParentFit(id=NEW_GROUP + subj, fit=self.fit(self._cos(req.text, subj))))
+                        parents.append(ParentFit(id=NEW_GROUP + subj, fit=5))
                 proposed.append(ProposedTopic(name=name, fit=self.fit(self._cos(req.text, name)), parents=parents))
                 if len(proposed) == self.max_proposed:
                     break
@@ -389,13 +393,14 @@ class OfflineJudge:
         children = []
         for name in req.proposed:
             for tid, _ in req.topics:
-                fit = self.fit(prompt_topic_cosine(self.emb, f, name, tid, self.option))
+                # cosine is symmetric, so a sibling looks like a child: one level stricter
+                fit = self.fit(prompt_topic_cosine(self.emb, f, name, tid, self.option)) - 1
                 if fit > 1:
                     children.append(ChildFit(topic_id=tid, proposed=name, fit=fit))
         roots = []
         for g in req.new_groups:
             for tid, _ in req.roots:
-                fit = self.fit(prompt_topic_cosine(self.emb, f, g, tid, self.option))
+                fit = self.fit(prompt_topic_cosine(self.emb, f, g, tid, self.option)) - 1
                 if fit > 1:
                     roots.append(RootGroupFit(topic_id=tid, group=g, fit=fit))
         return NeighbourhoodOut(prompts=prompts, children=children, roots=roots), JudgeMeta(model=self.model)
