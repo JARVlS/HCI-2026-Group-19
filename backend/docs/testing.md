@@ -26,6 +26,7 @@ in the Worker (`request.scope["env"]`), so no production code has test-only bran
 | `test_events.py` | storing, idempotency, duplicate ids in one batch, 1..200 limit, `clientTs` must carry a time zone |
 | `test_sync.py` | `PUT /sync`, `GET /state`, `GET /conversations/:id/messages`: round trip of every entity (optional fields left out, nullable fields `null`, times in UTC), entity columns match the migrations, idempotency (same body twice leaves every row unchanged), last write wins on `updatedAt` (older ignored, newer and equal win), messages and attempts always replaced, edges insert or ignore, duplicate ids in one request, another user's rows neither readable (404) nor overwritable, soft delete and restore, message order, opaque message meta round trip with `streaming` dropped, NaN rejected, 401 on all three, unknown fields 422, bad values 422, the 500-row limit (413), the text and JSON size limits (422 naming the field) |
 | `test_admin.py` | CSV content and order for events, usage, users, messages, conversations; every export has every column of its table; 403 before 422, unknown table |
+| `test_admin_logs.py` | `/admin/visits` and `/admin/events` (the logs page): visits grouped by user and visit (no visit and `visit: ""` are one visit `null`), counts, turns, designs, username from accounts and never the password hash, newest first; events in `(server_ts, id)` order with each filter and their combinations, `visit=` for the events without one; paging through ties (one server time for a whole batch) gives every row exactly once; payloads that are not a JSON object (`{not json`, `[1, 2]`, `NaN`) come back as `_raw` and do not break the visits list; 422 for limits, bad or foreign cursors, unknown parameters; 403 before 422 |
 | `test_app.py` | health, error format for 404/405/422/500, `/api/docs`, CORS preflight with `Authorization`, the app imports without the Workers runtime |
 
 ## 2. Smoke test under the real Workers runtime
@@ -40,7 +41,7 @@ migrations to it, starts `tests/fake_anthropic.py` on port 8790 and `uv run pywr
 port 8787 with the made-up values from `tests/smoke.env` (your own `.dev.vars` is not used, so a
 real key in it is never called), runs `tests/smoke.py` and stops both servers. The first run
 downloads the Python packages and takes about a minute, later runs about 20 seconds. Expected last
-line: `43 passed, 0 failed`. The Worker log is in `.wrangler/smoke-dev.log`.
+line: `49 passed, 0 failed`. The Worker log is in `.wrangler/smoke-dev.log`.
 
 What it checks: health, session (also the same participant twice), 401, chat without streaming,
 CORS preflight, chat streaming with `Origin: http://localhost:5173` (CORS header present, the text is
@@ -51,7 +52,10 @@ and mass from the fake's logprobs, then `[off-topic]`, `[no-logprobs]` and `[ups
 accounts (sign up with a guest token keeps the guest, login ignores case and returns the same token,
 wrong password 401, the same username again 409, `/api/me`; this is the only test of the WebCrypto
 password hashing), events twice (3 then 0), the CSV export (the usage CSV has the session's `chat`, `analyze` and
-`score` rows) and its 403, and the 404 format. Then persistence on the local D1: `PUT /api/sync` with one row of
+`score` rows) and its 403, the logs page routes (a visit of 5 events sent in one batch with its
+counts, its events in pages of 2 with each event once, a payload that is not JSON, written straight
+into the database by `smoke.sh`, as visit `null` and `_raw`, a bad cursor 422, a wrong token 403),
+and the 404 format. Then persistence on the local D1: `PUT /api/sync` with one row of
 every entity and `GET /api/state` returns exactly that, messages come back in order with their
 extra fields and without `streaming`, the same body twice changes nothing, an older `updatedAt` is
 ignored, a soft-deleted concept disappears, a second user can neither read (404) nor overwrite the
@@ -146,6 +150,14 @@ tokens.
 | T-38 | Accounts | new token (T-02), then the signup `curl` from `docs/api.md` with it; `POST /api/auth/login` with the username in capitals; again with a wrong password; the signup again; `GET /api/me` | signup 200 with the guest's `userId` and token; login 200, same token, username as stored; 401 `invalid_credentials`; 409 `username_taken`; `/me` names the account |
 | T-39 | Deployed accounts | after `uv run pywrangler d1 migrations apply hci-grp19 --remote` (0003) and the deploy: T-38 against `https://hci-backend.leon-grass.workers.dev`; then T-26 for the signup and login requests | as T-38; CPU time of signup and login below the plan's limit (PBKDF2 runs in WebCrypto) |
 
+**Logs page routes.** Local setup as for T-01, then T-10 with `"visit": "v1", "seq": 1` in the
+payload, and once more with another event id and `"seq": 2`.
+
+| ID | Test | Steps | Expected |
+|---|---|---|---|
+| T-40 | Visits and events | `curl -s 'localhost:8787/api/admin/visits?limit=5' -H 'x-admin-token: <ADMIN_TOKEN from .dev.vars>'`; then `curl -s 'localhost:8787/api/admin/events?visit=v1&userId=<userId>&limit=1' -H ...` and again with `&after=<next>`; both routes with a wrong token, and with `limit=0` | the visit `v1` with `events` 2; one event per page, the second page has the other event and `next` null; wrong token 403; `limit=0` 422 |
+| T-41 | Deployed logs page | after the deploy of backend and frontend: open `https://hci-2026-group-19.pages.dev/logs`, enter the admin token, open a visit, download the events CSV | the live site's visits, newest first; the visit's timeline loads; the CSV downloads; a wrong token shows the 403 message |
+
 ## 4. How we document tests
 
 Every test run that matters (before a merge, before the pilot, after a deploy) gets one row per test
@@ -168,6 +180,9 @@ ID in the table below. Write what you actually saw, not what you expected.
 | 2026-11-17 | Claude (for Salomon) | T-36 | `915aa89` | `low` 400, `none` 200 | `low`: 502 `upstream_error` "HTTP 400 (invalid_request_error: This model does not support the effort parameter.)"; `none`: 200, `{"mode": "ai"}`, 187 in / 9 out tokens, 1.12 s | pass | local `pywrangler dev`, `anthropic.claude-haiku-4-5` on Bedrock |
 | 2026-11-17 | Claude (for Leon) | automatic tests (`uv run --group test pytest -q`) | branch `accounts-backend` | all pass | `190 passed` | pass | 173 before plus 17 new in `test_accounts.py` |
 | 2026-11-17 | Claude (for Leon) | smoke (`tests/smoke.sh`) incl. the account checks (T-38 automated) | branch `accounts-backend` | `43 passed, 0 failed` | `43 passed, 0 failed`; signup 0.06 s and login 0.06 s through the local Worker (PBKDF2 100 000 iterations in WebCrypto) | pass | local `pywrangler dev`, fresh local D1 with 0001 to 0003; deployed Worker not tested (T-39 open: 0003 is not applied remotely) |
+| 2026-11-21 | Claude (for Salomon) | automatic tests (`uv run --group test pytest -q`) | branch `logs-backend` | all pass | `214 passed` | pass | 190 before plus 24 new (`test_admin_logs.py`) |
+| 2026-11-21 | Claude (for Salomon) | smoke (`tests/smoke.sh`) incl. the logs page routes | branch `logs-backend` | `49 passed, 0 failed` | `49 passed, 0 failed`; 5 events of one batch in 3 pages of 2, each once; the row with payload `{not json` as visit `null` and `_raw` | pass | local `pywrangler dev`, fresh local D1 with 0001 to 0003; deployed Worker not tested (T-41 open) |
+| 2026-11-21 | Claude (for Salomon) | T-40 by hand, and the logs page in a browser against it | branch `logs-backend` + `logs-frontend` | as in section 3 | 4 seeded visits newest first with their counts (1057, 59, 5 events, and 1 without a visit); a 1057-event visit in 2 requests of 1000 (61 ms for 1000 events locally); `limit=1` pages with `next` null at the end; wrong token 403 on both routes; `limit=0` 422; 114 visits in 2 pages of the list | pass | local `pywrangler dev` with dummy `.dev.vars`; no model calls |
 
 Rule: every PR that adds or changes an endpoint adds or updates its test ID in section 3 (and an
 automatic test), and adds a row here with the result of its own run.

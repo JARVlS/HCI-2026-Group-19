@@ -293,6 +293,58 @@ class MessagesResponse(CamelModel):
     messages: list[Message]
 
 
+# --- /admin/visits, /admin/events (the logs page) -----------------------------------------
+# Query parameters as models: CamelModel's extra="forbid" makes a mistyped parameter (`userid=`)
+# a 422 instead of a silently unfiltered answer. The cursors are opaque (routes/admin.py).
+
+class VisitsQuery(CamelModel):
+    limit: int = Field(default=100, ge=1, le=500)
+    before: str | None = Field(default=None, max_length=1000)
+
+
+class AdminEventsQuery(CamelModel):
+    # No min_length: `visit=` (empty) selects the events without a visit.
+    visit: str | None = Field(default=None, max_length=MAX_ID_CHARS)
+    user_id: Id | None = None
+    type: str | None = Field(default=None, min_length=1, max_length=100)
+    after: str | None = Field(default=None, max_length=1000)
+    limit: int = Field(default=500, ge=1, le=1000)
+
+
+class Visit(CamelModel):
+    visit: str | None  # None: the user's events without a visit (logged before 20 Nov 2026)
+    user_id: str
+    participant_id: str | None
+    condition: str | None
+    username: str | None  # None: a guest
+    design: str | None  # the design of its events; comma-separated if it changed during the visit
+    first: str  # earliest clientTs
+    last: str  # latest clientTs
+    last_server_ts: str
+    events: int
+    turns: int  # turn_sent events
+
+
+class VisitsResponse(CamelModel):
+    visits: list[Visit]
+    next: str | None
+
+
+class AdminEvent(CamelModel):
+    id: str
+    user_id: str
+    condition: str | None
+    type: str
+    payload: dict[str, Any]  # {"_raw": "<stored text>"} if the stored payload is not a JSON object
+    client_ts: str
+    server_ts: str
+
+
+class AdminEventsResponse(CamelModel):
+    events: list[AdminEvent]
+    next: str | None
+
+
 # --- errors (for the OpenAPI docs) ---------------------------------------------------------
 
 class ErrorBody(BaseModel):

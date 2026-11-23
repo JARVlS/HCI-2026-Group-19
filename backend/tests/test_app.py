@@ -53,7 +53,8 @@ def test_docs_and_openapi(client):
     assert client.get("/api/docs").status_code == 200
     paths = client.get("/api/openapi.json").json()["paths"]
     assert set(paths) == {"/api/health", "/api/session", "/api/ai/complete", "/api/ai/score", "/api/events",
-                          "/api/admin/export", "/api/state", "/api/conversations/{conversation_id}/messages",
+                          "/api/admin/export", "/api/admin/visits", "/api/admin/events",
+                          "/api/state", "/api/conversations/{conversation_id}/messages",
                           "/api/sync", "/api/auth/signup", "/api/auth/login", "/api/me"}
 
 

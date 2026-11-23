@@ -191,6 +191,40 @@ def run(base_url: str, admin_token: str) -> None:
         check("admin export with wrong token is 403", bad.status_code == 403)
     guarded("admin export", export)
 
+    def logs() -> None:
+        admin = {"X-Admin-Token": admin_token}
+        visit = f"smoke-{run_id}-visit"
+        body = {"events": [{"id": f"{visit}-{i}", "type": "turn_sent" if i % 2 else "compose", "clientTs": T0,
+                            "payload": {"visit": visit, "seq": i, "design": "ascii"}} for i in range(5)]}
+        client.post("/api/events", json=body, headers=auth).raise_for_status()  # one batch: one server_ts
+        r = client.get("/api/admin/visits", params={"limit": 500}, headers=admin)
+        ours = [v for v in r.json()["visits"] if v["visit"] == visit]
+        check("admin visits: the visit with its counts", r.status_code == 200 and len(ours) == 1
+              and ours[0]["events"] == 5 and ours[0]["turns"] == 2 and ours[0]["design"] == "ascii"
+              and ours[0]["userId"] == session.get("userId"), json.dumps(ours))
+        # smoke.sh writes this row straight into the database: a payload that is not JSON.
+        broken = [v for v in r.json()["visits"] if v["userId"] == "smoke-bad-json-user"]
+        check("admin visits: a payload that is not JSON lands in visit null", len(broken) == 1
+              and broken[0]["visit"] is None and broken[0]["events"] == 1, json.dumps(broken))
+        seen, pages, params = [], 0, {"visit": visit, "userId": session.get("userId"), "limit": 2}
+        while pages < 10:
+            page = client.get("/api/admin/events", params=params, headers=admin).json()
+            seen += [e["payload"]["seq"] for e in page["events"]]
+            pages += 1
+            if not page["next"]:
+                break
+            params["after"] = page["next"]
+        check("admin events: pages of 2 over one batch give every event once", sorted(seen) == list(range(5))
+              and pages == 3, f"seq {seen} in {pages} pages")
+        r = client.get("/api/admin/events", params={"userId": "smoke-bad-json-user"}, headers=admin)
+        check("admin events: a payload that is not JSON comes back as _raw", r.status_code == 200
+              and [e["payload"] for e in r.json()["events"]] == [{"_raw": "{not json"}], r.text[:160])
+        bad = client.get("/api/admin/events", params={"after": "nope"}, headers=admin)
+        check("admin events: a bad cursor is 422", bad.status_code == 422, bad.text[:120])
+        wrong = client.get("/api/admin/visits", headers={"X-Admin-Token": "wrong"})
+        check("admin visits with wrong token is 403", wrong.status_code == 403)
+    guarded("admin logs", logs)
+
     def not_found() -> None:
         r = client.get("/api/nope")
         check("unknown route -> 404 not_found", r.status_code == 404 and r.json()["error"]["code"] == "not_found")

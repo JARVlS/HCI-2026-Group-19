@@ -20,6 +20,10 @@ trap stop EXIT
 # sync checks do not pile up across runs.
 rm -rf "$STATE"
 uv run pywrangler d1 migrations apply hci-grp19 --local --persist-to "$STATE" > /dev/null
+# A payload that is not JSON (POST /api/events cannot store one): the admin log routes must cope.
+uv run pywrangler d1 execute hci-grp19 --local --persist-to "$STATE" --command \
+  "INSERT INTO events VALUES ('smoke-bad-json', 'smoke-bad-json-user', NULL, 'turn_sent', '{not json',
+   '2026-11-16T12:00:00.000Z', '2026-11-16T12:00:00.000Z')" > /dev/null
 uv run python tests/fake_anthropic.py --port 8790 &
 FAKE_PID=$!
 uv run pywrangler dev --port "$PORT" --env-file tests/smoke.env --persist-to "$STATE" > "$LOG" 2>&1 &
