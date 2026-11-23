@@ -47,8 +47,8 @@ def cost_guard(ctx: StepContext, n_steps: int, n_runs: int = 1) -> int:
     limit = ctx.cfg["judge"]["max_calls_per_run"]
     if ctx.judge.live:
         print(f"cost guard: at most {est} live judge calls ({ctx.judge.backend}/{ctx.judge.model}); "
-              f"cached answers are free; limit {limit}")
-        if est > limit:
+              f"cached answers are free; limit {limit}" + ("" if ctx.judge.paid else " (local model: no cost, not enforced)"))
+        if ctx.judge.paid and est > limit:
             raise BudgetExceeded(f"estimated {est} live calls exceed judge.max_calls_per_run = {limit}")
     return est
 

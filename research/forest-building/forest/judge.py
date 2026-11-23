@@ -14,6 +14,10 @@ Backends:
              key phrases, new groups come from a fixed subject list. For tests and pipeline runs.
   anthropic  Claude API through the official SDK (structured JSON output).
   proxy      the same SDK against an Anthropic-compatible endpoint at PROXY_URL.
+  openai-compatible  any chat completions endpoint (`judge.base_url`): a local Ollama model (free),
+             or GLM-4.7 on Bedrock (bedrock-mantle .../v1, key in JUDGE_API_KEY). JSON schema
+             output first, the schema in the prompt when the endpoint refuses it (as the frontend's
+             ai/own/openai.ts does). Temperature 0 and a fixed seed.
 Every live answer is cached (forest.cache) keyed by model, template version and the exact input.
 """
 from __future__ import annotations
@@ -21,9 +25,11 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 import numpy as np
 from pydantic import BaseModel, Field, ValidationError
@@ -251,7 +257,8 @@ class Judge:
     """Facade over the backends. `placement`, `neighbourhood` and `restructure` return
     (validated output, JudgeMeta)."""
 
-    def __init__(self, cfg: dict, emb: Embedder, backend: str | None = None, model: str | None = None):
+    def __init__(self, cfg: dict, emb: Embedder, backend: str | None = None, model: str | None = None,
+                 base_url: str | None = None):
         self.cfg = cfg
         self.jcfg = cfg["judge"]
         self.backend = backend or self.jcfg["backend"]
@@ -259,16 +266,21 @@ class Judge:
         if self.backend == "offline":
             self.impl: Any = OfflineJudge(cfg, emb)
             self.model = self.impl.model
-        elif self.backend in ("anthropic", "proxy"):
+        elif self.backend in ("anthropic", "proxy", "openai-compatible"):
             if not self.model:
                 raise ValueError(f"judge backend {self.backend} needs a model id")
-            self.impl = LLMJudge(cfg, self.backend, self.model)
+            self.impl = LLMJudge(cfg, self.backend, self.model, base_url)
         else:
             raise ValueError(f"unknown judge backend {self.backend!r}")
 
     @property
     def live(self) -> bool:
         return self.backend != "offline"
+
+    @property
+    def paid(self) -> bool:
+        """A live judge that costs money (a local model does not; the budget limits skip it)."""
+        return self.live and not self.impl.free
 
     def estimate_calls(self, n_steps: int) -> int:
         """Upper bound on live calls for n placement steps (placement + neighbourhood each)."""
@@ -437,15 +449,24 @@ class OfflineJudge:
 
 # --- live LLM backends -----------------------------------------------------------------------------
 
-class LLMJudge:
-    """Claude through the official SDK, structured JSON output, cached, budgeted."""
+NO_JSON_SCHEMA = re.compile(r"response_format|json_schema|json schema|structured|format", re.I)
+JSON_ONLY = ("Answer with one JSON object only, no prose and no code fences. It must validate against "
+             "this JSON schema:")
 
-    def __init__(self, cfg: dict, backend: str, model: str):
+
+class LLMJudge:
+    """A live judge: structured JSON output, cached, budgeted (local models are free)."""
+
+    def __init__(self, cfg: dict, backend: str, model: str, base_url: str | None = None):
         self.cfg = cfg
         self.jcfg = cfg["judge"]
         self.backend = backend
         self.model = model
         self._client = None
+        self.base_url = (base_url or os.environ.get("JUDGE_BASE_URL") or self.jcfg.get("base_url") or "").rstrip("/")
+        host = urlparse(self.base_url).hostname if self.base_url else None
+        self.free = backend == "openai-compatible" and host in ("localhost", "127.0.0.1", "::1")
+        self.json_mode = "schema"
 
     def client(self):
         if self._client is None:
@@ -474,7 +495,8 @@ class LLMJudge:
             raise cache.CacheMiss(f"judge {kind} answer not cached for {self.model}")
         schema = _schema(out_model)
         for attempt in range(self.jcfg["retries"] + 1):
-            cache.ledger().reserve(self.jcfg["total_max_calls"], self.jcfg["max_calls_per_run"])
+            if not self.free:
+                cache.ledger().reserve(self.jcfg["total_max_calls"], self.jcfg["max_calls_per_run"])
             t0 = time.time()
             text, usage, err = self._request(system, user, schema)
             dt = time.time() - t0
@@ -494,6 +516,8 @@ class LLMJudge:
         raise RuntimeError(f"judge {kind} failed after {self.jcfg['retries'] + 1} attempts: {meta.failures[-1]}")
 
     def _request(self, system: str, user: str, schema: dict) -> tuple[str, dict, str | None]:
+        if self.backend == "openai-compatible":
+            return self._request_openai(system, user, schema)
         import anthropic
 
         output_config = {"effort": self.jcfg["effort"], "format": {"type": "json_schema", "schema": schema}}
@@ -522,6 +546,56 @@ class LLMJudge:
             return "", usage, "max_tokens"
         text = next((b.text for b in r.content if b.type == "text"), "")
         return text, usage, None
+
+    def _request_openai(self, system: str, user: str, schema: dict) -> tuple[str, dict, str | None]:
+        """Chat completions with temperature 0 and a fixed seed; json_schema output, or the schema in
+        the prompt once the endpoint has refused json_schema (or answered in prose)."""
+        import urllib.error
+        import urllib.request
+
+        from dotenv import load_dotenv
+
+        from . import ROOT
+        load_dotenv(ROOT / ".env")
+        if not self.base_url:
+            return "", {}, "no judge.base_url (or JUDGE_BASE_URL) for the openai-compatible backend"
+        sys_text = system if self.json_mode == "schema" else f"{system}\n\n{JSON_ONLY}\n{json.dumps(schema)}"
+        body: dict[str, Any] = {
+            "model": self.model, "temperature": 0, "seed": self.cfg["seed"], "max_tokens": self.jcfg["max_tokens"],
+            "messages": [{"role": "system", "content": sys_text}, {"role": "user", "content": user}],
+        }
+        if self.json_mode == "schema":
+            body["response_format"] = {"type": "json_schema",
+                                       "json_schema": {"name": "answer", "schema": schema, "strict": True}}
+        key = os.environ.get("JUDGE_API_KEY") or ("ollama" if self.free else "")
+        req = urllib.request.Request(f"{self.base_url}/chat/completions", data=json.dumps(body).encode(), method="POST",
+                                     headers={"content-type": "application/json", "authorization": f"Bearer {key}"})
+        try:
+            with urllib.request.urlopen(req, timeout=600) as r:
+                data = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode(errors="replace")[:300]
+            if self.json_mode == "schema" and e.code in (400, 422, 501) and NO_JSON_SCHEMA.search(detail):
+                self.json_mode = "prompt"
+                return self._request_openai(system, user, schema)
+            if e.code == 429:
+                time.sleep(int(e.headers.get("retry-after") or 20))
+                return "", {}, "rate_limited"
+            return "", {}, f"http {e.code}: {detail}"
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            return "", {}, f"connection: {e}"
+        choice = (data.get("choices") or [{}])[0]
+        usage = data.get("usage") or {}
+        u = {"in": usage.get("prompt_tokens", 0) or 0, "out": usage.get("completion_tokens", 0) or 0}
+        if choice.get("finish_reason") == "length":
+            return "", u, "max_tokens"
+        text = ((choice.get("message") or {}).get("content") or "").strip()
+        if text.startswith("```"):
+            text = text.strip("`").removeprefix("json").strip()
+        if self.json_mode == "schema" and not text.startswith("{"):
+            self.json_mode = "prompt"  # prose despite response_format: the endpoint ignored it
+            return self._request_openai(system, user, schema)
+        return text, u, None
 
     def placement(self, req: PlacementRequest) -> tuple[PlacementOut, JudgeMeta]:
         system = PLACEMENT_SYSTEM.replace("{max_proposed}", str(self.jcfg["max_proposed"]))
