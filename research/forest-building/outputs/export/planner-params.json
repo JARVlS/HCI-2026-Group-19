@@ -1,0 +1,42 @@
+{
+ "source": "research/forest-building ui_optimization.ipynb",
+ "ip": {
+  "L": 2,
+  "U": 6,
+  "B": 5,
+  "D": 3,
+  "K_T": 4,
+  "K_G": 5,
+  "alpha": 0.5,
+  "alpha_G": 0.5,
+  "lam": 0.4,
+  "lam_G": 0.5,
+  "beta": 0.3,
+  "mu": 0.3,
+  "nu": 0.5,
+  "rho": 0.15,
+  "F": 0.5,
+  "tau": 0.2,
+  "use_renames": true,
+  "max_alternatives_per_old_prompt": 4,
+  "max_parents_per_topic": 4,
+  "time_limit_s": 10,
+  "mip_gap": 0.0,
+  "size_limited": true,
+  "max_vars": 2000,
+  "max_constrs": 2000,
+  "output_flag": 0
+ },
+ "scores": {
+  "gamma": 0.7
+ },
+ "disruption": {
+  "a": 2.0,
+  "T": 5.0
+ },
+ "judge": {
+  "backend": "offline",
+  "model": "offline-heuristic-v1"
+ },
+ "embedding": "sentence-transformers/all-MiniLM-L6-v2"
+}

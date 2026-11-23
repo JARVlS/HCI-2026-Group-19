@@ -470,6 +470,8 @@ class LLMJudge:
         if hit is not None:
             meta.cached = True
             return out_model.model_validate_json(hit), meta
+        if cache.REQUIRE_CACHED:
+            raise cache.CacheMiss(f"judge {kind} answer not cached for {self.model}")
         schema = _schema(out_model)
         for attempt in range(self.jcfg["retries"] + 1):
             cache.ledger().reserve(self.jcfg["total_max_calls"], self.jcfg["max_calls_per_run"])

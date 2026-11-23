@@ -71,6 +71,8 @@ class Embedder:
                 missing.append(t)
         if missing:
             uniq = list(dict.fromkeys(missing))
+            if cache.REQUIRE_CACHED:
+                raise cache.CacheMiss(f"{len(uniq)} texts not in the embedding cache, e.g. {uniq[0]!r}")
             vecs = _st_model(self.model).encode(uniq, normalize_embeddings=True, batch_size=64, show_progress_bar=False)
             for t, v in zip(uniq, vecs):
                 v = np.asarray(v, dtype=np.float32)

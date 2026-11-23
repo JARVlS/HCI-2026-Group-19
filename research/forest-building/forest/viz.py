@@ -138,10 +138,18 @@ def fit_vs_disruption(summary, ax=None, title: str = "Final fit vs total disrupt
                       x: str = "disruption_w", y: str = "final_fit"):
     """One point per method, each labelled by name (colour is not the only cue)."""
     ax = ax or plt.gca()
-    for _, r in summary.iterrows():
+    xr = (summary[x].max() - summary[x].min()) or 1.0
+    yr = (summary[y].max() - summary[y].min()) or 1.0
+    placed: list[tuple[float, float, int]] = []
+    for _, r in summary.sort_values(y, ascending=False).iterrows():
         m = r["method"]
         ax.scatter(r[x], r[y], s=70, color=METHOD_COLOR.get(m, MUTED), edgecolor=SURFACE, linewidth=2, zorder=3)
-        ax.annotate(m, (r[x], r[y]), xytext=(6, 4), textcoords="offset points", fontsize=8, color=TEXT_2)
+        dy = 4
+        # a label that would sit on an earlier one moves down below it
+        while any(abs(r[x] - px) < 0.15 * xr and abs(r[y] - py) < 0.06 * yr and pdy == dy for px, py, pdy in placed):
+            dy -= 11
+        placed.append((r[x], r[y], dy))
+        ax.annotate(m, (r[x], r[y]), xytext=(6, dy), textcoords="offset points", fontsize=8, color=TEXT_2)
     ax.set_xlabel("total weighted disruption (sum of w for moved prompts + v for moved or removed categories)")
     ax.set_ylabel("final prompt fit (sum over prompts)")
     ax.set_title(title)

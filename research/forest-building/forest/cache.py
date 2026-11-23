@@ -24,6 +24,14 @@ FROZEN = ROOT / "data" / "frozen"
 FROZEN_STORES = ("embeddings", "judge")
 _lock = threading.Lock()
 
+# Set True to forbid any model load or API call: a cache miss raises CacheMiss instead
+# (ui_optimization.ipynb sets it, so a run proves it needs nothing but data/frozen/).
+REQUIRE_CACHED = False
+
+
+class CacheMiss(RuntimeError):
+    pass
+
 
 def key(*parts: Any) -> str:
     return hashlib.sha256(json.dumps(parts, sort_keys=True, ensure_ascii=False).encode()).hexdigest()

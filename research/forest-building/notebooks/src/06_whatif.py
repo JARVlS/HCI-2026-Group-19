@@ -184,8 +184,10 @@ pd.DataFrame(rows).round(3)
 #   no rebalance on s1. On the frontier, `mu = 0.1..0.3` with `F = 0.1..0.3` buys 2 to 3 fit
 #   points for 2 to 3 rebalances (disruption 5 to 6). The group picks the point to report.
 # - **Single-step flip** (s1 step 13, "gradient checking with finite differences"): the IP opens a
-#   new branch (b) when `mu >= 1` or `F >= 1`, and rebalances (e) for `mu <= 0.1` with `F <= 0.3`,
-#   moving earlier prompts into the new subtopic. This is the competing case the plan asked for.
+#   new branch (b) when `mu >= 1` or `F >= 1`, and rebalances (e) for `mu <= 0.1` with `F <= 0.3`
+#   (and at `mu = 0.3` with `F <= 0.03`), moving earlier prompts into the new subtopic. Adding to an
+#   existing topic (a) never wins at this step, so this is a two-way flip, not the three-way
+#   (a)/(b)/(e) case the plan hoped for. No step of s1 had all three with the stand-in judge.
 # - **Capacity:** with one group (s1), the number of trees always equals `K_T`, so `K_T` binds.
 #   `U` hardly changes the topic count (14 to 16), because with the stand-in judge topics rarely
 #   reach `U` before a new one opens. `lam_G` decides the number of groups on s2: 3 groups at
