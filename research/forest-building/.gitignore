@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+.env
+# Working cache of every embedding and judge call (raw answers, ledger). The submission reads the
+# committed snapshot in data/frozen/ instead (python -m forest.cache freeze).
+data/cache/
+# Per-step forest snapshots of the what-if sweeps are regenerated, not committed.
+outputs/forests/*/sweep_*/

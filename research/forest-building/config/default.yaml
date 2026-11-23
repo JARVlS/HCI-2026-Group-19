@@ -1,0 +1,105 @@
+# Every parameter of the pipeline. Notebooks load this through forest.config.load() and may
+# override single values (forest.config.with_overrides). Values marked "start" are the starting
+# points of FOREST_NOTEBOOK_PLAN.md §5.1; final values and their justification go in the report.
+
+seed: 7
+
+# --- IP parameters (plan §2.2, §5.1) -------------------------------------------------------------
+ip:
+  L: 2            # start; preferred min content per topic (prompts + child topics)
+  U: 6            # start; preferred max prompts per topic
+  B: 5            # start; max subtopics per topic (soft)
+  D: 3            # start; max tree depth in levels (root = depth 0, so depth <= D-1)
+  K_T: 4          # start; max trees per group (hard)
+  K_G: 5          # start; max groups (hard)
+  alpha: 0.5      # start; weight of topic-under-topic fit h
+  alpha_G: 0.5    # start; weight of tree-root-in-group fit hg
+  lam: 0.4        # start; cost of a new topic
+  lam_G: 1.0      # start; cost of a new group
+  beta: 0.3       # start; cost per unit of imbalance slack (o, u, b)
+  mu: 0.3         # start; cost per weighted moved prompt
+  nu: 0.5         # start; cost per weighted moved or removed category
+  rho: 0.15       # start; cost of a rename (times v[orig])
+  F: 0.5          # start; fixed cost of any rebalance (z)
+  tau: 0.2        # start; pruning threshold for s, h, hg (C18)
+  use_renames: true
+  # Extra pruning (part of C18, for the 2000 variable/constraint limit): an old prompt keeps its
+  # current topic plus at most this many alternatives (best s first); a topic keeps its old parent
+  # plus at most this many candidate parents (best h/hg first).
+  max_alternatives_per_old_prompt: 4
+  max_parents_per_topic: 4
+  time_limit_s: 10
+  mip_gap: 0.0
+
+gurobi:
+  size_limited: true   # pip license: assert < 2000 variables and < 2000 constraints
+  max_vars: 2000
+  max_constrs: 2000
+  output_flag: 0
+
+# --- Disruption weights (plan §5.4) ----------------------------------------------------------------
+disruption:
+  a: 2.0
+  T: 5.0
+
+# --- Scores (plan Phase 4) ---------------------------------------------------------------------------
+scores:
+  gamma: 0.7            # start; s = gamma * judge + (1 - gamma) * cosine
+  # Calibrated cosine: raw cosine mapped linearly so that cos_lo -> 0 and cos_hi -> 1, clipped.
+  # Set in notebooks/02_shortlist.ipynb from the draft gold labels (see the notebook for the values).
+  cos_lo: 0.10
+  cos_hi: 0.60
+  dedup_threshold: 0.85  # label cosine above which two proposed names are the same candidate
+
+# --- Embeddings and shortlist (plan Phase 2) --------------------------------------------------------
+embed:
+  backend: bge-small    # chosen in 02_shortlist.ipynb
+  backends:
+    minilm: {kind: sentence-transformers, model: sentence-transformers/all-MiniLM-L6-v2}
+    bge-small: {kind: sentence-transformers, model: BAAI/bge-small-en-v1.5}
+    tfidf: {kind: tfidf}  # no model; a lexical floor for the comparison
+  topic_vector: mix      # centroid | label | mix; chosen in 02_shortlist.ipynb
+
+shortlist:
+  enabled: true
+  k: 5
+  include_parents: true
+
+# --- Judge LLM (plan Phase 3) ------------------------------------------------------------------------
+judge:
+  # offline: deterministic embedding stand-in, NOT an LLM, makes no calls. Use it for tests and
+  # to run the pipeline; never report its numbers as judge results.
+  # anthropic: the Claude API (ANTHROPIC_API_KEY or an `ant auth login` profile).
+  # proxy: an Anthropic-compatible endpoint at PROXY_URL (e.g. the Bedrock stand-in of
+  #   research/thinking-filter, model ids like anthropic.claude-sonnet-5).
+  # Ask the group before switching to a paid backend (plan §6).
+  backend: offline
+  model: offline-heuristic-v1
+  # Candidates for the model comparison in 03_judge.ipynb (exact ids, needed for the citation).
+  compare:
+    - {backend: anthropic, model: claude-opus-5-5}
+    - {backend: anthropic, model: claude-haiku-5-5}
+  effort: low
+  max_tokens: 8000
+  examples_per_topic: 3
+  neighbourhood_max_prompts: 12
+  max_proposed: 2
+  retries: 1               # retry once on a parse failure
+  # Cost guard: a run that would make more live calls than this stops before the first call
+  # (estimate printed first), and the ledger refuses calls beyond total_max_calls.
+  max_calls_per_run: 300
+  total_max_calls: 1500
+
+# --- Baselines (plan Phase 5) ------------------------------------------------------------------------
+baselines:
+  tau_greedy: 0.55          # greedy attaches to the best existing topic when s >= this
+  restructure_every: 10     # judge_restructure: full restructure every N prompts
+
+paths:
+  sessions: data/sessions
+  gold: data/gold
+  cache: data/cache
+  frozen: data/frozen
+  forests: outputs/forests
+  metrics: outputs/metrics
+  figures: outputs/figures

@@ -1,0 +1,12 @@
+# What ui_optimization.ipynb needs: it reads cached embeddings and judge answers from data/frozen/,
+# so no embedding model, no LLM client and no API key. Copy as requirements.txt into
+# Deliverables/UIOptimization/ together with the notebook, forest/, config/ and data/.
+gurobipy==14.0.0
+numpy==2.5.5
+pandas==3.1.1
+PyYAML==6.0.4
+pydantic==2.14.4
+matplotlib==3.11.2
+networkx==3.7
+scikit-learn==1.9.1
+ipykernel==7.4.0

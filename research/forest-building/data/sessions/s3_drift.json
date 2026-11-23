@@ -1,0 +1,176 @@
+{
+ "session_id": "s3_drift",
+ "draft": true,
+ "drafted_by": "claude-opus-5-5 (draft, 2026-11-23); needs review by the group",
+ "description": "Starts broad (machine learning basics), then narrows into attention and transformers, so renames and re-parenting become worthwhile.",
+ "prompts": [
+  {
+   "id": "s3_p01",
+   "text": "What's the difference between supervised and unsupervised learning?",
+   "step": 1,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p02",
+   "text": "Why do we need a separate test set if we already have a validation set?",
+   "step": 2,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p03",
+   "text": "What is overfitting and how can I tell it's happening from the loss curves?",
+   "step": 3,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p04",
+   "text": "Can you explain the bias-variance tradeoff with a simple example?",
+   "step": 4,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p05",
+   "text": "How does k-fold cross-validation work?",
+   "step": 5,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p06",
+   "text": "Is accuracy a bad metric for imbalanced classes? What should I use instead?",
+   "step": 6,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p07",
+   "text": "Why does L1 regularization give sparse weights but L2 doesn't?",
+   "step": 7,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p08",
+   "text": "What problem do recurrent neural networks solve that feedforward ones don't?",
+   "step": 8,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p09",
+   "text": "Why do LSTMs have gates? What's the forget gate for?",
+   "step": 9,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p10",
+   "text": "What's the problem with RNNs on long sentences?",
+   "step": 10,
+   "chat_id": "c1"
+  },
+  {
+   "id": "s3_p11",
+   "text": "What is attention in seq2seq models? The decoder 'looks at' the encoder states?",
+   "step": 11,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p12",
+   "text": "In self-attention, what are queries, keys and values? Where do they come from?",
+   "step": 12,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p13",
+   "text": "Why do we divide by sqrt(d_k) in scaled dot-product attention?",
+   "step": 13,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p14",
+   "text": "How does the transformer know the word order if attention is permutation invariant?",
+   "step": 14,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p15",
+   "text": "Why sinusoidal positional encodings instead of just learning position embeddings?",
+   "step": 15,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p16",
+   "text": "What's the point of multi-head attention? Isn't one head enough?",
+   "step": 16,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p17",
+   "text": "I tried to compute attention weights by hand for 3 tokens: softmax of QK^T. Is each row supposed to sum to 1?",
+   "step": 17,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p18",
+   "text": "How does the causal mask work in the decoder?",
+   "step": 18,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p19",
+   "text": "Is the transformer encoder the same as BERT?",
+   "step": 19,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p20",
+   "text": "How do the heads get combined after multi-head attention, just concatenation?",
+   "step": 20,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p21",
+   "text": "Why is attention O(n^2) in sequence length? Is that why context windows are limited?",
+   "step": 21,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p22",
+   "text": "What's the difference between self-attention and cross-attention in the decoder?",
+   "step": 22,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p23",
+   "text": "Do I add or concatenate the positional encoding to the token embedding?",
+   "step": 23,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p24",
+   "text": "What does the padding mask do, and how is it different from the causal mask?",
+   "step": 24,
+   "chat_id": "c2"
+  },
+  {
+   "id": "s3_p25",
+   "text": "Can you quiz me on the transformer architecture? I want to check I understand the whole forward pass.",
+   "step": 25,
+   "chat_id": "c2"
+  }
+ ],
+ "access_events": [
+  {
+   "step": 12,
+   "prompt_id": "s3_p11"
+  },
+  {
+   "step": 16,
+   "prompt_id": "s3_p12"
+  },
+  {
+   "step": 21,
+   "prompt_id": "s3_p13"
+  },
+  {
+   "step": 24,
+   "prompt_id": "s3_p18"
+  }
+ ]
+}
