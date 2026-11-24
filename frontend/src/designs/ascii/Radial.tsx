@@ -82,7 +82,7 @@ function sliceClass(w: Wedge, i: number, wedge: number | null, sub: number | nul
 
 export function Radial() {
   const { state, dispatch, navigate, newChat, chats, toast, track } = useStore();
-  const { focusPrompt } = useUi();
+  const { focusPrompt, restOn } = useUi();
   const activeId = state.session.activeConversationId;
   const ring = useMemo(
     () =>
@@ -139,11 +139,14 @@ export function Radial() {
 
   const effect = useCallback(
     (e: Effect) => {
+      // How long each option was pointed at (`hover` radial): a chat on the ring is `chats:<n>`.
+      if (e.type === 'hover') restOn('radial', e.wedge === null ? null : e.sub !== null ? `${WEDGE_LIST[e.wedge].id}:${e.sub}` : WEDGE_LIST[e.wedge].id);
+      else if (e.type !== 'open') restOn('radial', null);
       if (e.type === 'select') go(e.wedge, e.sub, e.via, Math.round(e.ms));
       else if (e.type === 'open') track({ type: 'radial_open', payload: { input: e.input, on: from } });
       else if (e.type === 'cancel' && e.drawn) track({ type: 'radial_cancel', payload: { reason: e.reason, ms: Math.round(e.ms) } });
     },
-    [go, track, from],
+    [go, track, from, restOn],
   );
 
   const shown = useAltGesture({ effect, ringSize: () => ring.length, enabled: state.settings.design === 'ascii' });

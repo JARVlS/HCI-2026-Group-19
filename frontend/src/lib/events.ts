@@ -154,7 +154,33 @@ export type UsageEvent =
   | Ev<'idle_end', { ms: number }>
   /** An uncaught error or rejected promise (at most MAX_ERRORS per visit). */
   | Ev<'client_error', { message: string; source: string; line: number | null }>
-  | Ev<'events_dropped', { count: number }>;
+  | Ev<'events_dropped', { count: number }>
+  /* The pointer (`pageEvents.ts` for clicks, the ASCII design's `restOn` for hovers): positions and fixed names, never text. */
+  /**
+   * A primary press (mouse, touch, pen) anywhere on the page. `x`, `y`: in the viewport (px), with its
+   * `width` and `height`; `region`: the part of the page (`locate.ts`), `rx`, `ry` (0..1) inside its box;
+   * `target`: tag and first class of what was pressed; `sincePrev`: ms since the previous click, null for
+   * the first and past CLICK_CHAIN_MS; `typed`: a key was pressed since the previous click.
+   */
+  | Ev<'click', Click>
+  /** The pointer left a place that does something on hover (`HoverName`): how long it stayed. `id`: the message, leaf, tree or wedge, never text. */
+  | Ev<'hover', { name: HoverName; id: string | null; ms: number; x: number | null; y: number | null; view: ViewKind }>;
+
+/** Where a press landed, as `locate.ts` describes it: fixed names from the code, never text from the page. */
+export type Located = { region: string; target: string; rx: number | null; ry: number | null };
+export type Click = Located & {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  view: ViewKind;
+  panel: boolean;
+  pointer: string;
+  sincePrev: number | null;
+  typed: boolean;
+};
+/** The places that react to the pointer resting on them (`hoverLog.ts`). */
+export type HoverName = 'leaf' | 'message' | 'word' | 'line' | 'tree' | 'diag' | 'squirrel' | 'radial';
 
 /** What `eventsOf` needs besides the state: the time (ms) and, for `session_start`, the screen, the account and the device. */
 export interface EventEnv {

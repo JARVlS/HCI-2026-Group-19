@@ -18,7 +18,7 @@ describe('legend', () => {
 
   it('noise is the frequent, rarely read events, and nothing else', () => {
     const noise = Object.keys(LEGEND).filter(isNoise).sort();
-    expect(noise).toEqual(['filter_rated', 'hint_hover', 'idle_end', 'idle_start', 'message_rest', 'resize']);
+    expect(noise).toEqual(['click', 'filter_rated', 'hint_hover', 'hover', 'idle_end', 'idle_start', 'message_rest', 'resize']);
   });
 
   it('an unknown type is "other", not noise, and says it is not in the catalogue', () => {

@@ -10,6 +10,7 @@ import { newConversation } from './chats';
 import type { Id, ISO } from './domain';
 import { cut, eventsOf, type EventEnv, type UsageEvent } from './events';
 import { createLive, type Backend, type Live } from './live';
+import { locate } from './locate';
 import { CHAT, initialView, routeOf, sameView, type NavVia, type View } from './nav';
 import { watchUsage } from './pageEvents';
 import { SESSION_KEY } from './session';
@@ -384,7 +385,13 @@ export function createApp(opts: AppOptions) {
       if (!opts.page) return () => {};
       const unwatch = [
         // First, so `page_hidden` goes out with the keepalive send that hiding starts.
-        watchUsage(opts.page, track, size),
+        watchUsage(opts.page, track, size, {
+          locate,
+          context: () => {
+            const { ui } = store.getState();
+            return { view: ui.view.kind, panel: ui.panelOpen };
+          },
+        }),
         watchPage(queue, opts.page, () => {
           // Back online after a failed start: try again.
           const { boot } = store.getState().session;

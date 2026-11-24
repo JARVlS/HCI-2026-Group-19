@@ -235,13 +235,19 @@ export function Diagnostics({
   c: Classification;
   onHot: (i: number | null) => void;
 }) {
+  const { restOn } = useUi();
   const ev = c.evidence ?? [];
   const covered = new Set(ev.map((e) => e.reason));
   const extra = c.reasons.filter((r) => !covered.has(r));
   return (
     <ul className="a-diag">
       {ev.map((e, i) => (
-        <li key={i} className={`m-${e.mode}`} onMouseEnter={() => onHot(i)} onMouseLeave={() => onHot(null)}>
+        <li
+          key={i}
+          className={`m-${e.mode}`}
+          onMouseEnter={() => (onHot(i), restOn('diag', String(i)))}
+          onMouseLeave={() => (onHot(null), restOn('diag', null))}
+        >
           <span className="a-diag-mark">{MARK[e.mode]}</span>
           <span className="a-diag-word">{lower(text.slice(e.start, e.end)).slice(0, 14)}</span>
           <span className="a-diag-why">{shortReason(e.reason)}</span>
