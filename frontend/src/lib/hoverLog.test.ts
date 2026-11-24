@@ -9,7 +9,7 @@ function setup() {
   let view: ViewKind = 'chat';
   const events: UsageEvent[] = [];
   const at = { x: 10.4, y: 20.6 };
-  const clock = new HoverClock({ track: (e) => events.push(e), pointer: () => at, view: () => view, now: () => t });
+  const clock = new HoverClock({ track: (e) => events.push(e), pointer: () => at, view: () => view, size: () => ({ width: 1400, height: 900 }), now: () => t });
   return {
     clock,
     events,
@@ -27,7 +27,7 @@ describe('hover durations', () => {
     h.setView('forest');
     h.pass(HOVER_MIN_MS + 200);
     h.clock.set('message', null);
-    expect(h.events).toEqual([{ type: 'hover', payload: { name: 'message', id: 'm1', ms: HOVER_MIN_MS + 200, x: 10, y: 21, view: 'chat' } }]);
+    expect(h.events).toEqual([{ type: 'hover', payload: { name: 'message', id: 'm1', ms: HOVER_MIN_MS + 200, x: 10, y: 21, width: 1400, height: 900, view: 'chat' } }]);
   });
 
   it('a shorter stay is the pointer passing by: not logged', () => {
@@ -83,15 +83,15 @@ describe('hover durations', () => {
   it('endAll (page hidden) ends every stay; no pointer yet means no position', () => {
     let t = 0;
     const events: UsageEvent[] = [];
-    const clock = new HoverClock({ track: (e) => events.push(e), pointer: () => null, view: () => 'chat', now: () => t });
+    const clock = new HoverClock({ track: (e) => events.push(e), pointer: () => null, view: () => 'chat', size: () => ({ width: 800, height: 600 }), now: () => t });
     clock.set('word', '0:4');
     clock.set('line', 'line');
     t = 1000;
     clock.endAll();
     clock.endAll();
     expect(events.map((e) => e.payload)).toEqual([
-      { name: 'word', id: '0:4', ms: 1000, x: null, y: null, view: 'chat' },
-      { name: 'line', id: 'line', ms: 1000, x: null, y: null, view: 'chat' },
+      { name: 'word', id: '0:4', ms: 1000, x: null, y: null, width: 800, height: 600, view: 'chat' },
+      { name: 'line', id: 'line', ms: 1000, x: null, y: null, width: 800, height: 600, view: 'chat' },
     ]);
   });
 });

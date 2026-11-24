@@ -19,6 +19,8 @@ interface Stay {
   start: number;
   x: number | null;
   y: number | null;
+  width: number;
+  height: number;
   view: ViewKind;
 }
 
@@ -27,6 +29,8 @@ export interface HoverClockOptions {
   /** Where the pointer is now (null: not known yet). */
   pointer: () => { x: number; y: number } | null;
   view: () => ViewKind;
+  /** The window's size (the heatmap draws each hover in a window of its size). */
+  size: () => { width: number; height: number };
   now?: () => number;
 }
 
@@ -42,7 +46,7 @@ export class HoverClock {
     if (stay) this.end(name, stay);
     if (id === null) return;
     const p = this.o.pointer();
-    this.open.set(name, { id, start: this.now(), x: p ? Math.round(p.x) : null, y: p ? Math.round(p.y) : null, view: this.o.view() });
+    this.open.set(name, { id, start: this.now(), x: p ? Math.round(p.x) : null, y: p ? Math.round(p.y) : null, ...this.o.size(), view: this.o.view() });
   }
 
   /** End every stay (the page was hidden, or the design unmounts). */
@@ -54,7 +58,7 @@ export class HoverClock {
     this.open.delete(name);
     const ms = Math.round(this.now() - stay.start);
     if (ms < (HOVER_MIN[name] ?? HOVER_MIN_MS)) return;
-    this.o.track({ type: 'hover', payload: { name, id: stay.id, ms, x: stay.x, y: stay.y, view: stay.view } });
+    this.o.track({ type: 'hover', payload: { name, id: stay.id, ms, x: stay.x, y: stay.y, width: stay.width, height: stay.height, view: stay.view } });
   }
 
   private now() {

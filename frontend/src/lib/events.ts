@@ -163,8 +163,8 @@ export type UsageEvent =
    * the first and past CLICK_CHAIN_MS; `typed`: a key was pressed since the previous click.
    */
   | Ev<'click', Click>
-  /** The pointer left a place that does something on hover (`HoverName`): how long it stayed. `id`: the message, leaf, tree or wedge, never text. */
-  | Ev<'hover', { name: HoverName; id: string | null; ms: number; x: number | null; y: number | null; view: ViewKind }>;
+  /** The pointer left a place that does something on hover (`HoverName`): how long it stayed, where it began, the window's size. `id`: the message, leaf, tree or wedge, never text. */
+  | Ev<'hover', { name: HoverName; id: string | null; ms: number; x: number | null; y: number | null; width: number; height: number; view: ViewKind }>;
 
 /** Where a press landed, as `locate.ts` describes it: fixed names from the code, never text from the page. */
 export type Located = { region: string; target: string; rx: number | null; ry: number | null };

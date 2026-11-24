@@ -116,7 +116,12 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const latest = useRef({ track, kind: state.ui.view.kind });
   latest.current = { track, kind: state.ui.view.kind };
   const clock = useRef<HoverClock | null>(null);
-  clock.current ??= new HoverClock({ track: (e) => latest.current.track(e), pointer: () => pointer.current, view: () => latest.current.kind });
+  clock.current ??= new HoverClock({
+    track: (e) => latest.current.track(e),
+    pointer: () => pointer.current,
+    view: () => latest.current.kind,
+    size: () => ({ width: window.innerWidth, height: window.innerHeight }),
+  });
   useEffect(() => {
     const hovers = clock.current;
     const move = (e: PointerEvent) => {

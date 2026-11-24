@@ -3,6 +3,7 @@ import { save, visitEvents } from './client';
 import { GROUPS, groupOf, isNoise, type Group } from './legend';
 import type { Fail } from './Logs';
 import { summarize, type Summary } from './summary';
+import { Heatmap } from './Heatmap';
 import { clock, facts, haystackOf, inOrder, lasted, localTime, passes, who, type AdminEvent, type AdminVisit, type Filter } from './visit';
 
 interface Row {
@@ -21,6 +22,7 @@ export function Timeline({ token, visit, fail }: { token: string; visit: AdminVi
   const [loaded, setLoaded] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [tab, setTab] = useState<'events' | 'heatmap'>('events');
 
   useEffect(() => {
     const abort = new AbortController();
@@ -74,7 +76,15 @@ export function Timeline({ token, visit, fail }: { token: string; visit: AdminVi
   return (
     <div className="l-pad">
       {title}
-      <Events visit={visit} events={events} />
+      <p className="l-tabs" role="group" aria-label="show">
+        <button className={`l-chip${tab === 'events' ? ' on' : ''}`} aria-pressed={tab === 'events'} onClick={() => setTab('events')}>
+          events
+        </button>
+        <button className={`l-chip${tab === 'heatmap' ? ' on' : ''}`} aria-pressed={tab === 'heatmap'} onClick={() => setTab('heatmap')}>
+          heatmap
+        </button>
+      </p>
+      {tab === 'events' ? <Events visit={visit} events={events} /> : <Heatmap events={events} />}
     </div>
   );
 }
