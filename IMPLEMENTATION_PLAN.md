@@ -1261,6 +1261,47 @@ time, every "right in other words" case highlights the matching idea, and no "wr
 words" case is shown as right; in the browser the semantic result replaces the overlap within
 about 3 s of the reveal.
 
+### M11 UI refinement: UX ideas (FE, ongoing) ⇢ M2b
+A running list of UX improvements. Each idea gets a number (U1, U2, …), a short why, and
+`Accept:` / `Test:` lines before it is built; it is ticked here when it lands. Ideas that would
+differ between A/B conditions are flagged, because the study build must be the same in both
+groups except for the IV (ADR-9). After the freeze (Dec 5) only fixes, until the study ends.
+
+**U1 Guided first-run intro, one concept at a time** (Leon, 24 Nov 2026)
+*Why:* the `?` sheet lists all twelve interaction concepts on one page. As a first impression
+that overwhelms most people; the intro today is one card that links to that whole list. A
+newcomer should meet one idea at a time, at the place in the interface where it lives.
+- [ ] **One source:** the tour's steps come from the same list as the `?` sheet
+      (`useConcepts()` in `designs/ascii/Concepts.tsx`), each step with an optional *target*: the
+      element it is about. No second copy of the texts.
+- [ ] **Tour, not a wall:** a small card shows one concept (name, one or two sentences, its
+      *try →* action), with `next` / `back` / `skip tour`, a progress mark (`3 / 12`) and keys
+      (`→`/`↵` next, `←` back, `esc` skip).
+- [ ] **Spotlight:** when a step is about something visible (the score line above the prompt,
+      the modeline, the tree pane, the scrubber, the forest button, the squirrel, a message's
+      glyph), that element is highlighted (the rest of the page dimmed, a frame around it) and the
+      card sits next to it, never over it. A step without a target is centred. If the target is
+      not on screen (pane closed, narrow window), the step opens what it needs or falls back to
+      centred.
+- [ ] **When:** first visit only (demo and live; `arbor.onboarded.v1` as today), and again from
+      `/intro` or the intro button. Skipping or finishing marks it done; leaving mid-tour resumes at
+      that step on the next visit (`arbor.tour.v1`). `?` and `/concepts` still open the whole list.
+- [ ] **A view:** `#/tour[/<step>]` (ADR-13), so back/forward step through it and nothing else
+      opens on top of it; the radial menu stays off during the tour.
+- [ ] **Usage log:** `tour_step` (step, how: next/back/key/try), `tour_skip` (at which step),
+      `tour_done` (ms). Tells us where people drop out.
+- [ ] Classic design: unchanged (§8).
+- [ ] Small fix on the way: the intro's button still says "11 concepts" (there are 12); take the
+      count from the list.
+*Study note:* the tour is the participants' first impression. It must be identical in both A/B
+groups, or deliberately part of the IV. Decide before the study design goes to the TA (Dec 4/8).
+*Accept:* a fresh browser sees the tour, not the whole list; each visual concept highlights its
+element with the card beside it; `esc` ends it, a reload after step 4 resumes at step 4, `?`
+still shows all twelve, `/intro` replays it; nothing in the tour moves the prompt (ADR-14).
+*Test:* unit tests for the step model (order from the one list, resume, skip, done, a missing
+target falls back to centred) and its events; screenshots of each spotlight step at desktop and
+phone width, light and dark.
+
 ### Stretch (post-study)
 - **S2 Desktop shell (ADR-11):** Electron wrapper around the same build; providers in the main
   process over IPC; ChatGPT plan via `@siwc/local`; local model discovery; keys in the OS keychain.
