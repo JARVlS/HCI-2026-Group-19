@@ -966,6 +966,8 @@ and dark): ring, release, flick without drawing, Esc, keyboard path, chats ring,
 deep links `#/chats` and `#/forest`, AltGr `@{|[` typed into the prompt with no menu, no console
 errors. **Still by hand:** a real Swiss German keyboard (Windows AltGr, macOS Option+G/7/L) and
 Option+⌫ on a Mac; a touch phone.
+*24 Nov (Leon):* drawn as a pie: eight slices (an annulus, hub = dead zone, now 40 px, slices out
+to 170 px), each label inside its slice and wrapped to its width; the chats fan sits outside it.
 
 ### M3 Live chat via backend Claude (BE + FE, Nov 20–25) ⇢ M0 SSE spike, M1
 **BE**

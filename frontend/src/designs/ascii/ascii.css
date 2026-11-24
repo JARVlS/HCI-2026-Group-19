@@ -1873,9 +1873,11 @@ body {
   color: var(--ai);
 }
 
-/* ───────────── Radial menu (hold alt; interaction concept #11, ADR-13) ─────────────
- * A full-screen layer while open, so a click lands on the menu and nothing under it. Positions
- * come from lib/altGesture.ts (polar around the centre); the CSS only centres each item on its point. */
+/* ───────────── Radial menu (hold alt; interaction concept #12, ADR-13) ─────────────
+ * A pie: eight slices around a hub (the dead zone), drawn in SVG; each slice's label is an HTML
+ * box set inside it, as wide as the slice allows (Radial.tsx `LABEL_W`), so long labels wrap in
+ * the narrow up/down slices. Geometry comes from lib/altGesture.ts. The layer covers the screen
+ * while open, so a click lands on the menu and nothing under it. */
 .a-radial {
   position: fixed;
   inset: 0;
@@ -1885,84 +1887,120 @@ body {
   -webkit-user-select: none;
   touch-action: none;
 }
-.a-radial-disc,
-.a-radial-hub,
-.a-radial-item,
+.a-radial-pie,
+.a-radial-label,
 .a-radial-hint {
   position: absolute;
   transform: translate(-50%, -50%);
 }
-.a-radial-disc {
-  border: 1px dashed var(--bark-strong);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+.a-radial-pie {
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(4px 4px 0 var(--rule));
   animation: a-radial-in 0.14s var(--ease);
+}
+.a-radial-slice {
+  fill: var(--surface);
+  stroke: var(--bg);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  transition: fill 0.08s;
+}
+path.a-radial-slice {
+  stroke: var(--rule);
+  stroke-width: 1;
+  paint-order: stroke;
+}
+path.a-radial-slice.here {
+  fill: var(--surface-2);
+}
+path.a-radial-slice.soon {
+  stroke: var(--bark-strong);
+  stroke-dasharray: 4 3;
+}
+path.a-radial-slice.on {
+  fill: var(--you);
+  stroke: var(--you);
+}
+path.a-radial-slice.via {
+  fill: var(--you-soft);
+  stroke: var(--you);
+}
+path.a-radial-slice.soon.on {
+  fill: var(--surface-2);
+  stroke: var(--bark-strong);
 }
 .a-radial-hub {
-  display: grid;
-  place-items: center;
-  width: 4ch;
-  height: 4ch;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--text-3);
+  fill: var(--bg);
+  stroke: var(--rule);
+  stroke-width: 1;
 }
 .a-radial-hub.on {
-  color: var(--text-2);
+  stroke: var(--bark-strong);
+  stroke-dasharray: 3 3;
 }
-.a-radial-item {
-  padding: 2px 1ch;
-  border: 1px solid var(--rule);
-  background: var(--surface);
+.a-radial-hub-mark {
+  fill: var(--text-3);
+  font-family: var(--mono);
+  font-size: 15px;
+}
+.a-radial-label {
+  pointer-events: none;
   color: var(--text);
-  white-space: nowrap;
-  box-shadow: var(--shadow-2);
+  text-align: center;
+  line-height: 1.25;
+  overflow-wrap: normal;
   animation: a-radial-in 0.14s var(--ease);
 }
-.a-radial-key {
-  margin-right: 1ch;
+.a-radial-label.soon {
   color: var(--text-3);
 }
-.a-radial-item.on,
-.a-radial-item.via {
-  border-color: var(--you);
-  background: var(--you);
+.a-radial-label.on {
   color: var(--surface);
+  font-weight: 600;
 }
-.a-radial-item.via {
-  background: var(--you-soft);
-  color: var(--text);
-}
-.a-radial-item.on .a-radial-key {
-  color: inherit;
-}
-.a-radial-item.soon {
-  color: var(--text-3);
-  border-style: dashed;
-}
-.a-radial-item.soon.on {
-  background: var(--surface-2);
+.a-radial-label.soon.on {
   color: var(--text-2);
-  border-color: var(--bark-strong);
+  font-weight: normal;
+}
+.a-radial-key {
+  color: var(--text-3);
+}
+.a-radial-label.on .a-radial-key {
+  color: inherit;
+  opacity: 0.75;
 }
 .a-radial-here {
   color: var(--you);
 }
-.a-radial-item.on .a-radial-here {
+.a-radial-label.on .a-radial-here {
   color: inherit;
 }
 .a-radial-chat {
+  position: absolute;
   /* Left edge on its point: the fan's labels grow outward, to the right. */
   transform: translate(0, -50%);
   max-width: 24ch;
+  padding: 2px 1ch;
   overflow: hidden;
-  text-overflow: ellipsis;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--text);
   font-size: 0.92em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: var(--shadow-2);
+  animation: a-radial-in 0.14s var(--ease);
+}
+.a-radial-chat.on {
+  border-color: var(--you);
+  background: var(--you);
+  color: var(--surface);
 }
 .a-radial-hint {
   margin: 0;
   padding: 1px 1ch;
+  transform: translate(-50%, 0);
   background: var(--bg);
   color: var(--text-3);
   font-size: 0.85em;
@@ -1971,12 +2009,13 @@ body {
 @keyframes a-radial-in {
   from {
     opacity: 0;
-    scale: 0.92;
+    scale: 0.94;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .a-radial-disc,
-  .a-radial-item {
+  .a-radial-pie,
+  .a-radial-label,
+  .a-radial-chat {
     animation: none;
   }
 }

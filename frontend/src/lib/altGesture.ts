@@ -25,17 +25,17 @@ export const RING_MS = 300;
 export const LONG_PRESS_MS = 500;
 /** Pointer travel (px) before the menu is drawn that counts as a flick. */
 export const FLICK_PX = 24;
-/** Around the centre nothing is chosen (px). */
-export const DEAD_ZONE = 28;
+/** Around the centre nothing is chosen (px); drawn as the hub. */
+export const DEAD_ZONE = 40;
 /** A long press that drifts further is a scroll or a drag, not a press (px). */
 export const PRESS_DRIFT = 10;
-/** Where the wedges' labels sit (px from the centre). */
-export const INNER_R = 92;
-/** Where the second ring's chats sit, and from how far out one is chosen (px). */
-export const OUTER_R = 200;
-export const OUTER_PICK = 140;
+/** The slices run from the hub (`DEAD_ZONE`) out to this radius (px). Direction alone chooses, so pointing past them still counts. */
+export const SLICE_R = 170;
+/** Where the second ring's chats sit, and from how far out one is chosen (px): beyond the slices. */
+export const OUTER_R = 222;
+export const OUTER_PICK = 182;
 /** A tap further out than this closes the sticky (touch) menu. */
-export const OUTSIDE_R = 230;
+export const OUTSIDE_R = 290;
 /** Degrees between the chats on the second ring. */
 export const RING_SPREAD = 22;
 /**
