@@ -234,9 +234,9 @@ describe('live mode', () => {
     const chat = a.state().session.activeConversationId;
     const [user] = activeMessages(a.state());
     a.dispatch({ type: 'paneTree', id: 'picked-in-the-pane' });
-    a.dispatch({ type: 'forest', open: true });
+    a.navigate({ kind: 'forest' }, { via: 'click' });
     await a.openChat(chat, user.id);
-    expect(a.state().ui).toMatchObject({ paneTreeId: 'picked-in-the-pane', forest: { open: false }, flash: { id: user.id } });
+    expect(a.state().ui).toMatchObject({ paneTreeId: 'picked-in-the-pane', view: { kind: 'chat' }, flash: { id: user.id } });
   });
 
   it('fast scores are saved with the message and come back after a reload; a score on its way is not saved; a reveal scores the guess', async () => {

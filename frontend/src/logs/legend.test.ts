@@ -22,9 +22,9 @@ describe('legend', () => {
   });
 
   it('an unknown type is "other", not noise, and says it is not in the catalogue', () => {
-    expect(groupOf('nav')).toBe('other');
-    expect(isNoise('nav')).toBe(false);
-    expect(whatIs('nav')).toMatch(/not in the catalogue/);
+    expect(groupOf('nope')).toBe('other');
+    expect(isNoise('nope')).toBe(false);
+    expect(whatIs('nope')).toMatch(/not in the catalogue/);
     // Not fooled by the object's prototype.
     expect(groupOf('constructor')).toBe('other');
     expect(groupOf('toString')).toBe('other');

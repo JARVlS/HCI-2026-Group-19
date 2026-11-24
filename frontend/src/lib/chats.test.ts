@@ -61,7 +61,7 @@ describe('which chat opens, and empty chats', () => {
     await s.send('What is recursion?');
     s.deps.dispatch({ type: 'conversationNew', conversation: newConversation('third', at(3)) });
     expect(Object.keys(s.state.domain.conversations).sort()).toEqual(['second', 'third']);
-    expect(s.state.ui.chats).toBe(false);
+    expect(s.state.ui.view).toEqual({ kind: 'chat' });
   });
 
   it('loaded messages merge with what is here (this device wins)', () => {

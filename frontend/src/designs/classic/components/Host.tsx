@@ -46,7 +46,7 @@ export function BrowserChrome() {
 
 /** The host chat app's own sidebar. Arbor adds one small glyph per chat. */
 export function HostSidebar() {
-  const { state, dispatch, toast, chats, forestTrees, mode, openChat, newChat } = useStore();
+  const { state, navigate, toast, chats, forestTrees, mode, openChat, newChat } = useStore();
   const enabled = state.settings.enabled;
   const scoreOf = (treeId: string | null) => {
     const t = treeId ? forestTrees.find((x) => x.id === treeId) : undefined;
@@ -58,7 +58,7 @@ export function HostSidebar() {
     // Live chats (and demo chats with a transcript) open; the demo's past chats are only their trees.
     if (mode === 'live' || state.domain.messagesByConv[id]) return openChat(id);
     if (!enabled || !treeId) return toast('Prototype: only the current chat is live.');
-    dispatch({ type: 'forest', open: true, focus: treeId });
+    navigate({ kind: 'forest', treeId }, { via: 'click' });
     toast('Prototype: past demo chats open in your Arbor forest.');
   };
 

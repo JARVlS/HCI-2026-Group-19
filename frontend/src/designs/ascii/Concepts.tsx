@@ -13,7 +13,7 @@ interface Concept {
 }
 
 function useConcepts(): Concept[] {
-  const { dispatch, messages } = useStore();
+  const { dispatch, messages, navigate } = useStore();
   const ui = useUi();
   const delegate = 'Write me a summary of backpropagation for my exam';
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
@@ -61,7 +61,7 @@ function useConcepts(): Concept[] {
       principle: 'overview first, zoom and filter, details on demand',
       body: 'pinch out and the tree becomes one of many. every chat shrinks to a crown of glyphs, fallen leaves show what is fading. hover a tree and labelled roots run to the chats it shares ideas with. zoom into one for the full tree and what to revisit.',
       try: 'open the forest',
-      run: () => dispatch({ type: 'forest', open: true }),
+      run: () => navigate({ kind: 'forest' }, { via: 'click' }),
     },
     {
       name: 'drawn links',
@@ -100,7 +100,14 @@ function useConcepts(): Concept[] {
       principle: 'two-way links · information scent',
       body: 'every chat is kept. c lists them by day, each with the crowns of the trees it grew. a chat names its trees at the top; a tree in the forest lists the chats it was grown in; a leaf lists every message that touched it. pick one and you land in that chat, on that message.',
       try: 'open your chats',
-      run: () => dispatch({ type: 'chats', open: true }),
+      run: () => navigate({ kind: 'chats' }, { via: 'click' }),
+    },
+    {
+      name: 'radial navigation',
+      principle: 'marking menu · direction, not distance (fitts)',
+      body: 'hold alt (option on a mac) and a ring of eight places opens at the pointer: chat, chats, tree, forest, study, concepts, settings, new chat. point toward one and let go. the places never move, so after a few times you flick without waiting for the ring, and it never shows. rest on chats for your recent ones. typing is safe: altgr, option + a key and alt + tab never open it. on touch, press and hold on empty space. the back button undoes any of it.',
+      try: 'hold alt, point, let go',
+      run: () => ui.focusPrompt(),
     },
   ];
 }

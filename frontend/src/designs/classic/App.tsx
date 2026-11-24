@@ -25,7 +25,7 @@ export default function ClassicApp() {
         <HostSidebar />
         <ChatView />
         {state.ui.panelOpen && <ArborPanel />}
-        {state.ui.forest.open && <Forest />}
+        {state.ui.view.kind === 'forest' && <Forest />}
       </div>
       <Onboarding />
       <Toast />

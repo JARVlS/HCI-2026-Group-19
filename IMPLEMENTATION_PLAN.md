@@ -385,6 +385,10 @@ type OrganizationPolicy =
   | 'split-trees'   // chats stay free-form; the planner splits trees; one chat may grow several trees
   | 'split-chats';  // invariant: one tree per chat; a new tree ALSO opens a new chat
 ```
+- **24 Nov 2026, TA:** the A/B test does **not** have to compare the M3-optimised design with a
+  non-optimised one. The two conditions may differ in any key feature; the M3 result only has to be
+  in the prototype. So this candidate is one option among the others below, not a requirement, and
+  the "shared trigger" point matters only if we pick it.
 - **Shared trigger (important for a clean IV):** both conditions use the **same split decision**,
   the M3-optimal `TreePlanner`, so both contain the M3 design and differ **only** in the
   consequence (tree-only vs. tree + chat). If M3's decision is size-based rather than
@@ -607,6 +611,14 @@ URL params for the study (`?pid&cond&…`) stay in the query string; the hash on
 - **Accessibility and touch:** while it's open, arrow keys or `1`–`8` pick a wedge and Enter
   confirms. Every target stays reachable via `/` commands and the modeline lists `alt nav`.
   Touch: long-press on empty canvas opens the same menu (no Alt key on iOS).
+
+*24 Nov 2026 (M2b, built):* `View` has only the screens that exist: `chat`, `chats`, `forest`,
+`concepts`, `settings` (`section: 'model'` is the model sheet). `tree`, `graph` and `study` become
+kinds when M5 builds them; tree vs. outline stays a setting of the pane (it is the start value of
+the third A/B candidate). The store keeps the view without the chat id (the active chat), the URL
+has it. The *study* wedge keeps its place, dim, and says it comes with M5. The settings pop-up has a
+URL but never its own history entry (a click outside it must not be undone by an async
+`history.back()`). The nested *chats* ring is pointer only; keyboard users have `c` and `/chats`.
 
 ### ADR-14 The thought linter never moves the layout (17 Nov 2026)
 The linter used to print its verdict and a word-by-word diagnostics list **under** the prompt.
@@ -928,18 +940,32 @@ live Claude, also a reload while the backend is unreachable (error, retry, nothi
 the M2 backend and migration `0002` deployed before live mode works on the deployed site.
 
 ### M2b Navigation model and radial menu (FE, Nov 23–27) ⇢ M1 (needs views from M2 as they land)
-- [ ] `lib/nav.ts` (ADR-13): `View`, hash routing, `navigate()`, back/forward. Migrate
+- [x] `lib/nav.ts` (ADR-13): `View`, hash routing, `navigate()`, back/forward. Migrate
       `forest.open`, `panelOpen`, the `?` sheet, settings and the chat list onto it. `/forest`,
       `/chats`, etc. call `navigate()`.
-- [ ] `designs/ascii/Radial.tsx` + `lib/useAltGesture.ts`: trigger, direction picking, flick
+- [x] `designs/ascii/Radial.tsx` + `lib/useAltGesture.ts`: trigger, direction picking, flick
       selection, nested *chats* ring, keyboard and touch fallbacks, per ADR-13.
-- [ ] Tests for the gesture hook (fake timers + synthetic key/pointer events): AltGr ignored,
+- [x] Tests for the gesture hook (fake timers + synthetic key/pointer events): AltGr ignored,
       Alt+other key cancels, blur cancels, the flick path selects without opening.
-- [ ] Add to the `?` concepts sheet (#11, *try → hold alt*) and to the modeline.
+- [x] Add to the `?` concepts sheet (#11, *try → hold alt*) and to the modeline.
 
 *Acceptance:* on a Swiss German layout, typing `@`, `{`, `|` in the composer never opens the
 menu; Option+⌫ deletes a word on macOS; every view can be reached in one gesture and returned
 from with the browser back button.
+*24 Nov (FE):* built. `lib/nav.ts` (views, hashes), `lib/history.ts` (hash ↔ store, back/forward,
+deep links, also after a reload), `app.navigate()` / `app.back()`; the store's `forest` and `chats`
+flags and the ASCII sheet state became `ui.view`, in both designs. `panelOpen` stays a toggle of the side
+pane (it sits next to every view, it is not one). The concept is #12 in the `?` sheet (#11 was
+taken by chats ↔ trees ↔ leaves). The gesture is a pure state
+machine, `lib/altGesture.ts` (22 tests with a fake clock: AltGr in its three forms, Option+⌫/←/G,
+Alt+Tab, blur, flick, keyboard, the chats ring, touch), bound in `designs/ascii/useAltGesture.ts`
+and drawn by `designs/ascii/Radial.tsx`. Usage log: `nav` (from, to, via, ms to choose),
+`radial_open`, `radial_cancel`; `forest_open/close`, `chats_open/close` and `sheet_open` now come
+from the view, with the same names. Checked in headless Chromium (desktop and phone width, light
+and dark): ring, release, flick without drawing, Esc, keyboard path, chats ring, back/forward,
+deep links `#/chats` and `#/forest`, AltGr `@{|[` typed into the prompt with no menu, no console
+errors. **Still by hand:** a real Swiss German keyboard (Windows AltGr, macOS Option+G/7/L) and
+Option+⌫ on a Mac; a touch phone.
 
 ### M3 Live chat via backend Claude (BE + FE, Nov 20–25) ⇢ M0 SSE spike, M1
 **BE**
@@ -1251,6 +1277,8 @@ about 3 s of the reveal.
    parameters for `HeuristicPlanner` or as a policy we implement as `OptimalPlanner`? Is the
    decision topic-based (needed for a clean `split-chats` vs `split-trees` IV, ADR-9)?
 2. **A/B conditions (M6):** is "`split-chats` vs `split-trees`, same M3 trigger" OK with the TA?
+   *24 Nov:* the TA does not require optimised vs. non-optimised; any key feature can be the IV
+   (ADR-9 note). The question left is 10 (a): which one.
 3. **ADR-12:** TS Worker for the app API, or keep the Python Worker? Decide in M0.
 4. **Study topic and seed subject (M4/M6):** one fixed topic for everyone (recommended), so trees
    are comparable.

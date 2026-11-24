@@ -10,6 +10,7 @@ import { newConversation } from './chats';
 import type { Id, ISO } from './domain';
 import { cut, eventsOf, type EventEnv, type UsageEvent } from './events';
 import { createLive, type Backend, type Live } from './live';
+import { CHAT, initialView, routeOf, sameView, type NavVia, type View } from './nav';
 import { watchUsage } from './pageEvents';
 import { SESSION_KEY } from './session';
 import { isBusy, reducer, type Action, type DomainState, type State } from './state';
@@ -78,7 +79,7 @@ function demoWorld(empty: boolean) {
  * `?design=ascii&intro=0&view=forest&theme=dark&empty=1&nudge=gentle&arbor=off&mascot=0&provider=arbor|own&demo=1`.
  * `?demo=1` forces the scripted demo for the visit, whatever is saved or in `?provider`.
  */
-export function initialState(p: URLSearchParams, storage: KeyValue | null, build?: string): State {
+export function initialState(p: URLSearchParams, storage: KeyValue | null, build?: string, hash = ''): State {
   const provider = chooseProvider({ demo: p.get('demo') === '1', url: p.get('provider'), saved: stored(storage, PROVIDER_KEY), build });
   const settings: Settings = { ...loadSettings(storage), provider };
   const theme = p.get('theme');
@@ -105,7 +106,8 @@ export function initialState(p: URLSearchParams, storage: KeyValue | null, build
     },
     ui: {
       panelOpen: p.get('panel') !== '0',
-      forest: { open: p.get('view') === 'forest', focus: p.get('tree') },
+      // A chat named in the hash is opened by `history.ts` once the chats are there.
+      view: initialView(hash, p).kind === 'chat' ? CHAT : initialView(hash, p),
       draft: { text: '', nonce: 0 },
       highlight: [],
       composer: { lens: null, nudge: false },
@@ -115,7 +117,6 @@ export function initialState(p: URLSearchParams, storage: KeyValue | null, build
       onboarding: p.get('intro') === '1' || (provider === 'scripted' && p.get('intro') !== '0' && stored(storage, ONBOARD_KEY) !== '1'),
       toast: null,
       paneTreeId: null,
-      chats: false,
     },
     settings,
   };
@@ -163,6 +164,28 @@ export interface AppOptions {
   now?: () => ISO;
   /** Every judged sent message (live mode): the word filter learns from it (`LiveFilter.learn`). */
   judged?: TurnDeps['judged'];
+  /** The URL hash at start (`#/forest/…`): the first view (ADR-13). */
+  hash?: string;
+}
+
+/** The browser history as `navigate()` needs it (`history.ts`); none in tests that do not need it. */
+export interface NavHistory {
+  /** The view of the entry before this one, if it is the app's (null: leaving would leave the app). */
+  previous(): View | null;
+  /** The next view change is a step back in the history, not a new entry. */
+  backNext(): void;
+  /** Undo `backNext` when nothing changed after all. */
+  cancelBack(): void;
+  /** The next view change replaces the current entry instead of adding one. */
+  replaceNext(): void;
+}
+
+export interface NavOptions {
+  via: NavVia;
+  /** Replace the current history entry instead of adding one. */
+  replace?: boolean;
+  /** Milliseconds the user took to choose (radial menu), for the usage log. */
+  ms?: number;
 }
 
 export type App = ReturnType<typeof createApp>;
@@ -214,7 +237,7 @@ export function createApp(opts: AppOptions) {
       console.error(`[arbor events] could not log ${a.type}`, e);
     }
   };
-  const store = createStore(initialState(opts.params, storage, opts.build), (prev, next, a) => {
+  const store = createStore(initialState(opts.params, storage, opts.build, opts.hash), (prev, next, a) => {
     live.observe(prev, next, a);
     logChange(prev, next, a);
   });
@@ -268,8 +291,19 @@ export function createApp(opts: AppOptions) {
     }
   };
 
+  let history: NavHistory | null = null;
+  const route = () => {
+    const s = store.getState();
+    return routeOf(s.ui.view, s.session.activeConversationId);
+  };
+  /** Show a view of the open chat's world (not another chat: that is `openChat`). */
+  const show = (view: View, replace?: boolean) => {
+    if (replace) history?.replaceNext();
+    store.dispatch({ type: 'view', view });
+  };
+
   const jumpTo = (messageId: Id) => {
-    store.dispatch({ type: 'forest', open: false });
+    show(CHAT);
     store.dispatch({ type: 'flash', id: messageId });
   };
 
@@ -286,6 +320,49 @@ export function createApp(opts: AppOptions) {
     const pq = store.getState().session.pendingQuiz;
     return classify(text, { pendingQuiz: isQuizAnswer(provider(), text, pq) ? pq : null });
   };
+
+  /**
+   * The one way to change the view (ADR-13): the radial menu, `/commands`, keys, links and the back
+   * button. A chat other than the open one is opened (and loaded) with `openChat`.
+   */
+  const navigate = (to: View, given: NavOptions) => {
+    const from = route();
+    if (sameView(from, to) && !(to.kind === 'chat' && to.messageId)) return;
+    // The settings pop-up is a view (it has a URL) but never a history entry of its own: a click
+    // outside closes it, and an async `history.back()` could land after that click's own navigation.
+    const popup = (v: View) => v.kind === 'settings' && !v.section;
+    const o = popup(to) || popup(from) ? { ...given, replace: true } : given;
+    track({ type: 'nav', payload: { from: from.kind, to: to.kind, via: o.via, ms: o.ms ?? null } });
+    if (to.kind === 'chat' && to.conversationId && to.conversationId !== store.getState().session.activeConversationId) {
+      if (o.replace) history?.replaceNext();
+      return void openChat(to.conversationId, to.messageId);
+    }
+    if (to.kind === 'chat' && to.messageId) {
+      if (o.replace) history?.replaceNext();
+      return jumpTo(to.messageId);
+    }
+    show(to, o.replace);
+  };
+
+  /** Open a chat (loading its messages if needed) and, given a message, jump to it. */
+  async function openChat(id: Id, messageId?: Id) {
+    const s = store.getState();
+    if (!s.domain.conversations[id]) return;
+    if (id !== s.session.activeConversationId) {
+      // The demo's past chats are only their trees: the fixture has no transcript for them.
+      if (!isLive() && !s.domain.messagesByConv[id]) return toast('demo: past chats have no transcript. their trees are in the forest.');
+      abort();
+      store.dispatch({ type: 'conversationOpen', id });
+    } else {
+      // Already open: show it, but keep its pane as it is.
+      show(CHAT);
+    }
+    if (isLive()) await live.loadMessages(id);
+    const after = store.getState();
+    if (!messageId || after.session.activeConversationId !== id || after.session.chatLoad[id]) return;
+    if (after.domain.messagesByConv[id]?.some((m) => m.id === messageId)) jumpTo(messageId);
+    else toast('that message was not saved');
+  }
 
   return {
     store,
@@ -358,25 +435,25 @@ export function createApp(opts: AppOptions) {
 
     newChat,
 
-    /** Open a chat (loading its messages if needed) and, given a message, jump to it. */
-    async openChat(id: Id, messageId?: Id) {
-      const s = store.getState();
-      if (!s.domain.conversations[id]) return;
-      if (id !== s.session.activeConversationId) {
-        // The demo's past chats are only their trees: the fixture has no transcript for them.
-        if (!isLive() && !s.domain.messagesByConv[id]) return toast('demo: past chats have no transcript. their trees are in the forest.');
-        abort();
-        store.dispatch({ type: 'conversationOpen', id });
-      } else {
-        // Already open: show it, but keep its pane as it is.
-        store.dispatch({ type: 'chats', open: false });
-        store.dispatch({ type: 'forest', open: false });
-      }
-      if (isLive()) await live.loadMessages(id);
-      const after = store.getState();
-      if (!messageId || after.session.activeConversationId !== id || after.session.chatLoad[id]) return;
-      if (after.domain.messagesByConv[id]?.some((m) => m.id === messageId)) jumpTo(messageId);
-      else toast('that message was not saved');
+    openChat,
+
+    navigate,
+    /**
+     * Leave an overlay (forest, chat list, a sheet): back to where the user came from if that is in
+     * the app, else to `fallback` in place of this entry.
+     */
+    back(fallback: View = CHAT, via: NavVia = 'key') {
+      const prev = history?.previous();
+      if (history && prev && !sameView(prev, route())) {
+        history.backNext();
+        navigate(prev, { via });
+        history.cancelBack();
+      } else navigate(fallback, { via, replace: true });
+    },
+    route,
+    /** `history.ts` binds the browser history; without it views change but the URL stays. */
+    attachHistory(h: NavHistory | null) {
+      history = h;
     },
 
     /** Load a chat's messages without opening it (snippets in a leaf's list of messages). */

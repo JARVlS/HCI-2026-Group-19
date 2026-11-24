@@ -1872,3 +1872,111 @@ body {
 .a-ml-sync.is-bad {
   color: var(--ai);
 }
+
+/* ───────────── Radial menu (hold alt; interaction concept #11, ADR-13) ─────────────
+ * A full-screen layer while open, so a click lands on the menu and nothing under it. Positions
+ * come from lib/altGesture.ts (polar around the centre); the CSS only centres each item on its point. */
+.a-radial {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.a-radial-disc,
+.a-radial-hub,
+.a-radial-item,
+.a-radial-hint {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+.a-radial-disc {
+  border: 1px dashed var(--bark-strong);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  animation: a-radial-in 0.14s var(--ease);
+}
+.a-radial-hub {
+  display: grid;
+  place-items: center;
+  width: 4ch;
+  height: 4ch;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-3);
+}
+.a-radial-hub.on {
+  color: var(--text-2);
+}
+.a-radial-item {
+  padding: 2px 1ch;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--text);
+  white-space: nowrap;
+  box-shadow: var(--shadow-2);
+  animation: a-radial-in 0.14s var(--ease);
+}
+.a-radial-key {
+  margin-right: 1ch;
+  color: var(--text-3);
+}
+.a-radial-item.on,
+.a-radial-item.via {
+  border-color: var(--you);
+  background: var(--you);
+  color: var(--surface);
+}
+.a-radial-item.via {
+  background: var(--you-soft);
+  color: var(--text);
+}
+.a-radial-item.on .a-radial-key {
+  color: inherit;
+}
+.a-radial-item.soon {
+  color: var(--text-3);
+  border-style: dashed;
+}
+.a-radial-item.soon.on {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border-color: var(--bark-strong);
+}
+.a-radial-here {
+  color: var(--you);
+}
+.a-radial-item.on .a-radial-here {
+  color: inherit;
+}
+.a-radial-chat {
+  /* Left edge on its point: the fan's labels grow outward, to the right. */
+  transform: translate(0, -50%);
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.92em;
+}
+.a-radial-hint {
+  margin: 0;
+  padding: 1px 1ch;
+  background: var(--bg);
+  color: var(--text-3);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+@keyframes a-radial-in {
+  from {
+    opacity: 0;
+    scale: 0.92;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a-radial-disc,
+  .a-radial-item {
+    animation: none;
+  }
+}

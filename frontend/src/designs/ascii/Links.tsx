@@ -105,7 +105,7 @@ export function Links() {
   const cw = useCharWidth();
   const [cells, setCells] = useState<Cell[]>([]);
   const last = useRef('');
-  const on = Boolean(link) && state.settings.enabled && state.ui.panelOpen && !state.ui.forest.open;
+  const on = Boolean(link) && state.settings.enabled && state.ui.panelOpen && state.ui.view.kind !== 'forest';
 
   useEffect(() => {
     if (!on || !link) {

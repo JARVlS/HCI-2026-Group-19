@@ -356,7 +356,7 @@ const PROVIDER_TOAST: Record<ProviderChoice, string> = {
 };
 
 function useCommands(): Cmd[] {
-  const { state, dispatch, send, stop, retry, busy, toast, messages, mode, newChat, renameChat, sync, filter } = useStore();
+  const { state, dispatch, send, stop, retry, busy, toast, messages, mode, newChat, renameChat, sync, filter, navigate } = useStore();
   const ui = useUi();
   const account = useAccount();
   return useMemo(() => {
@@ -382,10 +382,10 @@ function useCommands(): Cmd[] {
         desc: 'run the failed reply again',
         run: () => (state.session.turn.status === 'error' ? retry() : toast('nothing failed')),
       },
-      { name: 'chats', desc: 'all your chats, by day (or c)', run: () => dispatch({ type: 'chats', open: true }) },
+      { name: 'chats', desc: 'all your chats, by day (or c)', run: () => navigate({ kind: 'chats' }, { via: 'command' }) },
       { name: 'new', desc: 'start a new chat', run: newChat },
       { name: 'title', args: '<name>', desc: 'rename this chat', run: renameChat },
-      { name: 'forest', desc: 'zoom out to all your chats', run: () => dispatch({ type: 'forest', open: true }) },
+      { name: 'forest', desc: 'zoom out to all your chats', run: () => navigate({ kind: 'forest' }, { via: 'command' }) },
       {
         name: 'outline',
         desc: 'show the tree as an outline, or back',
@@ -419,7 +419,12 @@ function useCommands(): Cmd[] {
         desc: 'where answers come from (arbor: live claude, own: your model)',
         run: (a) => pick(a, ['scripted', 'arbor', 'own'] as const, (v) => (set({ provider: v }), toast(`answers: ${PROVIDER_TOAST[v]}`)), 'provider'),
       },
-      { name: 'model', desc: 'set up your own model: endpoint, key, test', run: () => ui.setSheet('model') },
+      {
+        name: 'settings',
+        desc: 'open the settings (or hold alt and point left)',
+        run: () => (dispatch({ type: 'panel', open: true }), navigate({ kind: 'settings' }, { via: 'command' })),
+      },
+      { name: 'model', desc: 'set up your own model: endpoint, key, test', run: () => ui.setSheet('model', 'command') },
       // Live mode: what the word filter learned from your messages stays in this browser.
       ...(filter
         ? [
@@ -471,7 +476,7 @@ function useCommands(): Cmd[] {
             },
           ]
         : []),
-      { name: 'concepts', desc: 'the interaction ideas in this design', run: () => ui.setSheet('concepts') },
+      { name: 'concepts', desc: 'the interaction ideas in this design', run: () => ui.setSheet('concepts', 'command') },
       { name: 'intro', desc: 'replay the introduction', run: () => dispatch({ type: 'onboarding', open: true }) },
     ] satisfies Cmd[];
   }, [state.settings, state.session.turn.status, messages, busy, dispatch, send, stop, retry, toast, ui, mode, newChat, renameChat, account, sync.pending, filter]);

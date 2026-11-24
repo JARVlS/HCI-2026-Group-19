@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { apiUrl } from '../../lib/api';
 import { useDismiss } from '../../lib/hooks';
+import { CHAT } from '../../lib/nav';
 import { MODE_META, mean, pct } from '../../lib/modes';
 import { thinkingShare } from '../../lib/scores';
 import { TIME_MAX, TIME_TICKS, daysAt, formatDays, posOf, retention } from '../../lib/retention';
@@ -14,9 +15,11 @@ import { Squirrel, type Pose } from './Squirrel';
 import { Check, G, K, Radios, lower, useUi } from './ui';
 
 export function Pane() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, navigate } = useStore();
   const { setSheet } = useUi();
-  const [settings, setSettings] = useState(false);
+  // A view (`nav.ts`), so the radial menu and a link can open it; it never adds a history entry.
+  const settings = state.ui.view.kind === 'settings' && !state.ui.view.section;
+  const setSettings = (open: boolean) => navigate(open ? { kind: 'settings' } : CHAT, { via: 'click' });
 
   return (
     <aside className="a-pane" aria-label="Arbor">
@@ -171,7 +174,7 @@ interface Tip {
 
 /** Poking the squirrel cycles through things worth knowing right now, each with something to do. */
 function useTips(): Tip[] {
-  const { dispatch, activeTree, send, busy, canQuiz } = useStore();
+  const { activeTree, send, busy, canQuiz, navigate } = useStore();
   const { days, setDays } = useUi();
   const leaves = activeTree.branches.flatMap((b) => b.leaves);
   const weakest = [...leaves].filter((l) => canQuiz(l.id)).sort((a, b) => a.score - b.score)[0];
@@ -193,7 +196,7 @@ function useTips(): Tip[] {
     );
   tips.push({
     text: 'every chat you have grows a tree. pinch out on this one to see the forest.',
-    action: { label: 'forest', run: () => dispatch({ type: 'forest', open: true }) },
+    action: { label: 'forest', run: () => navigate({ kind: 'forest' }, { via: 'click' }) },
   });
   return tips;
 }
@@ -258,7 +261,7 @@ function Companion() {
 /* ───────────── Tree ───────────── */
 
 function TreeSection() {
-  const { state, dispatch, activeTree, activeTrees, send, canQuiz } = useStore();
+  const { state, dispatch, activeTree, activeTrees, send, canQuiz, navigate } = useStore();
   const { view, setView, days, setDays, setLink } = useUi();
   const jump = useLeafJump();
   const wrap = useRef<HTMLDivElement>(null);
@@ -283,7 +286,7 @@ function TreeSection() {
       acc = Math.max(0, acc + e.deltaY);
       if (acc > 40) {
         acc = 0;
-        dispatch({ type: 'forest', open: true });
+        navigate({ kind: 'forest' }, { via: 'click' });
       }
     };
     el.addEventListener('wheel', onWheel, { passive: false });
@@ -331,7 +334,7 @@ function TreeSection() {
           <span>
             <G mode="own" /> you <G mode="together" /> together <G mode="ai" /> ai
           </span>
-          <button className="a-btn" onClick={() => dispatch({ type: 'forest', open: true })} title="zoom out to the forest (or pinch out on the tree)">
+          <button className="a-btn" onClick={() => navigate({ kind: 'forest' }, { via: 'click' })} title="zoom out to the forest (or pinch out on the tree)">
             <u>f</u>orest
           </button>
         </p>

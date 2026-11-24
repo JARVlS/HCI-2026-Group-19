@@ -8,7 +8,10 @@ import { createApp, save, SETTINGS_KEY, type StoreAction } from './app';
 import type { Conversation, Id, ISO, Message } from './domain';
 import { draftScoreFn, type ScoreFn } from './draftScore';
 import type { UsageEvent } from './events';
+import { bindHistory } from './history';
 import { LiveFilter } from './liveFilter';
+import type { NavVia, View } from './nav';
+import type { NavOptions } from './app';
 import { conversationsOfTree, treeOfConcept, treesOfConversation } from './links';
 import { remoteBackend } from './live';
 import { crossRoots, projectForest, type CrossRoots } from './project';
@@ -129,6 +132,10 @@ interface Ctx {
   jumpTo: (messageId: string) => void;
   /** Open a chat (any chat) and, given a message, jump to it. */
   openChat: (id: Id, messageId?: Id) => void;
+  /** The one way to change the view (ADR-13, `nav.ts`). */
+  navigate: (to: View, o: NavOptions) => void;
+  /** Leave an overlay: back in the history if the previous entry is the app's, else to `fallback` (the chat). */
+  back: (fallback?: View, via?: NavVia) => void;
   newChat: () => void;
   /** Rename the active chat. */
   renameChat: (title: string) => void;
@@ -164,6 +171,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
       backend: remoteBackend(session),
       build: import.meta.env.VITE_DEFAULT_PROVIDER,
       provider: given,
+      hash: typeof window === 'undefined' ? '' : window.location.hash,
       page: typeof window === 'undefined' ? null : { win: window, doc: document },
       judged: filter.learn,
     }),
@@ -185,6 +193,7 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
   const initialSettings = useRef(state.settings);
 
   useEffect(() => app.start(), [app]);
+  useEffect(() => (typeof window === 'undefined' ? undefined : bindHistory(app, window)), [app]);
 
   // Persist only changes the user makes (not URL-parameter overrides on load). The provider is saved in `dispatch`.
   useEffect(() => {
@@ -294,6 +303,8 @@ export function StoreProvider({ children, provider: given }: { children: ReactNo
       classifyDraft: app.classifyDraft,
       jumpTo: app.jumpTo,
       openChat: app.openChat,
+      navigate: app.navigate,
+      back: app.back,
       newChat: app.newChat,
       renameChat: app.renameChat,
       loadChat: app.loadChat,
