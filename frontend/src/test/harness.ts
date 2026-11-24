@@ -24,7 +24,7 @@ export function testStore(opts: { empty?: boolean; fresh?: boolean; provider?: P
     session: { activeConversationId: f.activeConversationId, pendingQuiz: null, turn: { status: 'idle' }, demoPrompts: f.demoPrompts, boot: 'ready', chatLoad: {} },
     ui: {
       panelOpen: true,
-      forest: { open: false, focus: null },
+      view: { kind: 'chat' },
       draft: { text: '', nonce: 0 },
       highlight: [],
       composer: { lens: null, nudge: false },
@@ -32,7 +32,6 @@ export function testStore(opts: { empty?: boolean; fresh?: boolean; provider?: P
       onboarding: false,
       toast: null,
       paneTreeId: null,
-      chats: false,
     },
     settings: { enabled: true, nudge: 'active', showTags: true, theme: 'system', mascot: true, design: 'ascii', provider: 'scripted', own: DEFAULT_SETUP },
   };

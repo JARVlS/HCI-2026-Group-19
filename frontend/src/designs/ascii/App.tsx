@@ -11,6 +11,7 @@ import { Links } from './Links';
 import { ModelSheet } from './Model';
 import { Modeline } from './Modeline';
 import { Pane } from './Pane';
+import { Radial } from './Radial';
 import { Transcript } from './Transcript';
 import { G, UiProvider, typing, useUi } from './ui';
 import './ascii.css';
@@ -28,8 +29,9 @@ export default function AsciiApp() {
 }
 
 function Shell() {
-  const { state, dispatch, busy, stop, track } = useStore();
+  const { state, dispatch, busy, stop, track, navigate, back } = useStore();
   const ui = useUi();
+  const forest = state.ui.view.kind === 'forest';
   const { theme } = state.settings;
 
   useEffect(() => {
@@ -46,10 +48,12 @@ function Shell() {
       const key = e.key;
       if (key === '/') ui.fill('/');
       else if (key === 'i') ui.focusPrompt();
-      else if (key === '?') ui.setSheet(ui.sheet ? null : 'concepts');
-      else if (key === 't' && !state.ui.forest.open) ui.setView(ui.view === 'tree' ? 'outline' : 'tree', 'key');
-      else if (key === 'f') dispatch({ type: 'forest', open: !state.ui.forest.open });
-      else if (key === 'c' && !state.ui.forest.open) dispatch({ type: 'chats', open: true });
+      else if (key === '?') ui.setSheet(ui.sheet ? null : 'concepts', 'key');
+      else if (key === 't' && !forest) ui.setView(ui.view === 'tree' ? 'outline' : 'tree', 'key');
+      else if (key === 'f') {
+        if (forest) back();
+        else navigate({ kind: 'forest' }, { via: 'key' });
+      } else if (key === 'c' && !forest) navigate({ kind: 'chats' }, { via: 'key' });
       else if (key === ']') ui.setDays(stops.find((d) => d > ui.days) ?? TIME_MAX);
       else if (key === '[') ui.setDays([...stops].reverse().find((d) => d < ui.days) ?? 0);
       else if (key === 'Escape') {
@@ -62,7 +66,7 @@ function Shell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [ui, state.ui.forest.open, dispatch, busy, stop, track]);
+  }, [ui, forest, dispatch, busy, stop, track, navigate, back]);
 
   return (
     <div className="ascii">
@@ -73,7 +77,7 @@ function Shell() {
           <Composer />
         </main>
         {state.ui.panelOpen && <Pane />}
-        {state.ui.forest.open && <Forest />}
+        {forest && <Forest />}
       </div>
       <Modeline />
       <Links />
@@ -81,6 +85,7 @@ function Shell() {
       <ModelSheet />
       <ChatList />
       <LeafRefs />
+      <Radial />
       <Toast />
     </div>
   );

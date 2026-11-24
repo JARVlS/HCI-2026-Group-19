@@ -50,8 +50,8 @@ describe('a visit', () => {
   it('is ordered by seq, then by time for older events without one', () => {
     const a = at(5, 'turn_sent', { seq: 2 });
     const b = at(9, 'compose', { seq: 1 });
-    const old1 = { ...at(1, 'nav'), payload: { to: 'x' } };
-    const old2 = { ...at(0, 'nav'), payload: { to: 'y' } };
+    const old1 = { ...at(1, 'nope'), payload: { to: 'x' } };
+    const old2 = { ...at(0, 'nope'), payload: { to: 'y' } };
     expect(inOrder([a, old1, b, old2]).map((e) => e.id)).toEqual([b.id, a.id, old2.id, old1.id]);
   });
 
@@ -85,7 +85,7 @@ describe('filters', () => {
   const sent = at(1, 'turn_sent', { text: 'Grüße an die Rekursion', mode: 'own' });
   const rated = at(2, 'filter_rated', { percent: 40 });
   const view = at(3, 'view_change', { from: 'tree', to: 'outline' });
-  const old = { ...at(4, 'nav'), payload: { to: 'forest' } };
+  const old = { ...at(4, 'nope'), payload: { to: 'forest' } };
 
   it('hides noise at first, shows it when switched off', () => {
     expect([sent, rated, view, old].map((e) => show(e, f()))).toEqual([true, false, true, true]);
@@ -185,6 +185,6 @@ describe('facts', () => {
   });
 
   it('older events: only what they allow', () => {
-    expect(facts([{ ...at(0, 'nav'), payload: { to: 'x' } }])).toEqual([['turns', '0']]);
+    expect(facts([{ ...at(0, 'nope'), payload: { to: 'x' } }])).toEqual([['turns', '0']]);
   });
 });

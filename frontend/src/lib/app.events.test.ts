@@ -168,7 +168,7 @@ describe('usage log, demo mode', () => {
     a.start();
     a.send('Quiz me on loss');
     a.track({ type: 'squirrel_poke', payload: { dizzy: false } });
-    a.dispatch({ type: 'forest', open: true });
+    a.navigate({ kind: 'forest' }, { via: 'click' });
     p.show('hidden');
     p.win.dispatchEvent(new Event('pagehide'));
     p.win.dispatchEvent(new Event('online'));

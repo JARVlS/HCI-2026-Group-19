@@ -69,7 +69,7 @@ describe('summarize', () => {
 
   it('a type the catalogue does not know: its fields, long strings as texts, no envelope', () => {
     const long = 'x'.repeat(100);
-    expect(ev('nav', { to: 'forest', n: 2, note: long })).toEqual({ line: 'to forest · n 2', texts: [{ label: 'note', text: long }] });
+    expect(ev('nope', { to: 'forest', n: 2, note: long })).toEqual({ line: 'to forest · n 2', texts: [{ label: 'note', text: long }] });
   });
 
   it('a payload that was not json shows what was stored', () => {

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { prefersReducedMotion } from '../../lib/hooks';
+import { CHAT } from '../../lib/nav';
+import { forestFocus } from '../../lib/state';
 import { mean, pct, scoreToMode, MODE_META } from '../../lib/modes';
 import type { Root } from '../../lib/project';
 import { FALLEN, ageDays, eroded, hash01, retention } from '../../lib/retention';
@@ -81,10 +83,11 @@ function useForestData(days: number) {
 }
 
 export function Forest() {
-  const { state, dispatch, activeTree, groves, track } = useStore();
+  const { state, activeTree, groves, track, back } = useStore();
   const { days, setDays, refs } = useUi();
   const { infos, byId } = useForestData(days);
-  const startFocus = state.ui.forest.focus && byId.has(state.ui.forest.focus) ? state.ui.forest.focus : null;
+  const asked = forestFocus(state);
+  const startFocus = asked && byId.has(asked) ? asked : null;
   const [level, setLevel] = useState<'forest' | 'tree'>(startFocus ? 'tree' : 'forest');
   const [focus, setFocus] = useState<string>(startFocus ?? activeTree.id);
   const [hover, setHover] = useState<string | null>(null);
@@ -97,7 +100,7 @@ export function Forest() {
   const zoomFrom = useRef<{ id: string; ms: number } | null>(startFocus ? null : { id: activeTree.id, ms: 1100 });
   const busy = useRef(false);
 
-  const close = useCallback(() => dispatch({ type: 'forest', open: false }), [dispatch]);
+  const close = useCallback(() => back(), [back]);
 
   // Usage log: the zoom level as it changes (`forest_open` has where it started), and the search once it settles.
   const zoomed = useRef(level);
@@ -621,7 +624,7 @@ function Roots({ from, wrap }: { from: TreeInfo; wrap: React.RefObject<HTMLDivEl
 /* ───────────── Tree level ───────────── */
 
 function TreeDetail({ info }: { info: TreeInfo }) {
-  const { state, dispatch, send, toast, canQuiz } = useStore();
+  const { state, dispatch, send, toast, canQuiz, navigate } = useStore();
   const { rest } = useUi();
   const jump = useLeafJump();
   const keep = useMemo(() => new Map(info.leaves.map((l) => [l.id, l.keep])), [info]);
@@ -635,7 +638,7 @@ function TreeDetail({ info }: { info: TreeInfo }) {
 
   const quiz = (l: LeafInfo) => {
     if (info.live && canQuiz(l.id)) {
-      dispatch({ type: 'forest', open: false });
+      navigate(CHAT, { via: 'click' });
       send(`Quiz me on ${l.label.toLowerCase()}`);
     } else toast('no quiz for this leaf yet. ask for one in the chat.');
   };

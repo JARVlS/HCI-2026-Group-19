@@ -4,6 +4,7 @@ import { looksLikeQuizAnswer } from './classify';
 import type { DraftGauge } from './draftScore';
 import type { Id, Message } from './domain';
 import { liveAttempts, treeOfConcept } from './links';
+import { sheetOf, type NavVia, type ViewKind } from './nav';
 import { pct } from './modes';
 import { treeLeaves } from './project';
 import { isScore } from './scores';
@@ -104,6 +105,12 @@ export type UsageEvent =
   | Ev<'pane_action', { kind: PaneKind; view: PaneView; conceptId: Id | null; label: string | null; days: number }>
   | Ev<'why_open', { messageId: Id }>
   | Ev<'sheet_open', { which: 'concepts' | 'model' }>
+  /** A view change through `app.navigate()` (ADR-13); `via: 'back'` is the browser's back/forward, `link` a URL with a view. `ms`: time to choose in the radial menu. */
+  | Ev<'nav', { from: ViewKind; to: ViewKind; via: NavVia; ms: number | null }>
+  /** The radial menu was drawn (Alt held, or a long press); `on`: the view it opened over. */
+  | Ev<'radial_open', { input: 'alt' | 'touch'; on: ViewKind }>
+  /** The radial menu closed without a choice: released in the centre, esc, another key, the window lost focus, a tap outside. */
+  | Ev<'radial_cancel', { reason: 'centre' | 'escape' | 'key' | 'blur' | 'outside'; ms: number }>
   /** `arg` as typed; null for a command that takes none, and for `/provider` (a confused user might paste a key after it). */
   | Ev<'command', { name: string; arg: string | null }>
   | Ev<'squirrel_poke', { dizzy: boolean }>
@@ -195,8 +202,13 @@ function grownTrees(prev: State, next: State) {
 function uiEvents(p: UiState, n: UiState): UsageEvent[] {
   const out: UsageEvent[] = [];
   if (p.panelOpen !== n.panelOpen) out.push({ type: 'panel', payload: { open: n.panelOpen } });
-  if (p.forest.open !== n.forest.open) out.push(n.forest.open ? { type: 'forest_open', payload: { focus: n.forest.focus } } : { type: 'forest_close', payload: NONE });
-  if (p.chats !== n.chats) out.push({ type: n.chats ? 'chats_open' : 'chats_close', payload: NONE });
+  const was = p.view.kind;
+  const is = n.view.kind;
+  if (is === 'forest' && (was !== 'forest' || p.view.treeId !== n.view.treeId)) out.push({ type: 'forest_open', payload: { focus: n.view.treeId ?? null } });
+  if (was === 'forest' && is !== 'forest') out.push({ type: 'forest_close', payload: NONE });
+  if ((was === 'chats') !== (is === 'chats')) out.push({ type: is === 'chats' ? 'chats_open' : 'chats_close', payload: NONE });
+  const sheet = sheetOf(n.view);
+  if (sheet && sheet !== sheetOf(p.view)) out.push({ type: 'sheet_open', payload: { which: sheet } });
   if (p.onboarding !== n.onboarding) out.push({ type: 'onboarding', payload: { open: n.onboarding } });
   if (!p.composer.nudge && n.composer.nudge) out.push({ type: 'nudge_shown', payload: { lens: n.composer.lens } });
   return out;

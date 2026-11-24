@@ -13,7 +13,9 @@ export function Modeline() {
   const { state, messages, busy, mode } = useStore();
   const { days, view, sheet, refs } = useUi();
   const { settings } = state;
-  const { composer, forest } = state.ui;
+  const { composer } = state.ui;
+  const forest = { open: state.ui.view.kind === 'forest' };
+  const chatsOpen = state.ui.view.kind === 'chats';
   const [focus, setFocus] = useState<'prompt' | 'guess' | 'tree' | 'other'>('other');
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export function Modeline() {
 
   let badge: { cls: string; text: string };
   if (!settings.enabled) badge = { cls: 'idle', text: 'paused' };
-  else if (state.ui.chats) badge = { cls: 'idle', text: 'chats' };
+  else if (chatsOpen) badge = { cls: 'idle', text: 'chats' };
   else if (forest.open) badge = { cls: 'idle', text: 'forest' };
   else if (veiled) badge = { cls: 'veil', text: '▒ veiled' };
   else if (busy) badge = { cls: 'idle', text: 'ai writing' };
@@ -50,7 +52,7 @@ export function Modeline() {
   else badge = { cls: 'idle', text: 'arbor' };
 
   let keys: ReactNode;
-  if (state.ui.chats) keys = <><K>↑↓</K> move · <K>↵</K> open · <K>n</K> new chat · <K>esc</K> close</>;
+  if (chatsOpen) keys = <><K>↑↓</K> move · <K>↵</K> open · <K>n</K> new chat · <K>esc</K> close</>;
   else if (refs) keys = <><K>↑↓</K> move · <K>↵</K> open that chat at the message · <K>esc</K> close</>;
   else if (sheet) keys = <><K>esc</K> close</>;
   else if (busy && !forest.open) keys = <><K>esc</K> stop</>;
@@ -72,7 +74,7 @@ export function Modeline() {
   else
     keys = (
       <>
-        <K>i</K> type · <K>/</K> commands
+        <K>i</K> type · <K>/</K> commands · <K>alt</K> hold to go anywhere
       </>
     );
 

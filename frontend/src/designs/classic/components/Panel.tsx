@@ -13,7 +13,7 @@ import { Squirrel, type SquirrelPose } from './Squirrel';
 import { TreeSvg, type LeafEvent } from './TreeSvg';
 
 export function ArborPanel() {
-  const { state, dispatch, activeTree } = useStore();
+  const { state, dispatch, activeTree, navigate } = useStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const enabled = state.settings.enabled;
 
@@ -51,7 +51,7 @@ export function ArborPanel() {
             </div>
             <button
               className="btn btn-sm"
-              onClick={() => dispatch({ type: 'forest', open: true })}
+              onClick={() => navigate({ kind: 'forest' }, { via: 'click' })}
               title="Zoom out to see all your knowledge (or pinch out on the tree)"
             >
               <Trees size={14} /> Forest
@@ -171,7 +171,7 @@ interface SquirrelTip {
 
 /** Poking the squirrel cycles through things worth doing right now. */
 function useSquirrelTips(): SquirrelTip[] {
-  const { dispatch, activeTree, send, busy, canQuiz } = useStore();
+  const { activeTree, send, busy, canQuiz, navigate } = useStore();
   const leaves = activeTree.branches.flatMap((b) => b.leaves);
   const weakest = [...leaves].filter((l) => canQuiz(l.id)).sort((a, b) => a.score - b.score)[0];
   const tips: SquirrelTip[] = [];
@@ -185,7 +185,7 @@ function useSquirrelTips(): SquirrelTip[] {
   }
   tips.push({
     text: 'Every chat you have grows a tree. Pinch out on this one to see the forest.',
-    action: { label: 'Open the forest', run: () => dispatch({ type: 'forest', open: true }) },
+    action: { label: 'Open the forest', run: () => navigate({ kind: 'forest' }, { via: 'click' }) },
   });
   return tips;
 }
@@ -253,7 +253,7 @@ interface Tip {
 }
 
 function LiveTree() {
-  const { state, dispatch, activeTree, jumpTo } = useStore();
+  const { state, dispatch, activeTree, jumpTo, navigate } = useStore();
   const wrap = useRef<HTMLDivElement>(null);
   const { w } = useSize(wrap);
   const layout = useMemo(() => layoutTree(activeTree), [activeTree]);
@@ -289,7 +289,7 @@ function LiveTree() {
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey && e.deltaY > 4) {
         e.preventDefault();
-        dispatch({ type: 'forest', open: true });
+        navigate({ kind: 'forest' }, { via: 'click' });
       }
     };
     el.addEventListener('wheel', onWheel, { passive: false });

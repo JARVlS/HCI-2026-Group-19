@@ -128,9 +128,9 @@ function Crown({ scores, title }: { scores: number[]; title: string }) {
 
 /** The chat list (`c`, /chats). */
 export function ChatList() {
-  const { state, dispatch, chats, mode, openChat, newChat } = useStore();
-  const close = useCallback(() => dispatch({ type: 'chats', open: false }), [dispatch]);
-  if (!state.ui.chats) return null;
+  const { state, chats, mode, openChat, newChat, back } = useStore();
+  const close = useCallback(() => back(), [back]);
+  if (state.ui.view.kind !== 'chats') return null;
   const items: Item[] = chats.flatMap((g) =>
     g.items.map((c) => ({
       key: c.id,

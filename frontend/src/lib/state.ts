@@ -2,6 +2,7 @@ import { mergeMessages, NEW_CHAT_TITLE, titleFrom } from './chats';
 import type { Concept, ConceptAttempt, ConceptEdge, Conversation, Id, ISO, KnowledgeTree, Message, Mode, TreePlanner } from './domain';
 import { slugify } from './graph';
 import { MODE_SCORE } from './modes';
+import { CHAT, stored, type View } from './nav';
 import { HeuristicPlanner, runPlanner } from './planner';
 import { scoredAttempt, scoredAttempts, scoredLabel } from './scores';
 import type { Classification, ScoreKey, ScoreState, Settings } from './types';
@@ -10,7 +11,7 @@ import type { Classification, ScoreKey, ScoreState, Settings } from './types';
  * Store state and the pure reducer (IMPLEMENTATION_PLAN.md, M1). Three slices:
  *   domain  — canonical entities (ADR-2); what M2 persists and syncs
  *   session — the active chat and the turn in flight
- *   ui      — panel, forest, draft, highlight, toast… (moves onto `navigate()` in M2b)
+ *   ui      — the view (`nav.ts`, changed only through `app.navigate()`), panel, draft, highlight, toast…
  * Side effects (providers, timers, ids for new records) live in `turn.ts` and `store.tsx`.
  */
 
@@ -51,7 +52,8 @@ export interface SessionState {
 
 export interface UiState {
   panelOpen: boolean;
-  forest: { open: boolean; focus: string | null };
+  /** The screen (ADR-13). A chat view means the active chat; `app.navigate()` changes it, never a design directly. */
+  view: View;
   /** Text pushed into the composer from elsewhere (nudges, "explain it back"…). */
   draft: { text: string; nonce: number };
   highlight: string[];
@@ -62,8 +64,6 @@ export interface UiState {
   toast: { text: string; nonce: number } | null;
   /** Which of the active chat's trees the pane shows (null: the most recent one). */
   paneTreeId: Id | null;
-  /** The chat list is open. */
-  chats: boolean;
 }
 
 export interface State {
@@ -109,8 +109,8 @@ export type Action =
   | { type: 'reveal'; id: Id; guess: string }
   | { type: 'settings'; patch: Partial<Settings> }
   | { type: 'panel'; open: boolean }
-  | { type: 'forest'; open: boolean; focus?: string | null }
-  | { type: 'chats'; open: boolean }
+  /** Only `app.navigate()` dispatches this (ADR-13). */
+  | { type: 'view'; view: View }
   | { type: 'paneTree'; id: Id | null }
   | { type: 'draft'; text: string }
   | { type: 'highlight'; ids: string[] }
@@ -362,17 +362,17 @@ function sessionReducer(s: SessionState, a: Action): SessionState {
 function uiReducer(u: UiState, a: Action): UiState {
   switch (a.type) {
     case 'hydrate':
-      return { ...u, highlight: [], forest: { open: false, focus: null }, paneTreeId: null, chats: false };
+      return { ...u, highlight: [], view: CHAT, paneTreeId: null };
     case 'conversationNew':
     case 'conversationOpen':
       // Opening a chat (from the chat list, the forest or a leaf) shows it.
-      return { ...u, highlight: [], paneTreeId: null, chats: false, forest: { open: false, focus: null } };
-    case 'chats':
-      return { ...u, chats: a.open };
+      return { ...u, highlight: [], paneTreeId: null, view: CHAT };
+    case 'view': {
+      const view = stored(a.view);
+      return view === u.view || JSON.stringify(view) === JSON.stringify(u.view) ? u : { ...u, view };
+    }
     case 'panel':
       return { ...u, panelOpen: a.open };
-    case 'forest':
-      return { ...u, forest: { open: a.open, focus: a.focus ?? null } };
     case 'paneTree':
       return { ...u, paneTreeId: a.id };
     case 'draft':
@@ -416,6 +416,11 @@ export function reducer(s: State, a: Action): State {
 }
 
 /* ───────────── selectors ───────────── */
+
+export const isForest = (s: State) => s.ui.view.kind === 'forest';
+export const isChats = (s: State) => s.ui.view.kind === 'chats';
+/** The tree the forest opened on, if any. */
+export const forestFocus = (s: State): Id | null => (s.ui.view.kind === 'forest' ? (s.ui.view.treeId ?? null) : null);
 
 export const activeMessages = (s: State): Message[] => s.domain.messagesByConv[s.session.activeConversationId] ?? [];
 export const activeConversation = (s: State): Conversation | undefined => s.domain.conversations[s.session.activeConversationId];

@@ -16,7 +16,7 @@ const TITLE_FONT = '600 12.5px Inter, -apple-system, system-ui, sans-serif';
 const META_FONT = '400 11px Inter, -apple-system, system-ui, sans-serif';
 
 export function Forest() {
-  const { state, dispatch, activeTree, forestTrees, groves, groveRows, jumpTo } = useStore();
+  const { state, dispatch, activeTree, forestTrees, groves, groveRows, jumpTo, back } = useStore();
   const forest = useMemo(() => layoutForest(forestTrees, groves, groveRows), [forestTrees, groves, groveRows]);
   const forestRef = useRef(forest);
   forestRef.current = forest;
@@ -40,7 +40,7 @@ export function Forest() {
   const suppressClick = useRef(false);
   const started = useRef(false);
 
-  const close = useCallback(() => dispatch({ type: 'forest', open: false }), [dispatch]);
+  const close = useCallback(() => back(), [dispatch]);
   const fitAll = () => fitTarget(forestRef.current.bounds, sizeRef.current, { pad: 56 });
 
   const showAll = useCallback(() => {
@@ -76,7 +76,7 @@ export function Forest() {
   useEffect(() => {
     if (started.current || !size.w) return;
     started.current = true;
-    const focus = state.ui.forest.focus;
+    const focus = state.ui.view.kind === 'forest' ? (state.ui.view.treeId ?? null) : null;
     if (focus && focus !== activeTree.id) {
       set(fitAll());
       setTimeout(() => selectTree(focus), 380);
@@ -513,7 +513,7 @@ function TreeDrawer({
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
-  const { dispatch, send, groves } = useStore();
+  const { send, groves, back } = useStore();
   const t = p.tree;
   const leaves = t.branches.flatMap((b) => b.leaves);
   const own = leaves.filter((l) => l.score >= 0.75).length;
@@ -523,7 +523,7 @@ function TreeDrawer({
   const links = forest.links.filter((l) => l.a === t.id || l.b === t.id);
 
   const practice = (label: string) => {
-    dispatch({ type: 'forest', open: false });
+    back();
     setTimeout(() => send(`Quiz me on ${label.toLowerCase()}`), 350);
   };
 
@@ -603,7 +603,7 @@ function TreeDrawer({
       )}
 
       {t.live && (
-        <button className="btn btn-primary drawer-cta" onClick={() => dispatch({ type: 'forest', open: false })}>
+        <button className="btn btn-primary drawer-cta" onClick={() => back()}>
           <MessageSquare size={15} /> Back to this conversation
         </button>
       )}

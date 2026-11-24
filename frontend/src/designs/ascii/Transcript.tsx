@@ -105,7 +105,7 @@ export function Transcript() {
 
 /** Chat → trees: the trees this chat grew; each opens in the forest. */
 function GrewTrees() {
-  const { state, dispatch, grownTrees } = useStore();
+  const { state, grownTrees, navigate } = useStore();
   if (!state.settings.enabled || !grownTrees.length) return null;
   return (
     <p className="a-grew">
@@ -113,7 +113,7 @@ function GrewTrees() {
       {grownTrees.map((t, i) => (
         <span key={t.id}>
           {i > 0 && <span className="a-dim"> · </span>}
-          <button className="a-grew-tree" onClick={() => dispatch({ type: 'forest', open: true, focus: t.id })} title={`open “${lower(t.title)}” in the forest`}>
+          <button className="a-grew-tree" onClick={() => navigate({ kind: 'forest', treeId: t.id }, { via: 'click' })} title={`open “${lower(t.title)}” in the forest`}>
             <G score={mean(t.branches.flatMap((b) => b.leaves.map((l) => l.score)))} /> {lower(t.title)}
           </button>
         </span>

@@ -1,15 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { PaneKind, TreeView, ViewVia } from '../../lib/events';
 import { MODE_SCORE } from '../../lib/modes';
+import { sheetOf, type NavVia, type Sheet } from '../../lib/nav';
 import { useStore } from '../../lib/store';
 import type { Mode } from '../../lib/types';
 
 /* ───────────── UI state that only this design needs ─────────────
  * The conversation, settings, highlight and forest focus live in the shared store;
- * the rest (time scrubber, tree view, open sheets, link source) is local to the ASCII design.
+ * the rest (time scrubber, tree view, link source) is local to the ASCII design. Sheets are views
+ * (`nav.ts`): `sheet` is read from the store's view, `setSheet` navigates.
  */
 
-export type Sheet = 'concepts' | 'model' | null;
+export type { Sheet } from '../../lib/nav';
 /** What the pointer is on, so the link overlay knows where to draw from. */
 export type LinkSource = { kind: 'message'; id: string } | { kind: 'leaf'; id: string; messageId?: string } | null;
 
@@ -21,7 +23,8 @@ interface Ui {
   /** `via`: how the user switched, for the usage log. */
   setView: (v: TreeView, via: ViewVia) => void;
   sheet: Sheet;
-  setSheet: (s: Sheet) => void;
+  /** Open a sheet (a view, so back closes it), or close it with null. */
+  setSheet: (s: Sheet, via?: NavVia) => void;
   /** User message whose "why this label" is open. */
   why: string | null;
   setWhy: (id: string | null) => void;
@@ -55,17 +58,18 @@ export const SETTLE_MS = 800;
 const UiContext = createContext<Ui | null>(null);
 
 export function UiProvider({ children }: { children: ReactNode }) {
-  const { dispatch, state, track } = useStore();
+  const { dispatch, state, track, navigate, back } = useStore();
   const [days, setDays] = useState(0);
   const [view, showView] = useState<TreeView>(() => (param('layout') === 'outline' ? 'outline' : 'tree'));
-  const [sheet, showSheet] = useState<Sheet>(null);
+  const sheet = sheetOf(state.ui.view);
+  const forestOpen = state.ui.view.kind === 'forest';
   const [why, showWhy] = useState<string | null>(null);
   const [link, pointAt] = useState<LinkSource>(null);
   const [refs, showRefs] = useState<string | null>(null);
 
   /* The usage log (lib/events.ts). The setters read the current values from a ref, so they keep one identity like plain state setters. */
-  const current = useRef({ view, sheet, why, refs, days, forest: state.ui.forest.open, concepts: state.domain.concepts });
-  current.current = { view, sheet, why, refs, days, forest: state.ui.forest.open, concepts: state.domain.concepts };
+  const current = useRef({ view, sheet, why, refs, days, forest: forestOpen, concepts: state.domain.concepts });
+  current.current = { view, sheet, why, refs, days, forest: forestOpen, concepts: state.domain.concepts };
   const paneAction = useCallback(
     (kind: PaneKind, conceptId: string | null) => {
       const { forest, view, days, concepts } = current.current;
@@ -83,12 +87,13 @@ export function UiProvider({ children }: { children: ReactNode }) {
     },
     [track],
   );
+  // `sheet_open` is logged from the view change (events.ts).
   const setSheet = useCallback(
-    (s: Sheet) => {
-      if (s && s !== current.current.sheet) track({ type: 'sheet_open', payload: { which: s } });
-      showSheet(s);
+    (s: Sheet, via: NavVia = 'click') => {
+      if (s) navigate(s === 'concepts' ? { kind: 'concepts' } : { kind: 'settings', section: 'model' }, { via });
+      else if (current.current.sheet) back(undefined, via);
     },
-    [track],
+    [navigate, back],
   );
   const setWhy = useCallback(
     (id: string | null) => {
