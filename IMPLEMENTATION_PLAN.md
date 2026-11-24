@@ -1091,6 +1091,14 @@ message mode (tune prompts until it is, or report honestly).
       that can be computed today, how to read the data, and what is still missing (participant
       id and condition are not sent yet, so `users.condition` is empty; no task boundaries; no
       `score_shown`; no draft id). Exports go in `research/exports/` (git-ignored).
+      *24 Nov:* clicks and hover durations, and a heatmap on the logs page, to see how fast people get
+      around the page and which parts get the most pointer use. `click` for every
+      primary press (position, window size, region and target as fixed names, view, ms since the
+      previous click up to 10 s, typed in between); `hover` when the pointer leaves a hover-driven
+      place (messages, leaves, prompt hints, forest trees, the why list, the squirrel, radial
+      options) with how long it stayed. No text in either. Logs page: a heatmap per visit and for
+      all visits (lines between clicks within a slider threshold, the demo app as backdrop) and
+      tables for part-to-part moves, hover dwell and radial choices. Frontend only.
 - [ ] Study task script: fixed topic plus seed subject; **live Claude via the `arbor` relay**
       (decided), with fixed models per task and temperature 0 for analysis; a session timer.
       (*16 Nov:* temperature cannot be set on API version 2026-10-21; fixed model and effort instead.)
