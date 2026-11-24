@@ -1087,6 +1087,10 @@ message mode (tune prompts until it is, or report honestly).
       newest first, one visit's timeline with readable lines, full texts, filters and raw JSON,
       the legend of every event, JSON and CSV downloads. Backend: `GET /admin/visits`,
       `GET /admin/events` (§4). Not linked from the app.
+      *24 Nov:* `research/usage-log.md`: what each part of the log can answer, the measures
+      that can be computed today, how to read the data, and what is still missing (participant
+      id and condition are not sent yet, so `users.condition` is empty; no task boundaries; no
+      `score_shown`; no draft id). Exports go in `research/exports/` (git-ignored).
 - [ ] Study task script: fixed topic plus seed subject; **live Claude via the `arbor` relay**
       (decided), with fixed models per task and temperature 0 for analysis; a session timer.
       (*16 Nov:* temperature cannot be set on API version 2026-10-21; fixed model and effort instead.)

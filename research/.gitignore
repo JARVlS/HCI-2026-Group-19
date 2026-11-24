@@ -1,0 +1,2 @@
+# Study data exports (CSV/JSON from /api/admin/export or the logs page) never go into git.
+exports/

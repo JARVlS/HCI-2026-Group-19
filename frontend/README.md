@@ -218,6 +218,8 @@ The radial menu: the gesture is a pure state machine (`src/lib/altGesture.ts`, e
 
 In live mode (providers `arbor` and `own`) Arbor logs what people do with it, for everyone who uses the live site, not only study participants (IMPLEMENTATION_PLAN.md M6). The demo (`scripted`, `?demo=1`) records nothing and sends nothing.
 
+What the log can answer, how to derive the study measures and what is still missing: [`research/usage-log.md`](../research/usage-log.md).
+
 **What is logged** (since 21 Nov 2026, Salomon: "Log anything potentially relevant"): what people do and what they write. Ids, counts, lengths, labels (own, together, ai), numbers, and the texts: the message, the reply, the draft as the fast model rated it, pasted, copied and abandoned text, guesses, chat titles, concept and tree labels, the analysis's reasons, command arguments, toasts and errors. Each text is cut to `MAX_TEXT` (8,000 characters); its `chars` field keeps the real length, so a cut shows. **Never:** the session token, a password, the own-model keys, a full endpoint URL (only its host: a URL can carry credentials), the username (the backend files every event under the user id; the accounts table has the name), and the argument of `/provider` (a confused user might paste a key after it). Tests check both sides (`events.test.ts`, `app.events.test.ts`: the token, a key, a password typed to sign up and the username are searched for in every event).
 
 **The catalogue** is `src/lib/events.ts` (`UsageEvent`): every event name and its payload shape, so `track` only compiles for those. A new event starts there. Events come from four places:
