@@ -1,0 +1,38 @@
+seed: 42
+
+# IP limits and weights (plan Section 6; rationale in ui_optimization.ipynb)
+ip:
+  L: 2          # a topic with one prompt is barely a category
+  U: 5          # visible in the sidebar without scrolling
+  B: 5          # sibling lists stay scannable
+  D: 3          # deeper trees slow navigation
+  K_T: 4        # trees per group: sidebar space
+  K_G: 4        # groups: sidebar space
+  alpha: 0.5    # hierarchy matters less than prompt placement
+  alpha_G: 0.5
+  lam: 0.4      # a new topic must gain 0.4 fit points
+  # Plan start value 1.0. A new group (with its first tree, one prompt) costs lam_G + lam + beta
+  # and gains at most 1 + alpha_G, so lam_G must stay below 1 + alpha_G - lam - beta = 0.8 or a
+  # mid-session new group can never be chosen. Decided 25 Nov 2026: 0.5.
+  lam_G: 0.5
+  beta: 0.3     # per unit of imbalance
+  mu: 0.3       # per weighted moved prompt
+  nu: 0.5       # moving a topic moves its subtree
+  F: 0.5        # fixed cost of any visible reorganization
+
+gurobi:
+  time_limit_s: 10
+  size_limited: true   # pip license: at most 2000 variables and 2000 constraints
+
+oracle:
+  noise: 0.0           # also run 0.2
+
+llm:
+  # Not chosen yet (decide with the group). Any chat-completions endpoint works, e.g.
+  #   GLM-4.7 on Bedrock: base_url https://bedrock-mantle.eu-north-1.api.aws/v1, model zai.glm-4.7
+  #   Groq: base_url https://api.groq.com/openai/v1, model llama-3.3-70b-versatile
+  # The key goes in .env as LLM_API_KEY. With model null, every LLM step is skipped.
+  base_url: null
+  model: null
+  max_calls: 200        # a batch refuses to start above this many possible calls
+  template_version: 1

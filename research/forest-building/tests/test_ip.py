@@ -1,191 +1,178 @@
-"""The IP on tiny hand-built forests with hand-set scores, one test per outcome (plan Phase 4)."""
-import random
+"""One test per outcome (plan Phase 2): tiny hand-built forests with hand-set judge outputs.
+
+CASES is also used by notebooks/02_pipeline.ipynb to draw one step_view per case.
+"""
+from dataclasses import dataclass
+from typing import Callable
 
 import pytest
 
-from forest.config import IPParams
-from forest.ip import IPInput, NewGroup, NewTopic, place
-from forest.model import Forest, Group, Prompt, Topic
+from forest.ip import Params, solve
+from forest.judge import ExistingFit, JudgeOutput, Move, OracleJudge, ParentFit, Proposed
+from forest.model import Forest, ForestError, Group, Placement, Prompt, Topic, load_ideal
 
-BASE = IPParams(size_limited=True)
+BASE = Params()
 
 
-def forest_with(topics: dict[str, tuple[str, str, str]], prompts: dict[str, str], groups=None) -> Forest:
-    """topics: id -> (label, parent id, parent kind); prompts: id -> topic id."""
+def make(topics: dict, prompts: dict, groups=None) -> Forest:
+    """topics: id -> (label, parent, kind[, stored fit]); prompts: id -> topic (created 1, 2, ...)."""
     f = Forest(step=len(prompts))
-    for g, label in (groups or {"g1": "Deep Learning"}).items():
+    for g, label in (groups or {"g_dl": "Deep Learning"}).items():
         f.groups[g] = Group(g, label)
-    for t, (label, pid, kind) in topics.items():
-        f.topics[t] = Topic(t, label, pid, kind)
+    for t, spec in topics.items():
+        f.topics[t] = Topic(t, spec[0], spec[1], spec[2], spec[3] if len(spec) > 3 else 1.0)
     for i, (p, t) in enumerate(prompts.items(), 1):
-        f.prompts[p] = Prompt(p, f"text of {p}", i, "test")
-        f.assignment[p] = t
-        f.access_log[p] = i
+        f.prompts[p] = Prompt(p, f"question {p}")
+        f.placement[p] = Placement(t, 1.0, i)
     return f.validate(3)
 
 
-def make_input(f: Forest, s=None, h=None, hg=None, new_topics=(), new_groups=(), stay_fit=0.9) -> IPInput:
-    n = Prompt("n", "new prompt", f.step + 1, "test")
-    s = dict(s or {})
-    for p, c in f.assignment.items():
-        s.setdefault((p, c), stay_fit)
-    h = dict(h or {})
-    hg = dict(hg or {})
-    for c, t in f.topics.items():
-        (h if t.parent_kind == "topic" else hg).setdefault((t.parent_id, c), 0.8)
-    return IPInput(
-        forest=f, n=n,
-        new_topics={t.id: t for t in new_topics}, new_groups={g.id: g for g in new_groups},
-        s=s, h=h, hg=hg, w={p: 1.0 for p in f.prompts}, v={c: 1.0 for c in [*f.topics, *f.groups]})
+def out(existing: dict, proposed=(), moves=()) -> JudgeOutput:
+    return JudgeOutput(existing=[ExistingFit(topic_id=t, fit=v) for t, v in existing.items()],
+                       proposed=[Proposed(name=n, fit=f, parents=[ParentFit(parent=p, fit=pf) for p, pf in ps])
+                                 for n, f, ps in proposed],
+                       restructure=[Move(kind=k, id=i, to=to, fit=fit) for k, i, to, fit in moves])
 
 
-def two_trees(n_backprop=2):
-    prompts = {f"p{i}": "t1" for i in range(1, n_backprop + 1)}
-    prompts.update({"q1": "t2", "q2": "t2"})
-    return forest_with({"t1": ("Backpropagation", "g1", "group"), "t2": ("Optimizers", "g1", "group")}, prompts)
+@dataclass
+class Case:
+    before: Forest
+    prompt: Prompt
+    judge: JudgeOutput
+    params: Params
+    check: Callable  # (after, decision) -> None
+
+    def run(self):
+        return solve(self.before, self.prompt, self.judge, self.before.step + 1, self.params)
 
 
-def test_a_add_to_existing_topic_with_room():
-    f = two_trees()
-    r = place(make_input(f, s={("n", "t1"): 0.9, ("n", "t2"): 0.1}), BASE)
-    assert (r.action, r.topic_of_n) == ("a", "t1")
-    assert r.diff["moved_prompts"] == [] and r.solution.z == 0
+NN = {"t_nn": ("Neural networks", "g_dl", "group"), "t_bp": ("Backpropagation", "t_nn", "topic")}
 
 
-def test_b_new_branch_under_full_topic():
-    f = two_trees(n_backprop=6)  # t1 is at U = 6
-    nt = NewTopic("N1", "Vanishing gradients")
-    r = place(make_input(f, s={("n", "t1"): 0.75, ("n", "N1"): 1.0}, h={("t1", "N1"): 1.0}, new_topics=[nt]), BASE)
-    assert r.action == "b"
-    assert r.forest.topics["N1"].parent_id == "t1"
-    assert r.forest.assignment["n"] == "N1"
+def case_a():
+    f = make(NN, {"p1": "t_nn", "p2": "t_nn", "p3": "t_bp", "p4": "t_bp"})
+    def check(after, dec):
+        assert dec.action == "a" and after.placement["n"].topic == "t_bp"
+    return Case(f, Prompt("n", "How does the chain rule apply in backprop?"), out({"t_bp": 5, "t_nn": 4}), BASE, check)
 
 
-def test_c_new_tree_in_existing_group():
-    f = two_trees()
-    nt = NewTopic("N1", "Activation functions")
-    r = place(make_input(f, s={("n", "t1"): 0.25, ("n", "t2"): 0.2, ("n", "N1"): 1.0},
-                         hg={("g1", "N1"): 0.9}, new_topics=[nt]), BASE)
-    assert r.action == "c"
-    assert (r.forest.topics["N1"].parent_id, r.forest.topics["N1"].parent_kind) == ("g1", "group")
+def case_b():
+    f = make(NN, {"p1": "t_nn", "p2": "t_nn", **{f"b{i}": "t_bp" for i in range(5)}})  # Backpropagation is full
+    j = out({"t_bp": 4, "t_nn": 3}, proposed=[("Vanishing gradients", 5, [("t_bp", 5)])])
+    def check(after, dec):
+        assert dec.action == "b" and after.topics[after.placement["n"].topic].parent == "t_bp"
+    return Case(f, Prompt("n", "Why does the gradient vanish in deep sigmoid nets?"), j, BASE, check)
 
 
-def test_d_new_group_when_lam_G_low():
-    f = two_trees()
-    nt, ng = NewTopic("N1", "Eigenvalues"), NewGroup("G1", "Linear Algebra")
-    inp = make_input(f, s={("n", "t1"): 0.25, ("n", "t2"): 0.2, ("n", "N1"): 1.0},
-                     hg={("G1", "N1"): 1.0, ("g1", "N1"): 0.1}, new_topics=[nt], new_groups=[ng])
-    r = place(inp, BASE.replace(lam_G=0.2))
-    assert r.action == "d"
-    assert r.forest.topics["N1"].parent_id == "G1" and "G1" in r.forest.groups
-    # with the default lam_G = 1.0 the new group is too expensive: n joins an existing topic instead
-    assert place(inp, BASE).action == "a"
+def case_c():
+    f = make(NN, {"p1": "t_nn", "p2": "t_nn", "p3": "t_bp", "p4": "t_bp"})
+    j = out({"t_bp": 2, "t_nn": 2}, proposed=[("Optimizers", 5, [("g_dl", 5)])])
+    def check(after, dec):
+        t = after.topics[after.placement["n"].topic]
+        assert dec.action == "c" and (t.parent, t.parent_kind) == ("g_dl", "group")
+    return Case(f, Prompt("n", "Should I use SGD or Adam?"), j, BASE, check)
 
 
-def rebalance_input():
-    f = two_trees(n_backprop=6)
-    nt = NewTopic("N1", "Vanishing gradients")
-    s = {("n", "t1"): 0.75, ("n", "N1"): 1.0, ("p5", "N1"): 1.0, ("p6", "N1"): 1.0, ("p5", "t1"): 0.6, ("p6", "t1"): 0.6}
-    s.update({(p, "N1"): 0.1 for p in ["p1", "p2", "p3", "p4"]})
-    return make_input(f, s=s, h={("t1", "N1"): 1.0}, new_topics=[nt])
+def case_d():
+    f = make(NN, {"p1": "t_nn", "p2": "t_nn", "p3": "t_bp", "p4": "t_bp"})
+    j = out({"t_bp": 1, "t_nn": 1}, proposed=[("Eigenvalues", 5, [("NEW_GROUP:Linear Algebra", 5)])])
+    def check(after, dec):
+        assert dec.action == "d" and "Linear Algebra" in {g.label for g in after.groups.values()}
+    return Case(f, Prompt("n", "How do I find the eigenvalues of a 2x2 matrix?"), j, BASE.replace(lam_G=0.2), check)
 
 
-def test_e_rebalance_moves_exactly_the_two_fitting_prompts():
-    r = place(rebalance_input(), BASE.replace(mu=0.05, F=0.05))
-    assert r.action == "e" and r.placement == "b"
-    assert r.diff["moved_prompts"] == ["p5", "p6"]
-    assert r.diff["m_fired"] == ["p5", "p6"]
-    assert {p for p, c in r.forest.assignment.items() if c == "N1"} == {"n", "p5", "p6"}
+def training_problems(nu: float, vg_fit: int = 5, of_fit: int = 5):
+    """Vanishing gradients and Overfitting hang under Neural networks with stored fit 0.5 (fit 3);
+    the judge proposes Training problems and moving both under it."""
+    f = make({"t_nn": ("Neural networks", "g_dl", "group"),
+              "t_vg": ("Vanishing gradients", "t_nn", "topic", 0.5),
+              "t_of": ("Overfitting", "t_nn", "topic", 0.5)},
+             {"p1": "t_nn", "p2": "t_nn", "p3": "t_vg", "p4": "t_vg", "p5": "t_of", "p6": "t_of"})
+    j = out({"t_nn": 4, "t_vg": 3, "t_of": 3}, proposed=[("Training problems", 5, [("t_nn", 5)])],
+            moves=[("topic", "t_vg", "Training problems", vg_fit), ("topic", "t_of", "Training problems", of_fit)])
+    return f, Prompt("n", "What usually goes wrong when training a deep network?"), j, BASE.replace(mu=0.05, nu=nu, F=0.05)
 
 
-def test_e_high_mu_means_no_rebalance():
-    r = place(rebalance_input(), BASE.replace(mu=2.0, F=0.05))
-    assert r.action == "b" and r.solution.z == 0
-    assert r.diff["moved_prompts"] == []
+def case_e():
+    f, n, j, P = training_problems(nu=0.05)
+    def check(after, dec):
+        tp = after.placement["n"].topic
+        assert dec.action == "e" and after.topics["t_vg"].parent == tp and after.topics["t_of"].parent == tp
+        assert [ok for _, ok in dec.moves] == [True, True]
+    return Case(f, n, j, P, check)
 
 
-def test_rename_keeps_id_and_counts_no_moves():
-    f = forest_with({"t1": ("Neural networks", "g1", "group"), "t2": ("Optimizers", "g1", "group")},
-                    {"p1": "t1", "p2": "t1", "p3": "t1", "q1": "t2", "q2": "t2"})
-    r_ = NewTopic("R1", "Backpropagation", rename_of="t1")
-    s = {(p, "t1"): 0.5 for p in ["p1", "p2", "p3", "n"]}
-    s.update({(p, "R1"): 0.9 for p in ["p1", "p2", "p3", "n"]})
-    inp = make_input(f, s=s, hg={("g1", "R1"): 0.8}, new_topics=[r_])
-    r = place(inp, BASE.replace(rho=0.05, F=0.05))
-    assert r.action == "e"
-    assert r.diff["renamed_topics"] == {"t1": {"from": "Neural networks", "to": "Backpropagation"}}
-    assert r.forest.topics["t1"].label == "Backpropagation"
-    assert r.diff["moved_prompts"] == [] and r.diff["m_fired"] == []
-    assert r.diff["k_fired"] == [] and r.diff["deleted_topics"] == []
-    # without the rename extension the same input keeps the old name
-    r2 = place(inp, BASE.replace(rho=0.05, F=0.05, use_renames=False))
-    assert r2.forest.topics["t1"].label == "Neural networks"
+def case_e_high_nu():
+    f, n, j, P = training_problems(nu=5.0)
+    def check(after, dec):
+        assert dec.action != "e" and dec.diff["moved_topics"] == [] and [ok for _, ok in dec.moves] == [False, False]
+    return Case(f, n, j, P, check)
 
 
-def test_deleted_topic_fires_k():
-    f = forest_with({"t1": ("Backpropagation", "g1", "group"), "t2": ("Optimizers", "g1", "group"),
-                     "t3": ("Misc", "g1", "group")},
-                    {"p1": "t1", "p2": "t1", "q1": "t2", "q2": "t2", "r1": "t3"})
-    s = {("r1", "t3"): 0.3, ("r1", "t1"): 0.9, ("n", "t1"): 0.9}
-    r = place(make_input(f, s=s), BASE.replace(mu=0.05, nu=0.05, F=0.05))
-    assert r.action == "e"
-    assert r.diff["deleted_topics"] == ["t3"] and "t3" in r.diff["k_fired"]
-    assert r.forest.assignment["r1"] == "t1"
+def case_reject_one():
+    f, n, j, P = training_problems(nu=0.05, of_fit=2)  # moving Overfitting is a poor fit, and it was just used
+    def check(after, dec):
+        assert [ok for _, ok in dec.moves] == [True, False]
+        assert after.topics["t_of"].parent == "t_nn"
+    return Case(f, n, j, P, check)
 
 
-def test_change_nothing_is_always_feasible():
-    """Huge stability costs and a new prompt that fits nothing: n still lands in an old topic."""
-    rng = random.Random(0)
-    f = two_trees(n_backprop=4)
-    s = {(p, c): rng.random() for p in [*f.prompts, "n"] for c in f.topics}
-    s[("n", "t1")] = s[("n", "t2")] = 0.01
-    big = BASE.replace(mu=100, nu=100, F=100, K_T=2, K_G=1)
-    r = place(make_input(f, s=s, stay_fit=0.0), big)
-    assert r.solution.z == 0 and r.action == "a"
-    assert all(r.forest.assignment[p] == f.assignment[p] for p in f.prompts)
+def case_delete():
+    f = make({**NN, "t_misc": ("Misc", "g_dl", "group", 1.0)},
+             {"p1": "t_nn", "p2": "t_nn", "p3": "t_bp", "p4": "t_bp", "p5": "t_misc"})
+    f.placement["p5"].fit = 0.25
+    j = out({"t_bp": 5, "t_nn": 4, "t_misc": 1}, moves=[("prompt", "p5", "t_bp", 5)])
+    def check(after, dec):
+        assert dec.action == "e" and dec.diff["deleted_topics"] == ["t_misc"] and after.placement["p5"].topic == "t_bp"
+    return Case(f, Prompt("n", "What are the local gradients in f = (x + y) * z?"), j,
+                BASE.replace(mu=0.05, nu=0.05, F=0.05), check)
 
 
-def test_depth_limit_blocks_a_too_deep_branch():
-    f = forest_with({"t1": ("Backpropagation", "g1", "group"), "t2": ("Chain rule", "t1", "topic")},
-                    {"p1": "t1", "p2": "t1", "p3": "t2", "p4": "t2"})
-    nt = NewTopic("N1", "Jacobians")
-    inp = make_input(f, s={("n", "t2"): 0.6, ("n", "N1"): 1.0}, h={("t2", "N1"): 1.0}, new_topics=[nt])
-    assert place(inp, BASE.replace(lam=0.0, beta=0.0)).action == "b"       # depth 2 allowed at D = 3
-    assert place(inp, BASE.replace(lam=0.0, beta=0.0, D=2)).action == "a"  # not at D = 2
+CASES = {
+    "(a) add": case_a,
+    "(b) new branch": case_b,
+    "(c) new tree": case_c,
+    "(d) new group": case_d,
+    "(e) both moves adopted": case_e,
+    "(e) high nu: no moves": case_e_high_nu,
+    "weak move rejected, other adopted": case_reject_one,
+    "emptied topic deleted": case_delete,
+}
 
 
-def test_group_limit_is_hard():
-    f = two_trees()
-    nt, ng = NewTopic("N1", "Eigenvalues"), NewGroup("G1", "Linear Algebra")
-    inp = make_input(f, s={("n", "t1"): 0.25, ("n", "N1"): 1.0}, hg={("G1", "N1"): 1.0},
-                     new_topics=[nt], new_groups=[ng])
-    assert place(inp, BASE.replace(lam_G=0.0)).action == "d"
-    assert place(inp, BASE.replace(lam_G=0.0, K_G=1)).action == "a"
+@pytest.mark.parametrize("name", CASES)
+def test_case(name):
+    case = CASES[name]()
+    after, dec = case.run()
+    case.check(after, dec)
+    assert dec.size["vars"] < 2000 and dec.size["constrs"] < 2000
 
 
-def test_first_prompt_creates_group_and_tree():
-    f = Forest(step=0)
-    nt, ng = NewTopic("N1", "Backpropagation"), NewGroup("G1", "Deep Learning")
-    inp = IPInput(forest=f, n=Prompt("n", "x", 1, "test"), new_topics={"N1": nt}, new_groups={"G1": ng},
-                  s={("n", "N1"): 1.0}, h={}, hg={("G1", "N1"): 1.0}, w={}, v={})
-    r = place(inp, BASE)
-    assert r.action == "d" and r.forest.path("N1") == "Deep Learning > Backpropagation"
+def test_new_group_impossible_at_plan_lam_G():
+    """With lam_G = 1.0 (plan start) a new group costs 1.7 and gains at most 1.5."""
+    case = case_d()
+    _, dec = solve(case.before, case.prompt, case.judge, case.before.step + 1, BASE.replace(lam_G=1.0))
+    assert dec.action == "a"
 
 
-@pytest.mark.parametrize("seed", range(5))
-def test_random_instances_stay_valid_and_small(seed):
-    rng = random.Random(seed)
-    topics = {f"t{i}": (f"T{i}", "g1", "group") for i in range(4)}
-    topics.update({f"t{i}": (f"T{i}", f"t{i - 4}", "topic") for i in range(4, 8)})
-    prompts = {f"p{i}": f"t{rng.randrange(8)}" for i in range(24)}
-    for c in topics:  # no empty topics
-        prompts[f"x{c}"] = c
-    f = forest_with(topics, prompts)
-    news = [NewTopic(f"N{i}", f"New {i}") for i in range(2)]
-    s = {(p, c): rng.random() for p in [*f.prompts, "n"] for c in [*f.topics, "N0", "N1"]}
-    h = {(a, b): rng.random() for a in f.topics for b in [*f.topics, "N0", "N1"] if a != b}
-    hg = {("g1", c): rng.random() for c in [*f.topics, "N0", "N1"]}
-    r = place(make_input(f, s=s, h=h, hg=hg, new_topics=news), BASE.replace(mu=0.1, F=0.1))
-    r.forest.validate(3)
-    assert r.size["vars"] < 2000 and r.size["constrs"] < 2000
-    assert len(r.forest.prompts) == len(f.prompts) + 1
+def test_ideal_forest_validates_and_bad_forests_fail():
+    ideal = load_ideal()
+    ideal.forest.validate(3)
+    f = make(NN, {"p1": "t_nn", "p2": "t_bp"})
+    f.topics["t_nn"].parent, f.topics["t_nn"].parent_kind = "t_bp", "topic"
+    with pytest.raises(ForestError, match="cycle"):
+        f.validate()
+    g = make(NN, {"p1": "t_nn", "p2": "t_bp"})
+    g.topics["t_x"] = Topic("t_x", "Empty", "g_dl", "group", 1.0)
+    with pytest.raises(ForestError, match="empty"):
+        g.validate()
+
+
+def test_oracle_chains_missing_topics():
+    """At the first prompt everything is missing: the oracle proposes the tree root under a new
+    group, and the next topic of the chain under it."""
+    ideal = load_ideal()
+    j = OracleJudge(ideal)(Forest(), Prompt("p10", ideal.forest.prompts["p10"].text), 1)
+    assert [p.name for p in j.proposed] == ["Neural networks", "Training problems"]
+    assert j.proposed[0].parents[0].parent == "NEW_GROUP:Deep Learning"
+    assert j.proposed[1].parents[0].parent == "Neural networks"

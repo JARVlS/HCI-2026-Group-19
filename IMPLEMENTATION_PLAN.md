@@ -552,13 +552,13 @@ clients tampering with attempts).
 - **BKT** (pyBKT): fit help-aware parameters, cross-validate, simulate, plots for the report (R1–R3).
 - **M3:** the Gurobi notebook (native solver, so it can't run in a Worker anyway). It exports the
   optimal planner policy/parameters as `frontend/src/study/planner-params.json`.
-  *23 Nov:* built in `research/forest-building/` (pip venv, not uv; its README lists what was
-  built and what is open). It places each prompt with a per-step IP: add, new branch, new tree,
-  new group or rebalance. It exports `outputs/export/planner-params.json` and, per session, the
-  IP's forest after every step in the ADR-2 model (`app_sequence.json`: subjects, topics,
-  concepts, trees, attempts). Open: the judge has only run as an offline embedding stand-in, so a
-  live model needs the group's provider and budget; the sessions and gold labels are drafts; the
-  copy into `frontend/` is a frontend PR of its own.
+  *25 Nov:* built in `research/forest-building/` (pip venv, not uv; lean version of 25 Nov, its
+  README lists what is open). A judge scores and proposes; a per-step IP (Gurobi) decides: add,
+  new branch, new tree, new group or restructure. Input is one hand-made ideal forest (25
+  prompts) with an arrival order. It exports the IP's forest after every step as
+  `outputs/forests/<run>/sequence.json` (its own JSON). Open: the LLM judge (provider and budget
+  undecided; all results so far use an oracle judge built from the ideal forest), the review of
+  the drafted session, and the format the prototype loads (a frontend PR of its own).
 - **Classifier eval** analysis (agreement, confusion matrices) on the M4 harness output.
 - **Study analysis:** export CSV → pandas → tests (scipy/pingouin) → figures for the report.
 
@@ -1257,10 +1257,10 @@ about 3 s of the reveal.
    which branch becomes a new tree, or tree assignment of concepts? And does it ship as
    parameters for `HeuristicPlanner` or as a policy we implement as `OptimalPlanner`? Is the
    decision topic-based (needed for a clean `split-chats` vs `split-trees` IV, ADR-9)?
-   *23 Nov (proposal, `research/forest-building/`):* topic-based. Every step decides where the
-   prompt goes and whether topics move, merge, split or get renamed. It ships as per-step forest
-   snapshots plus parameters, so an `OptimalPlanner` can either replay the sequence or apply the
-   same IP policy.
+   *25 Nov (proposal, `research/forest-building/`):* topic-based. Every step decides where the
+   prompt goes and whether prompts or topics move (also under a newly inserted topic). It ships
+   as per-step forest snapshots plus parameters, so an `OptimalPlanner` can either replay the
+   sequence or apply the same IP policy.
 2. **A/B conditions (M6):** is "`split-chats` vs `split-trees`, same M3 trigger" OK with the TA?
 3. **ADR-12:** TS Worker for the app API, or keep the Python Worker? Decide in M0.
 4. **Study topic and seed subject (M4/M6):** one fixed topic for everyone (recommended), so trees

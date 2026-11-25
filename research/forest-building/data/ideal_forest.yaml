@@ -1,0 +1,84 @@
+# The ideal forest of one scripted study session, and the order in which its prompts arrive.
+# DRAFT written by Claude Opus 5.5 (claude-opus-5-5) on 25 Nov 2026: the group reviews the
+# prompts for realism before results are reported.
+session: nn_exercise_sheet
+groups:
+  - label: Deep Learning
+    trees:
+      - label: Neural networks
+        prompts:
+          - {id: p01, text: "What does a single neuron in a neural network actually compute?"}
+          - {id: p02, text: "Why do we need hidden layers at all? Couldn't one wide layer do the same?"}
+        children:
+          - label: Backpropagation
+            prompts:
+              - {id: p03, text: "How does the chain rule apply in backprop?"}
+              - {id: p04, text: "For a 2-layer MLP I wrote dL/dW1 = dL/dy * W2 * x. What am I missing?"}
+              - {id: p05, text: "Why does backprop go backwards through the network instead of forwards?"}
+              - {id: p06, text: "When I backprop through a max pooling layer, where does the gradient go?"}
+              - {id: p07, text: "Should the bias gradient be summed or averaged over the batch?"}
+              - {id: p08, text: "In the computational graph for f = (x + y) * z, what are the local gradients?"}
+          - label: Training problems
+            prompts:
+              - {id: p09, text: "What usually goes wrong when training a deep network, and how do I tell which problem I have?"}
+            children:
+              - label: Vanishing gradients
+                prompts:
+                  - {id: p10, text: "Our net trains fine with 3 layers but with 10 layers the loss barely moves. Is that vanishing gradients?"}
+                  - {id: p11, text: "Why does the gradient shrink layer by layer with sigmoid activations?"}
+                  - {id: p12, text: "Do residual connections help against vanishing gradients?"}
+              - label: Overfitting
+                prompts:
+                  - {id: p13, text: "My training loss keeps going down but the validation loss goes up after epoch 5. What is happening?"}
+                  - {id: p14, text: "How does dropout reduce overfitting?"}
+      - label: Optimizers
+        children:
+          - label: Adam vs SGD
+            prompts:
+              - {id: p15, text: "Should I use SGD or Adam for the exercise?"}
+              - {id: p16, text: "What does momentum add to plain SGD?"}
+              - {id: p17, text: "Why does Adam need a bias correction in the first steps?"}
+          - label: Learning rate
+            prompts:
+              - {id: p18, text: "My loss explodes with learning rate 0.1 and barely moves with 0.001. How do I pick it?"}
+              - {id: p19, text: "Is a cosine learning rate schedule better than step decay?"}
+              - {id: p20, text: "Why do people use a learning rate warmup?"}
+  - label: Linear Algebra
+    trees:
+      - label: Eigenvalues
+        prompts:
+          - {id: p21, text: "How do I find the eigenvalues of a 2x2 matrix?"}
+          - {id: p22, text: "What does it mean geometrically that a vector is an eigenvector?"}
+          - {id: p23, text: "If a matrix has an eigenvalue 0, is it still invertible?"}
+      - label: SVD
+        prompts:
+          - {id: p24, text: "What is the difference between the SVD and an eigendecomposition?"}
+          - {id: p25, text: "How is the SVD used for a low-rank approximation?"}
+
+# Intended outcome per step (design intention, not a test assertion). Format: "- id  # (x) why".
+arrival_order:
+  - p01  # (d) first prompt: new group Deep Learning with the tree Neural networks
+  - p03  # (b) Backpropagation, a branch under Neural networks
+  - p04  # (a) Backpropagation
+  - p02  # (a) Neural networks
+  - p05  # (a) Backpropagation
+  - p10  # (b) vanishing gradients after several backprop prompts: a new branch
+  - p15  # (c) first optimizer prompt: a new tree
+  - p13  # (b) overfitting, before Training problems is obvious
+  - p06  # (a) Backpropagation
+  - p11  # (a) vanishing gradients
+  - p21  # (d) first linear algebra prompt, mid-session: a new group
+  - p14  # (a) overfitting
+  - p09  # (e) Training problems becomes obvious: insert it above vanishing gradients and overfitting
+  - p16  # (a) Adam vs SGD
+  - p18  # (a) learning rate goes into the optimizer topic for now
+  - p07  # (a) Backpropagation
+  - p22  # (a) Eigenvalues
+  - p19  # (a) a second learning-rate prompt: the optimizer topic fills up
+  - p17  # (a) Adam vs SGD
+  - p20  # (e) the optimizer topic is overloaded: split Learning rate off and move the earlier prompts
+  - p08  # (a) Backpropagation goes above U, with no better place
+  - p24  # (c) SVD, a new tree in Linear Algebra
+  - p12  # (a) vanishing gradients
+  - p23  # (a) Eigenvalues
+  - p25  # (a) SVD

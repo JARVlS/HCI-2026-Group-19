@@ -1,0 +1,125 @@
+{
+ "step": 12,
+ "groups": [
+  {
+   "id": "g01a",
+   "label": "Deep Learning"
+  }
+ ],
+ "topics": [
+  {
+   "id": "t01a",
+   "label": "Neural networks",
+   "parent": "g01a",
+   "parent_kind": "group",
+   "fit": 1.0
+  },
+  {
+   "id": "t02a",
+   "label": "Backpropagation",
+   "parent": "t01a",
+   "parent_kind": "topic",
+   "fit": 1.0
+  },
+  {
+   "id": "t07b",
+   "label": "Adam vs SGD",
+   "parent": "g01a",
+   "parent_kind": "group",
+   "fit": 0.75
+  },
+  {
+   "id": "t12b",
+   "label": "Overfitting",
+   "parent": "t01a",
+   "parent_kind": "topic",
+   "fit": 0.75
+  }
+ ],
+ "prompts": [
+  {
+   "id": "p01",
+   "text": "What does a single neuron in a neural network actually compute?",
+   "topic": "t01a",
+   "fit": 1.0,
+   "created": 1
+  },
+  {
+   "id": "p03",
+   "text": "How does the chain rule apply in backprop?",
+   "topic": "t02a",
+   "fit": 1.0,
+   "created": 2
+  },
+  {
+   "id": "p04",
+   "text": "For a 2-layer MLP I wrote dL/dW1 = dL/dy * W2 * x. What am I missing?",
+   "topic": "t02a",
+   "fit": 1.0,
+   "created": 3
+  },
+  {
+   "id": "p02",
+   "text": "Why do we need hidden layers at all? Couldn't one wide layer do the same?",
+   "topic": "t01a",
+   "fit": 1.0,
+   "created": 4
+  },
+  {
+   "id": "p05",
+   "text": "Why does backprop go backwards through the network instead of forwards?",
+   "topic": "t02a",
+   "fit": 1.0,
+   "created": 5
+  },
+  {
+   "id": "p10",
+   "text": "Our net trains fine with 3 layers but with 10 layers the loss barely moves. Is that vanishing gradients?",
+   "topic": "t01a",
+   "fit": 0.75,
+   "created": 6
+  },
+  {
+   "id": "p15",
+   "text": "Should I use SGD or Adam for the exercise?",
+   "topic": "t07b",
+   "fit": 1.0,
+   "created": 7
+  },
+  {
+   "id": "p13",
+   "text": "My training loss keeps going down but the validation loss goes up after epoch 5. What is happening?",
+   "topic": "t01a",
+   "fit": 0.75,
+   "created": 8
+  },
+  {
+   "id": "p06",
+   "text": "When I backprop through a max pooling layer, where does the gradient go?",
+   "topic": "t02a",
+   "fit": 1.0,
+   "created": 9
+  },
+  {
+   "id": "p11",
+   "text": "Why does the gradient shrink layer by layer with sigmoid activations?",
+   "topic": "t01a",
+   "fit": 0.75,
+   "created": 10
+  },
+  {
+   "id": "p21",
+   "text": "How do I find the eigenvalues of a 2x2 matrix?",
+   "topic": "t07b",
+   "fit": 0.0,
+   "created": 11
+  },
+  {
+   "id": "p14",
+   "text": "How does dropout reduce overfitting?",
+   "topic": "t12b",
+   "fit": 1.0,
+   "created": 12
+  }
+ ]
+}

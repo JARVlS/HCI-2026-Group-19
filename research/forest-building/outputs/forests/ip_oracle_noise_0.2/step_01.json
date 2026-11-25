@@ -1,0 +1,27 @@
+{
+ "step": 1,
+ "groups": [
+  {
+   "id": "g01a",
+   "label": "Deep Learning"
+  }
+ ],
+ "topics": [
+  {
+   "id": "t01a",
+   "label": "Neural networks",
+   "parent": "g01a",
+   "parent_kind": "group",
+   "fit": 0.75
+  }
+ ],
+ "prompts": [
+  {
+   "id": "p01",
+   "text": "What does a single neuron in a neural network actually compute?",
+   "topic": "t01a",
+   "fit": 0.75,
+   "created": 1
+  }
+ ]
+}

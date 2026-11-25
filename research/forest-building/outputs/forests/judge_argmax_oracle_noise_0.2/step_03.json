@@ -1,0 +1,48 @@
+{
+ "step": 3,
+ "groups": [
+  {
+   "id": "g01a",
+   "label": "Deep Learning"
+  }
+ ],
+ "topics": [
+  {
+   "id": "t01a",
+   "label": "Neural networks",
+   "parent": "g01a",
+   "parent_kind": "group",
+   "fit": 0.75
+  },
+  {
+   "id": "t02a",
+   "label": "Backpropagation",
+   "parent": "t01a",
+   "parent_kind": "topic",
+   "fit": 0.75
+  }
+ ],
+ "prompts": [
+  {
+   "id": "p01",
+   "text": "What does a single neuron in a neural network actually compute?",
+   "topic": "t01a",
+   "fit": 0.75,
+   "created": 1
+  },
+  {
+   "id": "p03",
+   "text": "How does the chain rule apply in backprop?",
+   "topic": "t02a",
+   "fit": 1.0,
+   "created": 2
+  },
+  {
+   "id": "p04",
+   "text": "For a 2-layer MLP I wrote dL/dW1 = dL/dy * W2 * x. What am I missing?",
+   "topic": "t02a",
+   "fit": 1.0,
+   "created": 3
+  }
+ ]
+}

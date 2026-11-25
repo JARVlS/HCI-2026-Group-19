@@ -1,0 +1,255 @@
+{
+ "step": 24,
+ "groups": [
+  {
+   "id": "g01a",
+   "label": "Deep Learning"
+  },
+  {
+   "id": "g17a",
+   "label": "Linear Algebra"
+  }
+ ],
+ "topics": [
+  {
+   "id": "t01a",
+   "label": "Neural networks",
+   "parent": "g01a",
+   "parent_kind": "group",
+   "fit": 0.75
+  },
+  {
+   "id": "t03a",
+   "label": "Backpropagation",
+   "parent": "t01a",
+   "parent_kind": "topic",
+   "fit": 1.0
+  },
+  {
+   "id": "t06a",
+   "label": "Training problems",
+   "parent": "t01a",
+   "parent_kind": "topic",
+   "fit": 1.0
+  },
+  {
+   "id": "t07a",
+   "label": "Optimizers",
+   "parent": "g01a",
+   "parent_kind": "group",
+   "fit": 1.0
+  },
+  {
+   "id": "t07b",
+   "label": "Adam vs SGD",
+   "parent": "t07a",
+   "parent_kind": "topic",
+   "fit": 1.0
+  },
+  {
+   "id": "t08a",
+   "label": "Overfitting",
+   "parent": "t06a",
+   "parent_kind": "topic",
+   "fit": 1.0
+  },
+  {
+   "id": "t15a",
+   "label": "Learning rate",
+   "parent": "t07a",
+   "parent_kind": "topic",
+   "fit": 1.0
+  },
+  {
+   "id": "t17a",
+   "label": "Eigenvalues",
+   "parent": "g17a",
+   "parent_kind": "group",
+   "fit": 1.0
+  },
+  {
+   "id": "t22a",
+   "label": "SVD",
+   "parent": "g17a",
+   "parent_kind": "group",
+   "fit": 1.0
+  },
+  {
+   "id": "t23a",
+   "label": "Vanishing gradients",
+   "parent": "t06a",
+   "parent_kind": "topic",
+   "fit": 1.0
+  }
+ ],
+ "prompts": [
+  {
+   "id": "p01",
+   "text": "What does a single neuron in a neural network actually compute?",
+   "topic": "t01a",
+   "fit": 0.75,
+   "created": 1
+  },
+  {
+   "id": "p03",
+   "text": "How does the chain rule apply in backprop?",
+   "topic": "t01a",
+   "fit": 0.75,
+   "created": 2
+  },
+  {
+   "id": "p04",
+   "text": "For a 2-layer MLP I wrote dL/dW1 = dL/dy * W2 * x. What am I missing?",
+   "topic": "t03a",
+   "fit": 1.0,
+   "created": 3
+  },
+  {
+   "id": "p02",
+   "text": "Why do we need hidden layers at all? Couldn't one wide layer do the same?",
+   "topic": "t01a",
+   "fit": 1.0,
+   "created": 4
+  },
+  {
+   "id": "p05",
+   "text": "Why does backprop go backwards through the network instead of forwards?",
+   "topic": "t03a",
+   "fit": 1.0,
+   "created": 5
+  },
+  {
+   "id": "p10",
+   "text": "Our net trains fine with 3 layers but with 10 layers the loss barely moves. Is that vanishing gradients?",
+   "topic": "t06a",
+   "fit": 1.0,
+   "created": 6
+  },
+  {
+   "id": "p15",
+   "text": "Should I use SGD or Adam for the exercise?",
+   "topic": "t07b",
+   "fit": 1.0,
+   "created": 7
+  },
+  {
+   "id": "p13",
+   "text": "My training loss keeps going down but the validation loss goes up after epoch 5. What is happening?",
+   "topic": "t08a",
+   "fit": 1.0,
+   "created": 8
+  },
+  {
+   "id": "p06",
+   "text": "When I backprop through a max pooling layer, where does the gradient go?",
+   "topic": "t03a",
+   "fit": 1.0,
+   "created": 9
+  },
+  {
+   "id": "p11",
+   "text": "Why does the gradient shrink layer by layer with sigmoid activations?",
+   "topic": "t06a",
+   "fit": 1.0,
+   "created": 10
+  },
+  {
+   "id": "p14",
+   "text": "How does dropout reduce overfitting?",
+   "topic": "t08a",
+   "fit": 1.0,
+   "created": 12
+  },
+  {
+   "id": "p09",
+   "text": "What usually goes wrong when training a deep network, and how do I tell which problem I have?",
+   "topic": "t01a",
+   "fit": 1.0,
+   "created": 13
+  },
+  {
+   "id": "p16",
+   "text": "What does momentum add to plain SGD?",
+   "topic": "t07b",
+   "fit": 1.0,
+   "created": 14
+  },
+  {
+   "id": "p18",
+   "text": "My loss explodes with learning rate 0.1 and barely moves with 0.001. How do I pick it?",
+   "topic": "t15a",
+   "fit": 1.0,
+   "created": 15
+  },
+  {
+   "id": "p07",
+   "text": "Should the bias gradient be summed or averaged over the batch?",
+   "topic": "t03a",
+   "fit": 1.0,
+   "created": 16
+  },
+  {
+   "id": "p22",
+   "text": "What does it mean geometrically that a vector is an eigenvector?",
+   "topic": "t17a",
+   "fit": 1.0,
+   "created": 17
+  },
+  {
+   "id": "p21",
+   "text": "How do I find the eigenvalues of a 2x2 matrix?",
+   "topic": "t17a",
+   "fit": 1.0,
+   "created": 11
+  },
+  {
+   "id": "p19",
+   "text": "Is a cosine learning rate schedule better than step decay?",
+   "topic": "t15a",
+   "fit": 1.0,
+   "created": 18
+  },
+  {
+   "id": "p17",
+   "text": "Why does Adam need a bias correction in the first steps?",
+   "topic": "t07b",
+   "fit": 1.0,
+   "created": 19
+  },
+  {
+   "id": "p20",
+   "text": "Why do people use a learning rate warmup?",
+   "topic": "t15a",
+   "fit": 1.0,
+   "created": 20
+  },
+  {
+   "id": "p08",
+   "text": "In the computational graph for f = (x + y) * z, what are the local gradients?",
+   "topic": "t03a",
+   "fit": 1.0,
+   "created": 21
+  },
+  {
+   "id": "p24",
+   "text": "What is the difference between the SVD and an eigendecomposition?",
+   "topic": "t22a",
+   "fit": 1.0,
+   "created": 22
+  },
+  {
+   "id": "p12",
+   "text": "Do residual connections help against vanishing gradients?",
+   "topic": "t23a",
+   "fit": 1.0,
+   "created": 23
+  },
+  {
+   "id": "p23",
+   "text": "If a matrix has an eigenvalue 0, is it still invertible?",
+   "topic": "t17a",
+   "fit": 1.0,
+   "created": 24
+  }
+ ]
+}

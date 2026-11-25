@@ -1,2 +1,0 @@
-model,prompts,top1_accuracy,gold_topic_fit_mean,proposes_when_gold_new,position_bias,consistency,parse_failure_rate,latency_s_mean,live_calls
-offline-heuristic-v1,85,0.737,3.754,0.964,0.0,1.0,0.0,0.001,0
