@@ -1,1 +1,1 @@
-{"proposal": {"id": "NEW", "name": "Mini-batch SGD", "parent": "GD"}, "new_question": {"DLB": 3, "GD": 4, "T2": 2, "T1": 2, "NEW": 5}, "earlier_questions": {"p0": {"NEW": 1}, "p1": {"NEW": 3}, "n1": {"NEW": 3}, "n2": {"NEW": 2}, "n3": {"NEW": 2}}}
+{"proposal": {"id": "NEW", "name": "Gradient descent variants", "parent": "GD"}, "new_question": {"DLB": 3, "GD": 4, "T2": 2, "T1": 2, "NEW": 5}, "earlier_questions": {"p0": {"DLB": 5, "NEW": 2}, "p1": {"GD": 5, "NEW": 3}, "n1": {"GD": 4, "NEW": 2}, "n2": {"T2": 5, "NEW": 2}, "n3": {"T2": 5, "NEW": 2}}}

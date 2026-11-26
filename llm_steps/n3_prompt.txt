@@ -1,13 +1,16 @@
-You help a study tool that sorts the questions a student asks an AI tutor into a knowledge tree about "deep learning".
+You help a study tool that sorts the questions a student asks an AI tutor into a knowledge forest: groups (one per subject) hold trees of topics, and every question sits in one topic.
 A new question arrived. Do two tasks.
 
 TASK 1 - PROPOSE
-Decide whether the tree needs a new topic for the NEW question.
-- Propose a new topic only if the question would get 5 for it and at most 4 for every topic that
-  exists at that point. Otherwise propose nothing (null).
-- At most one new topic per question. Name it in 1-3 words, as a student would label a folder.
-- Choose the most specific fitting parent: an existing topic id, or ROOT to put it directly under
-  "deep learning".
+Decide whether the forest needs a new topic for the NEW question.
+- Propose a new topic only if the question would get 5 for it and at most 4 for every topic listed
+  below (including the open proposals). Otherwise propose nothing (null).
+- At most one new topic. Name it in 1-3 words, as a student would label a folder.
+- Choose its parent:
+  * the most specific fitting topic id from "Topics in the forest" (a new branch), or
+  * a group id, to start a new tree in that subject, or
+  * "NEW_GROUP: <subject name>" if the question belongs to a subject that has no group yet.
+  An open proposal cannot be a parent.
 - Never propose a topic that already exists or was already proposed (same meaning, other words).
 - Use the id NEW for your proposal.
 
@@ -25,18 +28,23 @@ Rules:
   never 5 for the same reason.
 - Several topics may get the same score.
 
-Rate (a) the NEW question against EVERY topic below and against your proposal NEW (if any), and
-(b) each earlier question against the topics listed for it here, plus against NEW if you propose one:
-- p0: (only NEW, if you propose one)
-- p1: (only NEW, if you propose one)
-- n1: (only NEW, if you propose one)
-- n2: (only NEW, if you propose one)
+Rate (a) the NEW question against EVERY topic and open proposal below and against your proposal NEW (if
+any), and (b) each earlier question against the ids listed for it here (NEW only if you propose one):
+- p0: NEW
+- p1: NEW
+- n1: NEW
+- n2: NEW
 
-Topics in the tree and open proposals (id: name, path, questions it contains):
-- DLB: "Deep learning basics"   (path: deep learning > Deep learning basics)   contains: p0, n2
-- GD: "Gradient descent"   (path: deep learning > Gradient descent)   contains: p1, n1
-- T1: "Learning rate"   (path: deep learning > Gradient descent > Learning rate)   open proposal, not in the tree yet
-- T2: "Backpropagation"   (path: deep learning > Deep learning basics > Backpropagation)   open proposal, not in the tree yet
+Groups (id: subject):
+- G1: "Deep learning"
+
+Topics in the forest (id: name, path, questions it contains):
+- DLB: "Deep learning basics"   (path: Deep learning > Deep learning basics)   contains: p0
+- GD: "Gradient descent"   (path: Deep learning > Gradient descent)   contains: p1, n1, n2
+
+Open proposals (id: name, where it would go; not in the forest yet, cannot be a parent):
+- T1: "Learning rate"   (would be: Deep learning > Gradient descent > Learning rate)
+- T2: "Backpropagation"   (would be: Deep learning > Gradient descent > Backpropagation)
 
 Earlier questions (id: text):
 - p0: "Explain what deep learning is"
@@ -47,6 +55,6 @@ Earlier questions (id: text):
 NEW question: "Chain rule through a 2-layer network"
 
 Answer with one JSON object only, no other text, in exactly this form:
-{"proposal": {"id": "NEW", "name": "<1-3 words>", "parent": "<topic id or ROOT>"} or null,
+{"proposal": {"id": "NEW", "name": "<1-3 words>", "parent": "<topic id, group id or NEW_GROUP: <subject>>"} or null,
  "new_question": {"DLB": <1-5>, "GD": <1-5>, "T1": <1-5>, "T2": <1-5>, "NEW": <1-5>},
- "earlier_questions": {"<question id>": {"<listed topic id>": <1-5>, ..., "NEW": <1-5>}, ...}}
+ "earlier_questions": {"<question id>": {"<listed id>": <1-5>, ..., "NEW": <1-5>}, ...}}

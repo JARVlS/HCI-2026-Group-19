@@ -1,7 +1,8 @@
 """Drawing helpers for ui_optimization.ipynb (HCI 2026, Group 19, Milestone 3).
 
-The notebook represents a knowledge tree as a *state*:
-    state = {"topics": {topic_id: {"label": str, "parent": subject or topic_id}},
+The notebook represents a knowledge forest as a *state*:
+    state = {"groups": {group_id: label},
+             "topics": {topic_id: {"label": str, "parent": group_id or topic_id}},
              "assign": {prompt_id: topic_id},
              "w":      {prompt_id: float}}
 and a session as a *history*: one dict per step with the keys
@@ -9,7 +10,7 @@ and a session as a *history*: one dict per step with the keys
 (produced by run_session in the notebook).
 
 Public functions
-    draw_tree(state, ax, ...)          one tree on a matplotlib axis
+    draw_tree(state, ax, ...)          one forest (all groups side by side) on a matplotlib axis
     show_session(history)              one tree per step (grid)
     show_step(history, k)              one step, before and after
     animate_step(history, k)           one step as an animation
@@ -28,17 +29,15 @@ COL = {"new": "#2a78d6", "moved": "#eb6834", "old": "#b8b7b2", "ink": "#0b0b0b",
        "muted": "#52514e", "wood": "#8c8579", "warn": "#e34948"}
 FONT = dict(family="monospace")
 X, V, DOT = 2.0, 1.7, 0.17          # horizontal / vertical spacing of the tree, spacing of prompt dots
+WRAP = 14                           # topic labels are wrapped after this many characters
 
 plt.rcParams["animation.embed_limit"] = 60   # MB, allows embedding the session animation
 
 
+GROUP_GAP = 0.6                     # extra horizontal space between two groups
+
+
 # ------------------------------------------------------------------ layout
-def subject_of(state):
-    """The root of the tree: the one parent that is not itself a topic."""
-    roots = {t["parent"] for t in state["topics"].values()} - set(state["topics"])
-    return roots.pop()
-
-
 def _children(state, node):
     return [c for c, t in state["topics"].items() if t["parent"] == node]
 
@@ -48,12 +47,11 @@ def _members(state, c):
 
 
 def geometry(state):
-    """Positions of every node (subject and topics) and of every prompt dot.
+    """Positions of every node (groups and topics) and of every prompt dot.
 
-    Tidy layout: leaves get consecutive x positions, a parent sits above the middle of its children,
-    depth grows upwards.
+    Tidy layout: the groups stand side by side on the ground, leaves get consecutive x positions, a parent
+    sits above the middle of its children, depth grows upwards.
     """
-    subject = subject_of(state)
     pos, nxt = {}, [0.0]
 
     def place(node, depth):
@@ -66,7 +64,9 @@ def geometry(state):
             pos[node] = (nxt[0], depth)
             nxt[0] += 1
 
-    place(subject, 0)
+    for g in state["groups"]:
+        place(g, 0)
+        nxt[0] += GROUP_GAP
     node = {c: np.array([x * X, d * V]) for c, (x, d) in pos.items()}
     dots = {}
     for c in state["topics"]:
@@ -76,11 +76,18 @@ def geometry(state):
     return node, dots
 
 
-def _size_note(k, U=None, L=None, is_new=False):
+def _label(text):
+    """A topic label wrapped onto short lines, and how many lines it has."""
+    lines = textwrap.wrap(text, WRAP) or [""]
+    return "\n".join(lines), len(lines)
+
+
+def _size_note(k, U=None, L=None, kids=0):
+    """'3 prompts', red if over U, or under L counting the prompts and the subtopics (as the IP does)."""
     note, color = f"{k} prompt{'s' if k != 1 else ''}", COL["muted"]
     if U is not None and k > U:
         note, color = note + f" · over U={U}", COL["warn"]
-    elif L is not None and k < L:
+    elif L is not None and k + kids < L:
         note, color = note + f" · under L={L}", COL["warn"]
     return note, color
 
@@ -103,14 +110,13 @@ def legend(fig, y=-0.02, moves=True):
 
 # ------------------------------------------------------------------ static trees
 def draw_tree(state, ax, title="", prev=None, new_prompt=None, U=None, L=None):
-    """Draw one tree like the prototype's tree view.
+    """Draw the forest like the prototype's tree view: one tree per group, the group name on the ground.
 
-    prev:       state before the step; marks moved prompts and new topics
+    prev:       state before the step; marks moved prompts, new topics and a new group
     new_prompt: id of the prompt asked in this step (blue)
     U, L:       if given, topics over U or under L are flagged in red
     """
-    subject = subject_of(state)
-    topics = state["topics"]
+    groups, topics = state["groups"], state["topics"]
     node, dots = geometry(state)
 
     def load(c):  # prompts in the subtree of c: the wood gets thicker towards the root
@@ -119,32 +125,35 @@ def draw_tree(state, ax, title="", prev=None, new_prompt=None, U=None, L=None):
     for c in node:                                   # wood
         for k in _children(state, c):
             (x0, y0), (x1, y1) = node[c], node[k]
-            ax.plot([x0, x1], [y0 + (0.0 if c == subject else 0.5), y1 - 0.45], color=COL["wood"],
+            ax.plot([x0, x1], [y0 + (0.0 if c in groups else 0.5), y1 - 0.45], color=COL["wood"],
                     lw=1.0 + 0.9 * np.sqrt(load(k)), solid_capstyle="round", zorder=1)
 
     xs = [v[0] for v in node.values()]
-    sx, sy = node[subject]                           # the subject below the ground line
-    ax.plot([min(xs) - 0.6, max(xs) + 0.6], [sy - 0.05] * 2, color=COL["wood"], lw=1, ls=(0, (1, 3)))
-    ax.text(sx, sy - 0.32, subject, ha="center", va="center", weight="bold", fontsize=9.5, **FONT)
+    ax.plot([min(xs) - 0.6, max(xs) + 0.6], [-0.05] * 2, color=COL["wood"], lw=1, ls=(0, (1, 3)))
+    for g, label in groups.items():                  # the groups below the ground line
+        is_new = prev is not None and g not in prev["groups"]
+        box = dict(boxstyle="round,pad=0.25", fc="white", ec=COL["moved"], ls="--", lw=1.2) if is_new else None
+        ax.text(node[g][0], -0.32, label, ha="center", va="center", weight="bold", fontsize=9.5, bbox=box, **FONT)
 
     for c, (x, y) in node.items():                   # topics and their prompts
-        if c == subject:
+        if c in groups:
             continue
         is_new = prev is not None and c not in prev["topics"]
         box = dict(boxstyle="round,pad=0.3", fc="white", ec=COL["moved"] if is_new else "none",
                    ls="--" if is_new else "-", lw=1.2)
-        ax.text(x, y, topics[c]["label"], ha="center", va="center", fontsize=8.5, zorder=4, bbox=box, **FONT)
+        text, lines = _label(topics[c]["label"])
+        ax.text(x, y, text, ha="center", va="center", fontsize=8.5, zorder=4, bbox=box, linespacing=1.0, **FONT)
         for p in _members(state, c):
             moved = prev is not None and p in prev["assign"] and prev["assign"][p] != c
             kind = "new" if p == new_prompt else ("moved" if moved else "old")
             ax.scatter(*dots[p], s=55, color=COL[kind], edgecolors="white", linewidths=1.2, zorder=5)
-        note, color = _size_note(len(_members(state, c)), U, L, is_new)
-        ax.text(x, y - 0.27, note, ha="center", va="center", fontsize=7, color=color, zorder=4, **FONT)
+        note, color = _size_note(len(_members(state, c)), U, L, len(_children(state, c)))
+        ax.text(x, y - 0.27 - 0.07 * (lines - 1), note, ha="center", va="center", fontsize=7, color=color, zorder=4, **FONT)
 
     if prev is not None:                             # moves: dashed arrow from the old topic
         for p, c1 in state["assign"].items():
             c0 = prev["assign"].get(p)
-            if c0 and c0 != c1:
+            if c0 and c0 != c1 and c0 in node:       # (no arrow from a topic deleted in this step)
                 w0 = len(_members(state, c0)) * DOT / 2 + 0.15
                 w1 = len(_members(state, c1)) * DOT / 2 + 0.15
                 (x0, y0), (x1, y1) = node[c0], node[c1]
@@ -152,7 +161,7 @@ def draw_tree(state, ax, title="", prev=None, new_prompt=None, U=None, L=None):
                                              connectionstyle="arc3,rad=0.45", arrowstyle="-|>", mutation_scale=10,
                                              color=COL["moved"], lw=1, ls="--", zorder=3))
     ax.set_xlim(min(xs) - 1.3, max(xs) + 1.3)
-    ax.set_ylim(-0.6, max(v[1] for v in node.values()) + 0.6)
+    ax.set_ylim(-0.7, max(v[1] for v in node.values()) + 0.6)
     ax.axis("off")
     ax.set_title(title, loc="left", fontsize=9.5)
 
@@ -193,12 +202,12 @@ def show_step(history, k):
 
 
 def show_final_trees(histories, metrics=None):
-    """Final tree of several designs side by side. histories: {name: history}."""
+    """Final forest of several designs side by side. histories: {name: history}."""
     fig, axes = plt.subplots(1, len(histories), figsize=(6.3 * len(histories), 5.2))
     for ax, (name, hist) in zip(np.atleast_1d(axes), histories.items()):
         U, L = _UL(hist[0])
         sub = f"\n{metrics(hist)}" if metrics else ""
-        draw_tree(hist[-1]["after"], ax, f"{name}: final tree{sub}", U=U, L=L)
+        draw_tree(hist[-1]["after"], ax, f"{name}: final forest{sub}", U=U, L=L)
     plt.tight_layout()
     plt.show()
 
@@ -213,33 +222,34 @@ def _draw_frame(ax, h, t, limits):
     ax.clear()
     U, _ = _UL(h)
     before, after, n = h["before"], h["after"], h["step"]["id"]
-    subject = subject_of(after)
+    groups = after["groups"]
     nb, db = geometry(before)
     na, da = geometry(after)
     e = _ease(t)
     P = {c: (nb[c] * (1 - e) + na[c] * e if c in nb else na[c]) for c in na}   # node positions now
-    A = {c: (1.0 if c in nb else e) for c in na}                                 # new topics fade in
+    A = {c: (1.0 if c in nb else e) for c in na}                                 # new nodes fade in
     topics = after["topics"]
     shown = before if e < 0.5 else after                                         # whose counts to show
 
     for c, tpc in topics.items():                    # wood
         p0, p1 = P[tpc["parent"]], P[c]
         load = len(_members(after, c))
-        ax.plot([p0[0], p1[0]], [p0[1] + (0.0 if tpc["parent"] == subject else 0.5), p1[1] - 0.45],
+        ax.plot([p0[0], p1[0]], [p0[1] + (0.0 if tpc["parent"] in groups else 0.5), p1[1] - 0.45],
                 color=COL["wood"], lw=1.4 + 0.6 * np.sqrt(load), alpha=A[c], solid_capstyle="round", zorder=1)
-    (x0, x1), _ = limits                             # subject
-    ax.plot([x0 + 0.7, x1 - 0.7], [P[subject][1] - 0.05] * 2, color=COL["wood"], lw=1, ls=(0, (1, 3)))
-    ax.text(P[subject][0], P[subject][1] - 0.32, subject, ha="center", va="center", weight="bold",
-            fontsize=10, **FONT)
+    (x0, x1), _ = limits                             # the ground and the groups
+    ax.plot([x0 + 0.7, x1 - 0.7], [-0.05] * 2, color=COL["wood"], lw=1, ls=(0, (1, 3)))
+    for g, label in groups.items():
+        ax.text(P[g][0], -0.32, label, ha="center", va="center", weight="bold", fontsize=10, alpha=A[g], **FONT)
     for c in topics:                                 # topics
         is_new = c not in before["topics"]
         box = dict(boxstyle="round,pad=0.3", fc="white", ec=COL["moved"] if is_new else "none",
                    ls="--" if is_new else "-", lw=1.2, alpha=A[c])
-        ax.text(*P[c], topics[c]["label"], ha="center", va="center", fontsize=9, zorder=4, bbox=box,
+        text, lines = _label(topics[c]["label"])
+        ax.text(*P[c], text, ha="center", va="center", fontsize=9, zorder=4, bbox=box, linespacing=1.0,
                 alpha=A[c], **FONT)
         if c in shown["topics"]:
             note, color = _size_note(len(_members(shown, c)), U)
-            ax.text(P[c][0], P[c][1] - 0.27, note, ha="center", va="center", fontsize=7.5, color=color,
+            ax.text(P[c][0], P[c][1] - 0.27 - 0.07 * (lines - 1), note, ha="center", va="center", fontsize=7.5, color=color,
                     alpha=A[c], **FONT)
     for p in after["assign"]:                        # prompts
         if p == n:                                   # the new prompt drops in from above
@@ -261,7 +271,7 @@ def _limits(history):
             node, _ = geometry(st)
             xs += [v[0] for v in node.values()]
             ys += [v[1] for v in node.values()]
-    return (min(xs) - 1.4, max(xs) + 1.4), (-0.6, max(ys) + 1.6)
+    return (min(xs) - 1.4, max(xs) + 1.4), (-0.7, max(ys) + 1.6)
 
 
 def _animate(steps, frames_hold=6, frames_move=18, interval=70, gif=None):
@@ -289,4 +299,4 @@ def animate_step(history, k, gif=None):
 
 def animate_session(history, gif=None):
     """Animate the whole session, step after step."""
-    return _animate(history, frames_hold=4, frames_move=14, gif=gif)
+    return _animate(history, frames_hold=3, frames_move=10, gif=gif)
