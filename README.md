@@ -37,7 +37,9 @@ Then Gurobi decides the step and the next question follows. The LLM only ever se
 
 The LLM is **Claude Haiku 5.5** (`claude-haiku-5-5`), called through the Claude Code CLI on a Claude subscription: one fresh `claude -p` process per question, with no tools, no project context (`--safe-mode`), no saved session and an empty working folder. The answers are saved in `llm_steps/`; a saved answer is always reused, so the results are reproducible even though the CLI has no temperature setting.
 
-To collect new answers (after changing the questions or the weights): delete `llm_steps/*_answer.json`, log in to Claude Code once (`claude`), and run Section 5a of the notebook. It calls the CLI for every step in order.
+**The notebook is a simulation from these frozen answers.** They were collected once (26 Nov 2026). Every run replays them: at each step the prompt is rebuilt from the forest the IP produced and must equal the saved prompt, so the replay follows exactly the path on which the answers were given. No LLM is called; the baselines and the what-if runs reuse the same answers.
+
+To collect new answers (only after changing the questions or the weights): delete `llm_steps/*_answer.json`, log in to Claude Code once (`claude`), and run Section 5a of the notebook. It calls the CLI for every step in order.
 
 ## The pipeline
 

@@ -4,3 +4,7 @@ __pycache__/
 .env
 *.gif
 .DS_Store
+# local only: teammate's research copy, git bundles, course PDFs
+forest-building/
+*.bundle
+*.pdf
