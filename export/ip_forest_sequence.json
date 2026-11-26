@@ -1,5 +1,5 @@
 {
- "source": "LLM, step by step (Claude Haiku 5.5 (claude-haiku-5-5), one fresh Claude Code CLI call per question that sees only that step's prompt); answers in llm_steps/",
+ "source": "LLM, step by step (Claude Haiku 5.5 (claude-haiku-5-5), one fresh conversation per question that sees only that step's prompt); answers in llm_steps/",
  "params": {
   "U": 3,
   "L": 2,

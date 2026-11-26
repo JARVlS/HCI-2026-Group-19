@@ -1,7 +1,7 @@
 """The scripted study session used in ui_optimization.ipynb.
 
 Single source of truth: the notebook optimizes over exactly these questions and builds one LLM prompt per
-question from them (judge_prompt.step_prompt). After editing the session, delete llm_steps/*_answer.json
+question from them (judge.step_prompt). After editing the session, delete llm_steps/*_answer.json
 and collect the answers again (notebook Section 5a).
 
 The knowledge forest: groups (subjects) hold trees of topics, every question sits in one topic.

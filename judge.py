@@ -1,13 +1,18 @@
-"""The LLM prompt that PROPOSES a new topic and JUDGES the fit of questions to topics.
+"""The LLM judge: it PROPOSES a new topic and JUDGES the fit of questions to topics.
 
 One prompt per new question, two tasks:
   1. propose  - suggest at most one new topic (name + parent) if no topic fits the new question well; the
                 parent is an existing topic (new branch), an existing group (new tree) or a new group;
   2. judge    - rate how well questions fit topics (1-5, rubric below), including the new proposal.
 
-step_prompt(...) builds the prompt for one new question: what the prototype sends to the LLM every time the
-student asks something. It shows only the forest so far and the new question, never a later one. Answers are
-read back with parse_step.
+Three parts:
+  step_prompt(...)   builds the prompt for one new question: what the prototype sends to the LLM every time
+                     the student asks something. It shows only the forest so far and the new question.
+  parse_step(...)    reads the JSON answer back and checks it.
+  answer(...)        returns the answer for one step: the saved one in llm_steps/ if it exists (and belongs
+                     to exactly this prompt), otherwise a new one from the LLM, which is then saved.
+                     ask(prompt) calls the LLM: the Anthropic API if ANTHROPIC_API_KEY is set, otherwise the
+                     Claude Code CLI on the logged-in Claude subscription.
 
     groups:    {group_id: label}                                   groups that exist
     topics:    {topic_id: {"label": str, "parent": group_id or topic_id}}
@@ -15,8 +20,14 @@ read back with parse_step.
     questions: {question_id: text}
     placed:    {question_id: topic_id} for questions already in the forest
 """
+import glob
 import json
+import os
 import re
+import shutil
+import subprocess
+import tempfile
+import urllib.request
 
 NEW_GROUP = "NEW_GROUP:"   # parent prefix of a proposal that opens a new group
 
@@ -198,3 +209,113 @@ def _check_row(row, topics, where):
             raise ValueError(f"{where}: bad or missing score for topic {c}: {v}")
         out[c] = int(v)
     return out
+
+
+# ------------------------------------------------------------------ calling the LLM
+MODEL = "claude-haiku-5-5"          # Claude Haiku 5.5
+STEP_DIR = "llm_steps"              # saved prompts and answers, one pair per step
+SYSTEM = "You rate how well study questions fit topics. Answer with one JSON object only."
+
+
+def ask(prompt, model=MODEL):
+    """Send one prompt in a fresh conversation -> (answer text, model that answered, backend).
+    Uses the Anthropic API if ANTHROPIC_API_KEY is set, otherwise the Claude Code CLI."""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if key:
+        return (*_ask_api(prompt, model, key), "api")
+    exe = _find_claude()
+    if exe:
+        return (*_ask_cli(prompt, model, exe), "claude-cli")
+    raise RuntimeError("No LLM available: set ANTHROPIC_API_KEY, or install the Claude Code CLI and log in "
+                       "once with `claude`.")
+
+
+def _ask_api(prompt, model, key):
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages", method="POST",
+        data=json.dumps({"model": model, "max_tokens": 4000, "temperature": 0, "system": SYSTEM,
+                         "messages": [{"role": "user", "content": prompt}]}).encode(),
+        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=300) as r:
+        data = json.loads(r.read())
+    return "".join(b.get("text", "") for b in data["content"]), data.get("model", model)
+
+
+def _find_claude():
+    """The newest Claude Code CLI that supports --safe-mode: on the PATH or bundled with the VS Code extension."""
+    found = [shutil.which("claude")] + glob.glob(os.path.expanduser(
+        "~/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude"))
+
+    def version(exe):
+        out = subprocess.run([exe, "--version"], capture_output=True, text=True).stdout
+        return tuple(int(x) for x in re.findall(r"\d+", out)[:3])
+
+    for exe in sorted({e for e in found if e}, key=version, reverse=True):
+        if "--safe-mode" in subprocess.run([exe, "--help"], capture_output=True, text=True).stdout:
+            return exe
+    return None
+
+
+def _ask_cli(prompt, model, exe):
+    """One fresh `claude -p` process: no tools, no project context (--safe-mode), no saved session, an empty
+    working folder, and no API key in the environment (it runs on the Claude subscription). The CLI has no
+    temperature setting."""
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDECODE", "CLAUDE_PID", "CLAUDE_EFFORT")
+           and not k.startswith(("CLAUDE_CODE_", "CLAUDE_AGENT_SDK"))}
+    cmd = [exe, "-p", "--model", model, "--safe-mode", "--tools", "", "--no-session-persistence",
+           "--system-prompt", SYSTEM, "--output-format", "json"]
+    with tempfile.TemporaryDirectory() as empty:
+        r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=empty, env=env, timeout=600)
+    try:
+        data = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(f"claude CLI failed (exit {r.returncode}): {(r.stderr or r.stdout)[-500:]}")
+    if data.get("is_error"):
+        raise RuntimeError(f"claude CLI could not answer: {data.get('result') or data.get('subtype')}. "
+                           "Log in once with `claude`.")
+    return data["result"], next(iter(data.get("modelUsage") or {}), model)
+
+
+# ------------------------------------------------------------------ saved answers
+def answer(step_id, prompt, check=None, step_dir=STEP_DIR):
+    """The answer to `prompt` for step `step_id`.
+
+    A saved answer (<step_dir>/<step_id>_answer.json) is returned if its saved prompt is exactly `prompt`;
+    if the prompt differs (the questions or the weights changed, so the forest differs), this raises: delete
+    that answer and the later ones. Without a saved answer the LLM is asked (ask), with one retry if
+    check(answer) raises, and the prompt, the answer and the model that answered are saved."""
+    os.makedirs(step_dir, exist_ok=True)
+    pf, af = f"{step_dir}/{step_id}_prompt.txt", f"{step_dir}/{step_id}_answer.json"
+    if os.path.exists(af):
+        if not os.path.exists(pf) or open(pf).read() != prompt:
+            raise RuntimeError(f"{af} answers a different forest than the current inputs produce. "
+                               f"Delete it and the answers of the later steps, then run again.")
+        return open(af).read()
+    with open(pf, "w") as f:
+        f.write(prompt)
+    for attempt in (1, 2):
+        text, model, backend = ask(prompt)
+        try:
+            if check:
+                check(text)
+            break
+        except (ValueError, KeyError, json.JSONDecodeError) as e:
+            if attempt == 2:
+                raise
+            print(f"   {step_id}: unreadable answer ({e}), asking again")
+    with open(af, "w") as f:
+        f.write(text)
+    log = f"{step_dir}/answered_by.json"
+    answered_by = json.load(open(log)) if os.path.exists(log) else {}
+    answered_by[step_id] = dict(model=model, via=backend)
+    with open(log, "w") as f:
+        json.dump(answered_by, f, indent=1)
+    print(f"{step_id}: answered by {model} via {backend}")
+    return text
+
+
+def answered_by(step_dir=STEP_DIR):
+    """{step id: {"model", "via"}} for the saved answers."""
+    log = f"{step_dir}/answered_by.json"
+    return json.load(open(log)) if os.path.exists(log) else {}

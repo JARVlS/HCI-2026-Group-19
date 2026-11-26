@@ -107,7 +107,7 @@ The fit is summed over **all** prompts, old ones included: moving an old prompt 
 - *Step 3, "Chain rule through a 2-layer network"*: creating *Backpropagation*, placing the new prompt there **and moving** the earlier backprop prompt $n_2$ gives 4.75 − 0.20 − 0.12 − (0.10 + 0.15) = 4.18; the same without the move leaves a one-prompt topic (4.06); the best existing topic gives 4.00. Outcome (e).
 - *Step 5, "How do I find the eigenvalues of a 2x2 matrix?"*: rated 1 against every deep learning topic. A new group gains 1 − 0.20 − 0.30 − 0.12 = +0.38, the best existing topic only +0.12. Outcome (d), margin 0.26.
 
-**Model citation.** Proposals and scores: Claude Haiku 5.5 (`claude-haiku-5-5`, Anthropic), via the Claude Code CLI, one fresh call per question, 26 Nov 2026. Prompts and raw answers are in `llm_steps/`; the notebook replays these frozen answers, so it runs without any LLM call.
+**Model citation.** Proposals and scores: Claude Haiku 5.5 (`claude-haiku-5-5`, Anthropic), one fresh conversation per question (via the Claude Code CLI), 26 Nov 2026. Prompts and raw answers are in `llm_steps/`; the notebook replays these frozen answers, so it runs without any LLM call.
 
 ---
 
@@ -161,4 +161,4 @@ H0 mixes subjects in one block; H1 piles everything into two overloaded topics a
 - [ ] Shorten to ≤ 3.5 pages of text; paste Figures 1–3 from the notebook.
 - [ ] Group review of the ideal forest in `session.py` (`IDEAL`).
 - [ ] Blog post with links to the optimization task, the resulting designs and this analysis.
-- [ ] Copy `ui_optimization.ipynb` and `requirements.txt` (and the PDF) to `Deliverables/UIOptimization/` of the group repository; also copy `session.py`, `judge_prompt.py`, `visualization.py` and `llm_steps/`, so the notebook runs from the zip without downloading this repository.
+- [ ] Copy `ui_optimization.ipynb` and `requirements.txt` (and the PDF) to `Deliverables/UIOptimization/` of the group repository; also copy `session.py`, `judge.py`, `visualization.py` and `llm_steps/`, so the notebook runs from the zip without downloading this repository.

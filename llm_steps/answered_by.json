@@ -1,13 +1,46 @@
 {
- "n1": "claude-haiku-5-5",
- "n2": "claude-haiku-5-5",
- "n3": "claude-haiku-5-5",
- "n4": "claude-haiku-5-5",
- "n5": "claude-haiku-5-5",
- "n6": "claude-haiku-5-5",
- "n7": "claude-haiku-5-5",
- "n8": "claude-haiku-5-5",
- "n9": "claude-haiku-5-5",
- "n10": "claude-haiku-5-5",
- "n11": "claude-haiku-5-5"
+ "n1": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n2": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n3": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n4": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n5": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n6": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n7": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n8": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n9": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n10": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ },
+ "n11": {
+  "model": "claude-haiku-5-5",
+  "via": "claude-cli"
+ }
 }
