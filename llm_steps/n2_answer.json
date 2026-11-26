@@ -1,0 +1,1 @@
+{"proposal": {"id": "NEW", "name": "Backpropagation", "parent": "DLB"}, "new_question": {"DLB": 4, "GD": 3, "T1": 2, "NEW": 5}, "earlier_questions": {"p0": {"DLB": 5, "NEW": 2}, "p1": {"GD": 5, "NEW": 3}, "n1": {"GD": 3, "NEW": 2}}}

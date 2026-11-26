@@ -10,16 +10,14 @@ When a student asks the AI a new question, our prototype decides where the quest
 |---|---|
 | `ui_optimization.ipynb` | The main notebook: model, results, comparison, what-if analysis |
 | `session.py` | The scripted session: starting tree and the 8 questions in order |
-| `judge_prompt.py` | Builds the LLM prompt (propose new topics, then rate questions against topics) from a fixed template: the step prompt for one new question and the batch prompt; reads the answers |
-| `judge_prompt.txt` | The batch prompt (whole session at once) that produced `judge_scores.json` |
-| `llm_steps/` | The step prompts and, once collected, the LLM's answers for every question |
-| `judge_scores.json` | The LLM's answer to the batch prompt: proposals and scores; used as fallback and for the replay |
+| `judge_prompt.py` | Builds the LLM prompt for one new question (propose a new topic, then rate questions against topics) from a fixed template; reads the answer |
+| `llm_steps/` | The step prompts and the LLM's answers (Claude Haiku 5.5) for every question |
 | `visualization.py` | Drawing and animation of the trees, used by the notebook |
 | `requirements.txt` | Python packages |
 
 ## How to run
 
-**In Google Colab:** click the button above and run all cells. The first cell downloads this repository and installs Gurobi (its free size-limited license is enough). No API key is needed: the scores are read from `judge_scores.json`.
+**In Google Colab:** click the button above and run all cells. The first cell downloads this repository and installs Gurobi (its free size-limited license is enough). No API key is needed: the step answers are read from `llm_steps/`.
 
 **Locally:** `pip install -r requirements.txt`, open `ui_optimization.ipynb`, run all cells.
 
@@ -32,15 +30,14 @@ When a student asks the AI a new question, our prototype decides where the quest
 
 Then Gurobi decides the step and the next question follows. The LLM only ever sees the past. Prompts and answers are kept in `llm_steps/`.
 
-The notebook gets the answers in one of three ways (Section 5a):
+The notebook gets the answers in this order (Section 5a); it stops until every step has its answer:
 
-| Mode | When | What happens |
+| Source | When | What happens |
 |---|---|---|
-| API | `ANTHROPIC_API_KEY` is set | the notebook calls the model for every step |
-| Manual | no key, `REPLAY_FROM_BATCH = False` | the notebook writes `llm_steps/<id>_prompt.txt`; paste it into a chat, save the reply as `llm_steps/<id>_answer.json`, re-run the cell (8 times) |
-| Replay | no key, `REPLAY_FROM_BATCH = True` (default) | each step is answered from the earlier batch run in `judge_scores.json`; labelled as a replay, since those scores came from one call that saw the whole session |
-
-`judge_scores.json` is the answer to the batch prompt `judge_prompt.txt` (whole session at once, sent once to Claude Sonnet 5.5). It is only a fallback and the source for the replay.
+| Files | `llm_steps/<id>_answer.json` exists | the saved answer is used (this is what Colab does) |
+| API | `ANTHROPIC_API_KEY` is set | the notebook calls `claude-haiku-5-5` for every step |
+| Claude Code CLI | `claude` is installed and logged in | one fresh `claude -p` call per step (no tools, empty folder, no session kept), on the Claude subscription |
+| Manual | none of the above | paste `llm_steps/<id>_prompt.txt` into a new chat (memory off), save the reply as `llm_steps/<id>_answer.json`, re-run (8 times) |
 
 ## The pipeline
 

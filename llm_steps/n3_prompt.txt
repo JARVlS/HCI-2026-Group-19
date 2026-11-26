@@ -33,10 +33,10 @@ Rate (a) the NEW question against EVERY topic below and against your proposal NE
 - n2: (only NEW, if you propose one)
 
 Topics in the tree and open proposals (id: name, path, questions it contains):
-- DLB: "Deep learning basics"   (path: deep learning > Deep learning basics)   contains: p0
-- GD: "Gradient descent"   (path: deep learning > Gradient descent)   contains: p1
-- T1: "Learning rate"   (path: deep learning > Gradient descent > Learning rate)   contains: n1
-- T2: "Backpropagation"   (path: deep learning > Backpropagation)   contains: n2
+- DLB: "Deep learning basics"   (path: deep learning > Deep learning basics)   contains: p0, n2
+- GD: "Gradient descent"   (path: deep learning > Gradient descent)   contains: p1, n1
+- T1: "Learning rate"   (path: deep learning > Gradient descent > Learning rate)   open proposal, not in the tree yet
+- T2: "Backpropagation"   (path: deep learning > Deep learning basics > Backpropagation)   open proposal, not in the tree yet
 
 Earlier questions (id: text):
 - p0: "Explain what deep learning is"
