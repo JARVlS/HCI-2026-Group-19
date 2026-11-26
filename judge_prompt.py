@@ -165,7 +165,8 @@ Rules:
 {judge_rules}
 
 Rate (a) the NEW question against EVERY topic below and against your proposal NEW (if any), and
-(b) EVERY earlier question against your proposal NEW only (skip (b) if you propose nothing).
+(b) each earlier question against the topics listed for it here, plus against NEW if you propose one:
+{missing}
 
 Topics in the tree and open proposals (id: name, path, questions it contains):
 {topics}
@@ -178,13 +179,22 @@ NEW question: "{question}"
 Answer with one JSON object only, no other text, in exactly this form:
 {{"proposal": {{"id": "NEW", "name": "<1-3 words>", "parent": "<topic id or ROOT>"}} or null,
  "new_question": {{{example}, "NEW": <1-5>}},
- "earlier_questions": {{"<question id>": {{"NEW": <1-5>}}, ...}}}}"""
+ "earlier_questions": {{"<question id>": {{"<listed topic id>": <1-5>, ..., "NEW": <1-5>}}, ...}}}}"""
 
 
-def step_prompt(subject, topics, placed, questions, question, open_ids=()):
+def format_missing(placed, missing):
+    lines = []
+    for q in placed:
+        listed = (missing or {}).get(q, [])
+        lines.append(f"- {q}: {', '.join(listed)}" if listed else f"- {q}: (only NEW, if you propose one)")
+    return "\n".join(lines)
+
+
+def step_prompt(subject, topics, placed, questions, question, open_ids=(), missing=None):
     """topics: the tree's topics plus open (not yet created) proposals, whose ids are open_ids;
     placed: question -> topic for the earlier questions; questions: their texts; question: the text of
-    the new question."""
+    the new question; missing: earlier question -> topic ids it has not been rated against yet
+    (in the prototype usually empty after the first step: then only NEW is asked)."""
     return STEP_TEMPLATE.format(
         context=CONTEXT.format(subject=subject),
         propose_rules=PROPOSE_RULES.format(subject=subject),
@@ -192,12 +202,13 @@ def step_prompt(subject, topics, placed, questions, question, open_ids=()):
         topics=format_topics(topics, placed, open_ids),
         earlier=format_questions({q: questions[q] for q in placed}),
         question=question,
+        missing=format_missing(placed, missing),
         example=", ".join(f'"{c}": <1-5>' for c in topics))
 
 
-def parse_step(text, subject, topics, placed):
-    """-> (proposal or None, scores of the new question {topic: 1..5}, scores of earlier questions
-    for the proposal {question: 1..5})."""
+def parse_step(text, subject, topics, placed, missing=None):
+    """-> (proposal or None, scores of the new question {topic: 1..5},
+    scores of earlier questions {question: {topic: 1..5}} for their missing topics and NEW)."""
     data = _json_object(text)
     p = data.get("proposal")
     proposal, known = None, dict(topics)
@@ -208,10 +219,12 @@ def parse_step(text, subject, topics, placed):
         proposal = dict(id="NEW", label=str(p["name"]), parent=parent)
         known["NEW"] = proposal
     new_scores = _check_row(data.get("new_question", {}), known, "new question")
+    rows = data.get("earlier_questions") or {}
     earlier = {}
-    if proposal:
-        rows = data.get("earlier_questions", {})
-        earlier = {q: _check_row(rows.get(q, {}), {"NEW": None}, f"earlier question {q}")["NEW"] for q in placed}
+    for q in placed:
+        wanted = list((missing or {}).get(q, [])) + (["NEW"] if proposal else [])
+        if wanted:
+            earlier[q] = _check_row(rows.get(q, {}), {c: None for c in wanted}, f"earlier question {q}")
     return proposal, new_scores, earlier
 
 
