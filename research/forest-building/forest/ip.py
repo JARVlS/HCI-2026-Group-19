@@ -2,7 +2,8 @@
 
 candidates() turns the forest and the judge output into candidate links with scores; solve() builds
 the model (constraints named by their ID, e.g. C9[t_backpropagation]), solves it and decodes the new
-forest, the action and what was adopted.
+forest, the action and what was adopted. options() solves once per option the judge opened (each
+forced in turn) and scores each by what it adds to the objective of the forest before the step.
 """
 from __future__ import annotations
 
@@ -63,6 +64,7 @@ class Candidates:
     h: dict[tuple[str, str], float] = field(default_factory=dict)   # (parent topic, topic)
     hg: dict[tuple[str, str], float] = field(default_factory=dict)  # (group, topic)
     moves: list[tuple[Move, tuple | None]] = field(default_factory=list)  # move and its link, None if unusable
+    parent_links: dict[tuple[str, str], tuple] = field(default_factory=dict)  # (proposal name lower, parent ref) -> link
 
 
 def candidates(forest: Forest, n: Prompt, out: JudgeOutput, step: int) -> Candidates:
@@ -118,6 +120,7 @@ def candidates(forest: Forest, n: Prompt, out: JudgeOutput, step: int) -> Candid
             r = resolve(pa.parent)
             if r and r[1] != tid:
                 put(c.h if r[0] == "topic" else c.hg, (r[1], tid), rescale(pa.fit))
+                c.parent_links[(p.name.lower(), pa.parent)] = ("x" if r[0] == "topic" else "xg", r[1], tid)
     # restructure proposals
     for m in out.restructure:
         r = resolve(m.to)
@@ -171,7 +174,10 @@ def weights(forest: Forest, t: int) -> tuple[dict[str, float], dict[str, float]]
     return w, v
 
 
-def solve(forest: Forest, n: Prompt, out: JudgeOutput, step: int, P: Params) -> tuple[Forest, Decision]:
+def solve(forest: Forest, n: Prompt, out: JudgeOutput, step: int, P: Params,
+          fix: dict[str, int] | None = None) -> tuple[Forest, Decision]:
+    """The best new forest. `fix` pins variables by name (e.g. {"q[p10,t01a]": 1, "z": 0}), so
+    options() can solve for the best forest that contains one given option."""
     cand = candidates(forest, n, out, step)
     T_old, G_old = list(forest.topics), list(forest.groups)
     T, G = T_old + list(cand.new_topics), G_old + list(cand.new_groups)
@@ -251,15 +257,22 @@ def solve(forest: Forest, n: Prompt, out: JudgeOutput, step: int, P: Params) -> 
         mdl.addConstr(k[c] <= z, name=f"C17[{c}]")                                      # C17
 
     mdl.update()
+    for name, val in (fix or {}).items():
+        var = mdl.getVarByName(name)
+        if var is None:
+            raise KeyError(f"no variable {name}")
+        var.LB = var.UB = val
     size = {"vars": mdl.NumVars, "constrs": mdl.NumConstrs}
     if P.size_limited and (size["vars"] >= 2000 or size["constrs"] >= 2000):
         raise RuntimeError(f"model too large for the pip license: {size}")
     t0 = time.time()
     mdl.optimize()
     solve_s = time.time() - t0
-    if mdl.Status == GRB.INFEASIBLE:
+    if mdl.Status in (GRB.INFEASIBLE, GRB.INF_OR_UNBD):
         mdl.computeIIS()
         raise RuntimeError("infeasible: " + ", ".join(c.ConstrName for c in mdl.getConstrs() if c.IISConstr))
+    if mdl.SolCount == 0:
+        raise RuntimeError(f"no solution (Gurobi status {mdl.Status})")
     on = lambda var: var.X > 0.5  # noqa: E731
 
     # decode
@@ -312,3 +325,164 @@ def solve(forest: Forest, n: Prompt, out: JudgeOutput, step: int, P: Params) -> 
                  **{NEW_GROUP + lbl: gid for gid, lbl in cand.new_groups.items()}})
     mdl.dispose()
     return new, decision
+
+
+# --- options: every choice the judge opened, each solved on its own --------------------------------
+
+TERMS = ("fit", "new categories", "imbalance", "disruption")
+
+
+def forest_terms(forest: Forest, P: Params) -> dict[str, float]:
+    """The objective of a forest as it stands: its stored link fits and its imbalance (nothing is new
+    and nothing moved, so those terms are 0). The IP's terms of the next step minus these are what
+    that step adds."""
+    fit = sum(pl.fit for pl in forest.placement.values())
+    fit += sum((P.alpha if t.parent_kind == "topic" else P.alpha_G) * t.fit for t in forest.topics.values())
+    slack = 0
+    for c in forest.topics:
+        k, kids = len(forest.prompts_in(c)), len(forest.children(c))
+        slack += max(0, k - P.U) + max(0, P.L - k - kids) + max(0, kids - P.B)
+    return {"fit": fit, "new categories": 0.0, "imbalance": -P.beta * slack, "disruption": 0.0,
+            "total": fit - P.beta * slack}
+
+
+@dataclass
+class Option:
+    label: str                    # the forced choice in words, with the judge's fits
+    kind: str                     # "add", "new topic", "move" or "ip" (the IP's own combination)
+    after: Forest
+    decision: Decision
+    gain: dict[str, float]        # each objective term minus its value in the forest before the step
+    chosen: bool = False          # the same forest as the IP's unconstrained choice
+    what: str = ""                # the same without the kind and the fits, e.g. 'into “Neural networks”'
+    fit: int | None = None        # the judge's fit: of the new prompt (add, new topic), of the move
+    parent_fit: int | None = None  # new topic: the judge's fit of the parent it hangs under
+    blocked: str = ""             # why a hard limit rules it out; after and gain are then the IP's
+                                  # best forest with that limit lifted (a sketch, never chosen)
+
+
+LIMITS = {"C12": "K_T", "C13": "K_G", "C7": "D", "C8": "D"}   # hard constraints with a parameter
+
+
+def _signature(f: Forest) -> tuple:
+    return (tuple(sorted((p, pl.topic) for p, pl in f.placement.items())),
+            tuple(sorted((t.id, t.parent, t.parent_kind) for t in f.topics.values())), tuple(sorted(f.groups)))
+
+
+def options(forest: Forest, n: Prompt, out: JudgeOutput, step: int, P: Params, min_fit: int = 2) -> list[Option]:
+    """Every option the judge opened, each solved as the best forest that contains it, best first:
+      add          the new prompt into an existing topic the judge rated min_fit or better (at least
+                   the best one), nothing else changes
+      new topic    a proposed topic under one of the parents the judge rated, holding the new prompt,
+                   nothing old changes (a parent that is the other proposal is created too)
+      move         one proposed move alone (the other moves are off); the new prompt goes wherever
+                   is best
+    The IP's unconstrained choice is marked; if it matches none of them (several moves at once, or an
+    add below min_fit), it is added as its own option. An option a hard limit rules out (K_T trees
+    per group, K_G groups, depth D) is kept at the end with `blocked` set to the reason, solved once
+    more with that limit lifted so it can still be drawn. Options that break anything else are left
+    out."""
+    cand = candidates(forest, n, out, step)
+    base = forest_terms(forest, P)
+    var = lambda link: f"{link[0]}[{link[1]},{link[2]}]"  # noqa: E731
+    move_vars = {var(link) for _, link in cand.moves if link}
+    fit_of = lambda s: round(s * 4 + 1)  # noqa: E731  (rescaled fit back to 1..5)
+
+    def words(ref: str) -> str:
+        if ref in forest.topics:
+            return f"“{forest.topics[ref].label}”"
+        if ref in forest.groups:
+            return f"group “{forest.groups[ref].label}”"
+        if ref.startswith(NEW_GROUP):
+            return f"new group “{ref[len(NEW_GROUP):].strip()}”"
+        return f"“{ref}” (new)"
+
+    def move_words(m: Move, fits: bool = True) -> str:
+        what = f"topic “{forest.topics[m.id].label}”" if m.kind == "topic" else m.id
+        return f"move {what} {'under' if m.kind == 'topic' else 'to'} {words(m.to)}" + (f" (fit {m.fit})" if fits else "")
+
+    specs: list[dict] = []
+    adds = sorted(forest.topics, key=lambda t: -cand.s[(n.id, t)])
+    for t in [t for t in adds if fit_of(cand.s[(n.id, t)]) >= min_fit] or adds[:1]:
+        f = fit_of(cand.s[(n.id, t)])
+        specs.append(dict(kind="add", label=f"into {words(t)} (fit {f})", what=f"into {words(t)}", fit=f,
+                          fix={f"q[{n.id},{t}]": 1, "z": 0}))
+    for p in out.proposed:
+        tid = cand.proposal_ids[p.name.lower()]
+        if tid in forest.topics:
+            continue
+        for pa in p.parents:
+            link = cand.parent_links.get((p.name.lower(), pa.parent))
+            if link:
+                specs.append(dict(kind="new topic", label=f"new topic “{p.name}” (fit {p.fit}) under {words(pa.parent)} (fit {pa.fit})",
+                                  what=f"“{p.name}” under {words(pa.parent)}", fit=p.fit, parent_fit=pa.fit,
+                                  fix={f"q[{n.id},{tid}]": 1, var(link): 1, "z": 0}))
+    for m, link in cand.moves:
+        if link:
+            specs.append(dict(kind="move", label=move_words(m), what=move_words(m, fits=False), fit=m.fit,
+                              fix={var(link): 1, **{v: 0 for v in move_vars - {var(link)}}}))
+
+    def describe(after: Forest, dec: Decision, fits: bool = True) -> str:
+        """Where a solution put the new prompt, plus the moves it adopted."""
+        c = dec.topic_of_n
+        if c in forest.topics:
+            parts = [f"into {words(c)}" + (f" (fit {fit_of(after.placement[n.id].fit)})" if fits else "")]
+        else:
+            t = after.topics[c]
+            if t.parent in forest.topics or t.parent in forest.groups:
+                parent = words(t.parent)
+            elif t.parent_kind == "topic":
+                parent = f"“{after.topics[t.parent].label}” (new)"
+            else:
+                parent = f"new group “{after.groups[t.parent].label}”"
+            parts = [("new topic " if fits else "") + f"“{t.label}” under {parent}"]
+        return " + ".join(parts + [move_words(m, fits) for m, ok in dec.moves if ok])
+
+    def option(spec: dict, after: Forest, dec: Decision) -> Option:
+        gain = {k: dec.terms[k] - base[k] for k in (*TERMS, "total")}
+        return Option(spec["label"], spec["kind"], after, dec, gain, what=spec["what"], fit=spec.get("fit"),
+                      parent_fit=spec.get("parent_fit"))
+
+    def blocked_by(err: str) -> tuple[str, dict]:
+        """The hard limits in Gurobi's IIS ('infeasible: C12[g01a], C1[p01], ...'), in words, and
+        the Params that lift them."""
+        reasons, lift = [], {}
+        for name in err.removeprefix("infeasible: ").split(", "):
+            c, _, arg = name.partition("[")
+            limit = LIMITS.get(c)
+            if limit is None or limit in lift:
+                continue
+            lift[limit] = 99
+            if limit == "K_T":
+                g = arg.rstrip("]")
+                label = forest.groups[g].label if g in forest.groups else cand.new_groups.get(g, g)
+                reasons.append(f"group “{label}” already has {P.K_T} trees (K_T = {P.K_T})")
+            elif limit == "K_G":
+                reasons.append(f"there are already {P.K_G} groups (K_G = {P.K_G})")
+            else:
+                reasons.append(f"the tree would be deeper than D = {P.D} levels")
+        return "; ".join(reasons), lift
+
+    opts = []
+    for spec in specs:
+        try:
+            opts.append(option(spec, *solve(forest, n, out, step, P, spec["fix"])))
+        except RuntimeError as e:
+            reason, lift = blocked_by(str(e))
+            if not lift:
+                continue
+            try:
+                o = option(spec, *solve(forest, n, out, step, P.replace(**lift), spec["fix"]))
+            except RuntimeError:
+                continue
+            o.blocked = reason
+            opts.append(o)
+    best_after, best = solve(forest, n, out, step, P)
+    for o in opts:
+        o.chosen = not o.blocked and _signature(o.after) == _signature(best_after)
+    if not any(o.chosen for o in opts):
+        ip = option(dict(kind="ip", label=describe(best_after, best), what=describe(best_after, best, fits=False),
+                         fit=fit_of(best_after.placement[n.id].fit)), best_after, best)
+        ip.chosen = True
+        opts.append(ip)
+    return sorted(opts, key=lambda o: (bool(o.blocked), -round(o.gain["total"], 4), not o.chosen))

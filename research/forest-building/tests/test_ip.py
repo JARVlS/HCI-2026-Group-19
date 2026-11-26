@@ -176,3 +176,92 @@ def test_oracle_chains_missing_topics():
     assert [p.name for p in j.proposed] == ["Neural networks", "Training problems"]
     assert j.proposed[0].parents[0].parent == "NEW_GROUP:Deep Learning"
     assert j.proposed[1].parents[0].parent == "Neural networks"
+
+
+def test_ideal_places_every_prompt_right():
+    from forest.metrics import placed_right
+    ideal = load_ideal()
+    for k, p in enumerate(ideal.arrival, 1):
+        assert placed_right(ideal.upto(k), ideal, p)
+
+
+def test_step_card_for_every_step():
+    from forest import viz
+    from forest.simulate import run
+    ideal = load_ideal()
+    judge = OracleJudge(ideal, 0.0, 42)
+    ip, chrono = run("ip", ideal, judge, BASE, save=False), run("chronological", ideal, P=BASE, save=False)
+    for s, c in zip(ip.steps, chrono.steps):
+        card = viz.step_card(s, ideal, {"chronological": c})
+        assert all(f"**{row}**" in card for row in ("input", "judge", "output (IP)", "ideal", "chronological"))
+
+
+def test_options_by_hand():
+    """Case (b): adding to the full Backpropagation gains fit 0.75 but costs beta for going over U;
+    the new branch gains 1.0 + alpha * 1.0 for prompt and parent link, minus lam and beta (one prompt < L)."""
+    from forest.ip import options
+    c = case_b()
+    opts = options(c.before, c.prompt, c.judge, c.before.step + 1, c.params)
+    by = {o.label: o for o in opts}
+    new = by["new topic “Vanishing gradients” (fit 5) under “Backpropagation” (fit 5)"]
+    add = by["into “Backpropagation” (fit 4)"]
+    assert new.chosen and not add.chosen and opts[0] is new
+    assert new.gain["total"] == pytest.approx(1.0 + 0.5 * 1.0 - 0.4 - 0.3)
+    assert add.gain["total"] == pytest.approx(0.75 - 0.3)
+
+
+def test_options_over_the_session():
+    """forest_terms matches the IP's own terms; the IP's choice is an option, first and the best."""
+    from forest.ip import forest_terms, options
+    from forest.simulate import run
+    ideal = load_ideal()
+    for s in run("ip", ideal, OracleJudge(ideal, 0.0, 42), BASE, save=False).steps:
+        after = forest_terms(s.after, BASE)
+        assert after["fit"] == pytest.approx(s.decision.terms["fit"])
+        assert after["imbalance"] == pytest.approx(s.decision.terms["imbalance"])
+        opts = options(s.before, s.prompt, s.judge, s.step, BASE)
+        assert opts[0].chosen and sum(o.chosen for o in opts) >= 1
+        assert opts[0].gain["total"] == pytest.approx(s.decision.terms["total"] - forest_terms(s.before, BASE)["total"], abs=1e-3)
+        assert all(o.gain["total"] <= opts[0].gain["total"] + 1e-3 for o in opts if not o.blocked)
+        assert not any(o.chosen for o in opts if o.blocked)
+
+
+def test_options_keep_what_a_limit_rules_out():
+    """A new tree in a group that already has K_T trees cannot be built; options() keeps it, says
+    why, and sketches it with the limit lifted (five trees), after every option that can be built."""
+    from forest.ip import options
+    topics = {f"t{i}": (f"Topic {i}", "g_dl", "group") for i in range(4)}
+    f = make(topics, {f"p{i}": f"t{i % 4}" for i in range(8)})
+    j = out({"t0": 3}, proposed=[("Optimizers", 5, [("g_dl", 5)])])
+    opts = options(f, Prompt("n", "Should I use SGD or Adam?"), j, f.step + 1, BASE)
+    blocked = [o for o in opts if o.blocked]
+    assert len(blocked) == 1 and opts[-1] is blocked[0] and not blocked[0].chosen
+    assert "K_T = 4" in blocked[0].blocked and "Deep Learning" in blocked[0].blocked
+    assert len(blocked[0].after.roots("g_dl")) == 5
+
+
+def test_step_explainer_draws():
+    """The step figure draws for an early, a middle and a late step (options grouped by kind)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from forest import viz
+    from forest.simulate import run
+    ideal = load_ideal()
+    steps = run("ip", ideal, OracleJudge(ideal, 0.0, 42), BASE, save=False).steps
+    for k in (1, 13, 23):
+        fig = viz.step_explainer(steps[k - 1], ideal, BASE)
+        assert fig.axes
+        plt.close(fig)
+
+
+def test_focus_keeps_only_the_changed_tree():
+    """An option card draws the tree the option changes; the group's other trees become one stub."""
+    from forest import viz
+    c = case_c()   # a new tree "Optimizers" next to the unchanged "Neural networks" tree
+    after, _ = c.run()
+    f, stubs = viz._focus(c.before, after)
+    new = after.placement["n"].topic
+    assert new in f.topics and "t_nn" not in f.topics and "t_bp" not in f.topics
+    assert [f.topics[s].label for s in stubs] == ["+1 other tree"]
+    assert set(f.placement) == {"n"}

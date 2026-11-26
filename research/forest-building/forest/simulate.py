@@ -14,7 +14,7 @@ import pandas as pd
 from . import ROOT
 from .ip import Decision, Params, candidates, solve
 from .judge import NEW_GROUP, JudgeOutput, LLMJudge
-from .metrics import balance, disruption, pair_f1
+from .metrics import balance, disruption, pair_f1, placed_right
 from .model import Forest, Group, Ideal, Placement, Prompt, Topic
 
 FORESTS = ROOT / "outputs" / "forests"
@@ -168,6 +168,7 @@ def run(method: str, ideal: Ideal, judge=None, P: Params | None = None, name: st
         s = Step(i, n, ideal.intended.get(pid, ("", ""))[0], forest, after, out, dec, argmax_dec)
         s.argmax_after = argmax_after
         s.metrics = {"f1_topic": pair_f1(after, ideal, "topic"), "f1_tree": pair_f1(after, ideal, "tree"),
+                     "placed_right": placed_right(after, ideal, n.id),
                      **disruption(forest, after, i), **balance(after, P)}
         steps.append(s)
         if save:
@@ -189,6 +190,7 @@ def summary(runs: list[Run]) -> pd.DataFrame:
         t = r.table()
         rows.append({"run": r.name, "method": r.method, "judge": r.judge,
                      "final f1 topic": t["f1_topic"].iloc[-1], "final f1 tree": t["f1_tree"].iloc[-1],
+                     "placed right": t["placed_right"].mean(),
                      "moved prompts (w)": t["moved_prompts_w"].sum(), "moved topics": t["moved_topics"].sum(),
                      "deleted": t["deleted"].sum(), "restructures": int((t["action"] == "e").sum()),
                      "over U (final)": t["over_U"].iloc[-1], "under L (final)": t["under_L"].iloc[-1],

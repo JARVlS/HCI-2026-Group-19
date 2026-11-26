@@ -7,7 +7,9 @@ topics with rated parents, and up to 6 proposed moves of old prompts or topics. 
 
 Two backends with the same call, judge(forest, prompt, step):
   OracleJudge  derives every score from the ideal forest (no API calls; tests and sweeps)
-  LLMJudge     a chat-completions model with the JSON schema enforced, cached to disk
+  LLMJudge     a model with the JSON schema enforced, cached to disk: Claude through the Claude Code
+               CLI on your Claude subscription (provider claude-cli, no key), or any
+               chat-completions endpoint (provider openai, key in .env)
 """
 from __future__ import annotations
 
@@ -15,6 +17,9 @@ import hashlib
 import json
 import os
 import random
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import Literal
 
@@ -221,10 +226,29 @@ class CacheMiss(RuntimeError):
     pass
 
 
+def claude_bin(cfg: dict | None = None) -> str | None:
+    """The Claude Code CLI: config llm.claude_bin, else `claude` on PATH, else the newest copy bundled
+    with the VS Code (or Cursor) extension."""
+    if cfg and cfg.get("claude_bin"):
+        return cfg["claude_bin"]
+    found = shutil.which("claude")
+    if found:
+        return found
+    bundled = [p for ext in (".vscode", ".cursor")
+               for p in (Path.home() / ext / "extensions").glob("anthropic.claude-code-*/resources/native-binary/claude")]
+    return str(max(bundled, key=lambda p: p.stat().st_mtime)) if bundled else None
+
+
 class LLMJudge:
-    """A chat-completions model (config `llm`), temperature 0, JSON schema enforced, one retry on a
-    parse failure. Every answer is cached in data/cache/llm.jsonl (git-ignored), keyed by a hash of
-    (model, template version, input); data/llm_answers.jsonl is the committed copy (freeze())."""
+    """A model (config `llm`), JSON schema enforced, one retry on a parse failure. Every answer is
+    cached in data/cache/llm.jsonl (git-ignored), keyed by a hash of (model, template version,
+    input); data/llm_answers.jsonl is the committed copy (freeze()).
+
+    provider claude-cli: `claude -p` on the logged-in Claude subscription (an API key in the
+      environment is removed, so it is never billed to an API account). Safe mode, no tools, our
+      system prompt only, run in an empty folder: the model sees nothing but the forest. The CLI
+      has no temperature setting; the cache makes reruns reproducible.
+    provider openai: any chat-completions endpoint (base_url, key LLM_API_KEY), temperature 0."""
 
     CACHE = ROOT / "data" / "cache" / "llm.jsonl"
     FROZEN = ROOT / "data" / "llm_answers.jsonl"
@@ -232,9 +256,11 @@ class LLMJudge:
     def __init__(self, cfg: dict, cached_only: bool = False):
         self.cfg, self.seed = cfg["llm"], cfg["seed"]
         self.model = self.cfg["model"]
+        self.provider = self.cfg.get("provider") or "openai"
         self.name = f"llm({self.model})"
         self.cached_only = cached_only   # True: never call the API (submission notebook)
         self.calls = 0
+        self.model_id: str | None = None  # the exact model that answered last (for the citation)
         self.answers: dict[str, str] = {}
         for path in (self.FROZEN, self.CACHE):
             if path.exists():
@@ -247,7 +273,13 @@ class LLMJudge:
     @property
     def available(self) -> bool:
         """Configured (model set) or answering from the cache only."""
-        return bool(self.model) and (self.cached_only or bool(self._key()) or self._local())
+        if not self.model:
+            return False
+        if self.cached_only:
+            return True
+        if self.provider == "claude-cli":
+            return claude_bin(self.cfg) is not None
+        return bool(self._key()) or self._local()
 
     def _key(self) -> str:
         from dotenv import load_dotenv
@@ -281,11 +313,14 @@ class LLMJudge:
             self.answers[key] = text
             self.CACHE.parent.mkdir(parents=True, exist_ok=True)
             with self.CACHE.open("a", encoding="utf-8") as f:
-                f.write(json.dumps({"key": key, "model": self.model, "step": step, "prompt": n.id, "answer": text}) + "\n")
+                f.write(json.dumps({"key": key, "model": self.model, "model_id": self.model_id or self.model,
+                                    "step": step, "prompt": n.id, "answer": text}) + "\n")
             return out
         raise RuntimeError(f"LLM answer did not parse twice: {last}")
 
     def _ask(self, user: str) -> str:
+        if self.provider == "claude-cli":
+            return self._ask_claude(user)
         import openai
         self.calls += 1
         msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
@@ -297,8 +332,32 @@ class LLMJudge:
             # endpoint without json_schema support: the schema goes into the prompt instead
             msgs[0]["content"] += "\n\nAnswer with JSON only, matching this schema:\n" + json.dumps(schema())
             r = self.client().chat.completions.create(model=self.model, messages=msgs, temperature=0, seed=self.seed)
+        self.model_id = getattr(r, "model", None) or self.model
         text = (r.choices[0].message.content or "").strip()
         return text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+
+    def _ask_claude(self, user: str) -> str:
+        exe = claude_bin(self.cfg)
+        if exe is None:
+            raise RuntimeError("Claude Code CLI not found: install it or set llm.claude_bin in config.yaml")
+        self.calls += 1
+        # the subscription login, never an API key; no ties to a Claude Code session this runs inside
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDECODE", "CLAUDE_PID", "CLAUDE_EFFORT")
+               and not k.startswith(("CLAUDE_CODE_", "CLAUDE_AGENT_SDK"))}
+        cmd = [exe, "-p", "--model", self.model, "--safe-mode", "--tools", "", "--no-session-persistence",
+               "--system-prompt", SYSTEM, "--output-format", "json", "--json-schema", json.dumps(schema())]
+        with tempfile.TemporaryDirectory() as empty:
+            r = subprocess.run(cmd, input=user, capture_output=True, text=True, cwd=empty, env=env, timeout=600)
+        try:
+            data = json.loads(r.stdout)
+        except json.JSONDecodeError:
+            raise RuntimeError(f"claude CLI failed (exit {r.returncode}): {(r.stderr or r.stdout)[:500]}") from None
+        if data.get("is_error"):
+            raise RuntimeError(f"claude CLI error: {data.get('result') or data.get('subtype')}")
+        self.model_id = next(iter(data.get("modelUsage") or {}), self.model)
+        out = data.get("structured_output")
+        return json.dumps(out) if out is not None else (data.get("result") or "").strip()
 
     @classmethod
     def freeze(cls) -> int:

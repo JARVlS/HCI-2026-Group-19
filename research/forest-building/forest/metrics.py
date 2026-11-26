@@ -24,6 +24,17 @@ def pair_f1(forest: Forest, ideal: Ideal, level: str = "topic") -> float:
     return 2 * hit / (len(pred) + len(true))
 
 
+def topic_mates(forest: Forest, p: str) -> list[str]:
+    """The other prompts in p's topic."""
+    return [q for q in forest.prompts_in(forest.placement[p].topic) if q != p]
+
+
+def placed_right(after: Forest, ideal: Ideal, p: str) -> bool:
+    """The new prompt p shares its topic with exactly the prompts it shares it with in the ideal
+    forest, counting only the prompts that have arrived by this step. Label-independent."""
+    return set(topic_mates(after, p)) == set(topic_mates(ideal.upto(after.step), p))
+
+
 def disruption(before: Forest, after: Forest, step: int) -> dict:
     """What changed for things that existed before this step (adding the new prompt is no change)."""
     w, _ = weights(before, step)
