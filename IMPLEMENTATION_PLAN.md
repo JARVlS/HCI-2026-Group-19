@@ -717,6 +717,75 @@ interface GuessGrade {                     // schema in frontend/src/ai/schemas/
   which is the open M4 item "predict → reveal and quiz answers feed the analysis"; the same call
   shape can later grade quiz answers.
 
+### ADR-17 Course materials set the scope; the student's own rating sets the start (24 Nov 2026, **PROPOSED**, settled in the M12 brainstorm)
+Today the tutor and the analysis only see the conversation. They have to guess what the lecture
+covered, which terms and notation it used and how far along the student is. The tree grows from
+whatever the chat happens to touch, and every new concept starts at the same prior (`pL0` .2,
+ADR-7), whether the student has never heard of it or has reviewed it in Anki for weeks.
+
+**Draft decision** (each point is a question on the M12 agenda; ★ marks the proposed default):
+- **Three ways in:** a **PDF** (slides, script, exercise sheet), an **Anki deck** (`.apkg`, with
+  its scheduling data) and **pasted text** (a course outline from Moodle, own notes). One upload
+  becomes one `Material`; a subject can have several.
+- **Read on the device ★.** pdf.js for PDFs; a zip reader, a zstd decoder and sql.js for `.apkg`.
+  All three are loaded lazily (dynamic `import()`), so the first page load stays as small as today.
+  The file never leaves the browser, only what is extracted from it. Why: a 60-slide PDF sent as a
+  document is roughly 100 k tokens, half of one user's `DAILY_TOKEN_BUDGET` (200 k); slides are the
+  lecturers' copyright; it works the same for every provider (ADR-3, ADR-4); D1 stays small.
+  *Alternative:* send the PDF to Claude as a document block (better on diagrams and formulas,
+  Claude-only, expensive).
+- **One extraction call per upload.** The client builds a compact digest (per page: the title,
+  headings, bold terms and the first lines, capped at about 12 k characters; per Anki deck: the deck
+  path, tags and card fronts) and one structured call turns it into topics → concepts, each with
+  page or card references. The result merges into the graph like an analysis (`lib/graph.ts`:
+  existing ids first, slug dedup), `createdBy: 'seed'`, as hollow leaves. This is M4's *seed a
+  subject*, but from the real material instead of the model's idea of the subject.
+- **Priors, not attempts ★.** A self-rating or an Anki interval says what the student *knows*, not
+  who did the thinking, so it never touches independence, the glyph or the attempt counts the study
+  measures. It is its own record:
+  ```ts
+  interface Material {
+    id: Id; kind: 'pdf' | 'anki' | 'text'; name: string; subjectId: Id;
+    size: { pages?: number; cards?: number; chars: number };
+    outline: { conceptId: Id; refs: string[] }[];   // "p. 12–14", "deck::Lecture 3", card ids; never page text
+    level?: Level;                                  // what the student said about the course, see M12
+    createdAt: ISO; deletedAt?: ISO;
+  }
+  interface ConceptPrior {
+    id: Id; conceptId: Id; materialId: Id;
+    source: 'self' | 'anki';
+    pL: number;                                     // 0..1, the start value for BKT
+    detail?: { rating?: 1 | 2 | 3 | 4; cards?: number; meanR?: number };
+    createdAt: ISO;
+  }
+  ```
+  BKT (`lib/bkt.ts`) starts a concept's replay from its latest prior (decayed from the prior's
+  date) instead of `pL0`, and replays only the attempts after it. A leaf without attempts stays
+  hollow; its fading shows the prior, and its hover says where it came from ("you said: could
+  explain it", "anki: 14 cards, ≈ 80 % recall").
+  *Alternative:* priors as attempts with `source: 'self' | 'anki'`. Rejected for now because an
+  attempt needs a mode and an independence, and the study counts attempts.
+- **The instant overview** (check-in): after an upload, every topic once, one key each, about
+  5 s per topic; the estimate is shown before it starts ("12 topics · about 1 min"). Scale ★:
+  `1` new to me (.05) · `2` heard of it (.25) · `3` could explain it (.6) · `4` could use it in a
+  task (.85) · `space` skip (no prior). A topic's rating is the prior of each of its concepts;
+  opening a topic lets the student rate its concepts one by one.
+- **Anki → prior:** per reviewed card, the recall probability today: from the FSRS memory state when
+  the deck has one (stability in `cards.data`, FSRS's forgetting curve with the deck's decay),
+  otherwise from the SM-2 interval as stability and the lapses. New cards give nothing. A concept's
+  prior is the mean over its cards, pulled toward `pL0` when it has few (weight `n / (n + 3)`).
+  Anki exports scheduling only when "include scheduling information" is ticked; without it every
+  card is new, and the upload says so instead of rating everything "new to me".
+- **What the models get:** the tutor (`ai/prompts/chat.ts`) gets a short *course scope* block,
+  prompt-cached and capped: subject, level, the covered topics with their page refs and the
+  student's rating. Rules: use the lecture's terms; say when a question goes beyond the material
+  instead of pretending it was covered; start from the basics on topics rated 1–2, skip re-explaining
+  topics rated 4 unless the student gets them wrong. The analysis already sees the seeded graph and
+  prefers its ids, so chats grow into the course's tree instead of next to it.
+- **Retrieval (optional, M12b):** the extracted page text stays in IndexedDB on the device; per
+  turn, a keyword match picks at most two passages (≤ 1 500 characters) from the pages of the
+  turn's topic, so the tutor can quote the lecture's own definition. About +500 tokens per turn.
+
 ---
 
 ## 4. API contract (backend ↔ frontend)
@@ -1306,6 +1375,97 @@ still shows all twelve, `/intro` replays it; nothing in the tour moves the promp
 target falls back to centred) and its events; screenshots of each spotlight step at desktop and
 phone width, light and dark.
 
+### M12 Course materials and the instant overview (BE + FE, shaped in a brainstorm first) ⇢ M2, M2b, ADR-17; feeds M4 (seed), M5 (priors)
+*Why (Leon, 24 Nov 2026):* the tutor has to assume what the lecture covered and how far the
+student is. Let the student hand it the course instead: upload slides, an Anki deck or pasted
+text; Arbor extracts the topics, grows them as the course's tree, and asks the student once, in
+about 5 s per topic, how well each one sits. Anki decks come with their own answer to that.
+
+**Step 1: brainstorm session (Leon + the implementing agent, about 1 h, before any code).**
+Walk through ADR-17 and decide each point below; write the outcome into ADR-17 (ticked or amended)
+and this checklist in the same PR. ★ = proposed default.
+1. **Scope before the freeze (Dec 5).** ★ M12a (pasted text + PDF + check-in + course scope in the
+   prompts + radial) only if M4 has landed by Nov 29; M12b (Anki, retrieval) after the study. Or:
+   the whole milestone after the study; or M12a instead of an open M5 item.
+2. **Read on the device vs. send the file to the model** (ADR-17). ★ on the device. What do we lose
+   on formula-heavy slides, and is a "send this page as an image" fallback worth it?
+3. **Extraction call:** ★ reuse the `tree` task (allowlisted, M4 needs it for *seed a subject*
+   anyway) with a digest input, vs. a new `syllabus` task. Digest cap, topic/concept caps (★ 4–12
+   topics, ≤ 6 concepts each), and what happens when a second upload overlaps the first (★ merge by
+   slug, refs from both).
+4. **Priors as their own record vs. as attempts** (ADR-17 ★ own record). How BKT treats attempts
+   from before a newer prior.
+5. **Check-in scale and flow:** ★ four levels + skip, topics first, concepts on demand; the time
+   estimate (★ topics × 5 s, rounded up to 15 s); can it be redone later (★ yes, the newer prior
+   wins); is it offered right after the upload (★) or only from the study hub.
+6. **Skill level:** ★ one question after the upload, "where are you with this course?": *first
+   contact* · *following the lecture* · *exam prep*, plus the ratings' mean. Is a free-text line
+   ("I struggle with proofs") worth the extra prompt tokens?
+7. **Radial menu:** all eight wedges are taken (ADR-13), positions never move. ★ The ↓ *study*
+   wedge (dim until M5) becomes live now as the study hub `#/study`: your materials, the check-in,
+   later M5's practice. Resting on it fans out a ring like *chats*: `add material` · `check in` ·
+   the 3 latest materials. Alternatives: give ↙ *concepts* to the materials (the `?` sheet keeps
+   `?` and `/concepts`), or no wedge and only commands. Amend ADR-13 with the result.
+8. **Where the files go:** ★ the file stays on the device, D1 stores `Material` (outline and refs,
+   no page text) and `ConceptPrior`; page text for retrieval in IndexedDB only. Retention, and the
+   one-line notice that the digest goes to the model provider.
+9. **Study (§7 Q11):** in both groups, identical, or off.
+
+**Step 2: build** (the checklist the brainstorm confirms; split into `materials-backend` and
+`materials-frontend` PRs as usual)
+
+*BE*
+- [ ] Migration `0004_materials.sql`: `materials` and `concept_priors`, user-scoped like the rest;
+      `GET /state` returns them, `PUT /sync` accepts them (sync limits unchanged, the outline fits
+      `MAX_FIELD_CHARS`). Applied to `hci-grp19` only on the account owner's go, then recorded.
+- [ ] The extraction task (decision 3): allowlist, model `MODEL_ANALYZE`, `MAX_TOKENS_JSON`, budget
+      accounting as for `analyze`; tests; `docs/api.md`; a row in `docs/testing.md`.
+
+*FE*
+- [ ] `lib/materials/` (pure, tested): `pdf.ts` (pdf.js → pages → digest), `anki.ts` (`.apkg` →
+      decks, notes, cards with scheduling → digest and per-card recall), `text.ts` (pasted text →
+      digest), `digest.ts` (caps, page refs). Parsers lazy-loaded; extraction runs in a worker so the
+      UI never freezes on a 200-page script.
+- [ ] `ai/schemas/syllabus.ts` + `ai/prompts/syllabus.ts`; `Provider.json` for `arbor` and `own`;
+      scripted: a fixed outline from the fixture.
+- [ ] `lib/priors.ts`: check-in rating → `pL`, Anki recall → `pL` (FSRS curve, SM-2 fallback,
+      shrinkage); `ConceptPrior` in the domain model, the store and sync. BKT starts from it once
+      `lib/bkt.ts` exists (M5); until then the leaf hover shows the prior.
+- [ ] Graph merge of the outline (`lib/graph.ts`): seed leaves under the material's subject, slug
+      dedup across materials, refs kept per concept.
+- [ ] **Upload:** `/upload` (alias `/add`), the study hub, the radial ring, and dropping a file
+      anywhere on the chat. Steps shown in place: reading → finding topics → done (`12 topics in
+      Lecture 3`), with clear failures (scanned PDF with no text, Anki export without scheduling,
+      too big).
+- [ ] **Instant overview** `#/checkin/<materialId>` (ADR-13): estimate first ("12 topics · about
+      1 min · start ↵"), then one topic per screen line, keys `1`–`4`, `space` skip, `←` back, `esc`
+      leaves (rated so far is kept); at the end the course's tree with the ratings as fading, and
+      "redo any time from the study hub". Lowercase copy, every action has a command (§8).
+- [ ] **Course scope in the prompts:** `chat.ts` and `analyze.ts` get the block from ADR-17
+      (pure functions, a test per variant); prompt caching on the scope block.
+- [ ] Radial and nav per decision 7; the `?` sheet gets concept #13 (*your course*, try → `/upload`),
+      which the U1 tour then picks up from the same list.
+- [ ] Usage log: `material_add` (kind, pages/cards, ms, topics), `material_fail` (kind, reason),
+      `checkin_start` (topics, estimate), `checkin_rate` (topic, rating, ms), `checkin_done` (ms vs.
+      estimate, skipped), `checkin_leave`.
+- [ ] M12b: Anki import end to end; retrieval passages from IndexedDB into the chat prompt.
+
+*Accept:* a 40-page lecture PDF becomes a subject with 4–12 topics in under 30 s, with no PDF bytes
+in any request (network tab); the check-in shows its estimate first and takes about 5 s per topic
+with the keyboard alone; afterwards the tree shows the topics as hollow leaves faded by the
+ratings; asking the tutor about a covered topic uses the lecture's terms, and asking about
+something not in the material gets "this goes beyond your lecture"; a chat about a covered concept
+grows the seeded leaf instead of a new one; ↓ on the radial reaches the study hub in one gesture.
+M12b: an `.apkg` with scheduling gives priors that order the leaves like Anki's own recall.
+*Test:* unit tests for the digest caps, the Anki recall formula (hand-computed cards, FSRS and
+SM-2), rating → prior, outline merge (overlapping uploads, slug dedup), the check-in step model
+(resume, back, skip, leave) and the prompt blocks; one fixture PDF and one small fixture `.apkg`
+in `frontend/test/fixtures/`; screenshots of upload, check-in and the seeded tree at desktop and
+phone width, light and dark; smoke test of `/sync` with materials and priors.
+*Study note:* the check-in doubles as a prior-knowledge measure. If the study uses one fixed topic
+(§7 Q4), the team uploads that lecture once, ships the outline with the build, and every
+participant only does the check-in: a covariate for the A/B analysis at about one minute's cost.
+
 ### Stretch (post-study)
 - **S2 Desktop shell (ADR-11):** Electron wrapper around the same build; providers in the main
   process over IPC; ChatGPT plan via `@siwc/local`; local model discovery; keys in the OS keychain.
@@ -1348,6 +1508,12 @@ phone width, light and dark.
     as blocks within a person, on the live site, or not at all. (b) May the feedback variants run
     on the live site with everyone who uses it (consent line, groups assigned by the server)?
     (c) Is a scolding squirrel acceptable to the team and the TA? It can make people feel judged.
+
+11. **Course materials in the study (M12, ADR-17, proposed by Leon 24 Nov):** (a) Is M12a in the
+    study build at all? If yes, it must be identical in both groups (ADR-9). (b) With one fixed
+    topic (Q4): do we ship that lecture's outline with the build and use the check-in ratings as a
+    prior-knowledge covariate? (c) May participants upload their own material, or is that Demo Day
+    only?
 
 **Decided:** the study runs on live Claude through the backend relay (department credits);
 ChatGPT sign-in is not viable for the hosted app, so BYOK covers "use your own model" (M7) and
