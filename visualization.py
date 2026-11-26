@@ -80,7 +80,7 @@ def _size_note(k, U=None, L=None, is_new=False):
     note, color = f"{k} prompt{'s' if k != 1 else ''}", COL["muted"]
     if U is not None and k > U:
         note, color = note + f" · over U={U}", COL["warn"]
-    elif L is not None and is_new and k < L:
+    elif L is not None and k < L:
         note, color = note + f" · under L={L}", COL["warn"]
     return note, color
 
@@ -107,7 +107,7 @@ def draw_tree(state, ax, title="", prev=None, new_prompt=None, U=None, L=None):
 
     prev:       state before the step; marks moved prompts and new topics
     new_prompt: id of the prompt asked in this step (blue)
-    U, L:       if given, topic sizes over U (or new topics under L) are flagged in red
+    U, L:       if given, topics over U or under L are flagged in red
     """
     subject = subject_of(state)
     topics = state["topics"]

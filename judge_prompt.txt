@@ -1,7 +1,23 @@
-You grade how well a student's questions fit topics of a knowledge tree.
+You help a study tool that sorts the questions a student asks an AI tutor into a knowledge tree about "deep learning".
+The student asks the questions below one after another. Do two tasks.
 
-A study tool sorts every question a student asks an AI tutor into a tree of topics about "deep learning".
-For EACH question below, rate EACH topic independently with this rubric:
+TASK 1 - PROPOSE NEW TOPICS
+Go through the NEW questions in order (the ones not already in the tree). For each one, decide whether
+the tree needs a new topic for it. When deciding, use only that question and the topics that exist at
+that point: the starting topics plus the topics you proposed for EARLIER questions (later questions
+do not exist yet).
+- Propose a new topic only if the question would get 5 for it and at most 4 for every topic that
+  exists at that point. Otherwise propose nothing (null).
+- At most one new topic per question. Name it in 1-3 words, as a student would label a folder.
+- Choose the most specific fitting parent: an existing topic id, or ROOT to put it directly under
+  "deep learning".
+- Never propose a topic that already exists or was already proposed (same meaning, other words).
+- Give the proposed topics the ids T1, T2, ... in the order you propose them. A proposed topic may have
+  an earlier proposed topic as parent.
+
+TASK 2 - RATE
+Rate EVERY question (including the ones already in the tree) against EVERY topic (the starting topics
+and all topics you proposed) with this rubric:
 
 5 = the question is squarely about this topic; this is where a student would look for it.
 4 = the question belongs to a more specific subtopic of this topic, and that subtopic is NOT in the list.
@@ -10,24 +26,19 @@ For EACH question below, rate EACH topic independently with this rubric:
 1 = unrelated.
 
 Rules:
-- Rate every topic for every question exactly once. Several topics may get the same score.
 - Judge the meaning of the question, not shared words.
 - If a more specific topic in the list fits exactly, give it 5; its parent then usually gets 3 or 4,
   never 5 for the same reason.
+- Several topics may get the same score.
 - Rate each question on its own; ignore the other questions.
 
-Topics (id: name, path in the tree):
+Starting topics (id: name, path in the tree):
 - DLB: "Deep learning basics"   (path: deep learning > Deep learning basics)
 - GD: "Gradient descent"   (path: deep learning > Gradient descent)
-- LR: "Learning rate"   (path: deep learning > Gradient descent > Learning rate)
-- BP: "Backpropagation"   (path: deep learning > Backpropagation)
-- SGDV: "SGD variants"   (path: deep learning > Gradient descent > SGD variants)
-- OPT: "Optimizers"   (path: deep learning > Gradient descent > Optimizers)
-- VG: "Vanishing gradients"   (path: deep learning > Backpropagation > Vanishing gradients)
 
-Questions (id: text):
-- p0: "Explain what deep learning is"
-- p1: "What is gradient descent?"
+Questions in the order they are asked (id: text):
+- p0: "Explain what deep learning is"   (already in the tree, in DLB)
+- p1: "What is gradient descent?"   (already in the tree, in GD)
 - n1: "What does the learning rate do?"
 - n2: "How does backpropagation compute the gradients?"
 - n3: "Chain rule through a 2-layer network"
@@ -37,6 +48,8 @@ Questions (id: text):
 - n7: "Does the gradient shrink layer by layer with sigmoid?"
 - n8: "What is momentum in SGD?"
 
-Answer with one JSON object only, no other text. Use the ids above, include every question and every
-topic, and give integer scores from 1 to 5:
-{"p0": {"DLB": <1-5>, "GD": <1-5>, "LR": <1-5>, "BP": <1-5>, "SGDV": <1-5>, "OPT": <1-5>, "VG": <1-5>}, ...}
+Answer with one JSON object only, no other text, in exactly this form:
+{"proposals": {"n1": {"id": "T1", "name": "<1-3 words>", "parent": "<topic id or ROOT>"}, "n2": null, ...},
+ "scores": {"p0": {"DLB": <1-5>, "GD": <1-5>, "T1": <1-5>, ...}, ...}}
+Include every new question in "proposals" (null if no new topic) and every question with every topic
+(starting and proposed) in "scores"; scores are integers from 1 to 5.

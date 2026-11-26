@@ -1,10 +1,10 @@
 """The scripted study session used in ui_optimization.ipynb.
 
-Single source of truth: the notebook optimizes over exactly these prompts and topics, and the judge
-prompt (judge_prompt.py -> judge_prompt.txt) is built from them. After editing the session:
+Single source of truth: the notebook optimizes over exactly these questions, and the LLM prompt
+(judge_prompt.py -> judge_prompt.txt) is built from them. The LLM proposes the new topics and rates
+every question against every topic; its answer is stored as judge_scores.json. After editing the session:
     python judge_prompt.py > judge_prompt.txt
-then send judge_prompt.txt to the judge model, save its JSON answer as judge_scores.json and re-run
-the notebook.
+then send judge_prompt.txt to the model, save its JSON answer as judge_scores.json and re-run the notebook.
 """
 
 SUBJECT = "deep learning"
@@ -15,34 +15,43 @@ INITIAL_TOPICS = {
     "GD":  dict(label="Gradient descent",     parent=SUBJECT),
 }
 
-# prompts asked before the session: id -> text, current topic, move weight w
+# questions asked before the session: id -> text, current topic, move weight w
 INITIAL_PROMPTS = {
     "p0": dict(text="Explain what deep learning is", topic="DLB", w=1.0),
     "p1": dict(text="What is gradient descent?",     topic="GD",  w=1.0),
 }
 
-# the session: one entry per new prompt, with the candidate topics proposed for it by the
-# analysis step of the prototype (newNode in turnAnalysis.ts), each with the parent it would hang under
+# the session: the questions in the order the student asks them
 SESSION = [
-    dict(id="n1", text="What does the learning rate do?", w=1.0,
-         candidates={"LR": dict(label="Learning rate", parent="GD")}),
-    dict(id="n2", text="How does backpropagation compute the gradients?", w=1.0,
-         candidates={"BP": dict(label="Backpropagation", parent=SUBJECT)}),
-    dict(id="n3", text="Chain rule through a 2-layer network", w=1.0, candidates={}),
-    dict(id="n4", text="SGD vs. mini-batch gradient descent", w=1.0,
-         candidates={"SGDV": dict(label="SGD variants", parent="GD")}),
-    dict(id="n5", text="How does Adam adapt the learning rate?", w=1.0,
-         candidates={"OPT": dict(label="Optimizers", parent="GD")}),
-    dict(id="n6", text="Why do gradients vanish in deep networks?", w=1.0,
-         candidates={"VG": dict(label="Vanishing gradients", parent="BP")}),
-    dict(id="n7", text="Does the gradient shrink layer by layer with sigmoid?", w=1.0,
-         candidates={"VG": dict(label="Vanishing gradients", parent="BP")}),
-    dict(id="n8", text="What is momentum in SGD?", w=1.0, candidates={}),
+    dict(id="n1", text="What does the learning rate do?", w=1.0),
+    dict(id="n2", text="How does backpropagation compute the gradients?", w=1.0),
+    dict(id="n3", text="Chain rule through a 2-layer network", w=1.0),
+    dict(id="n4", text="SGD vs. mini-batch gradient descent", w=1.0),
+    dict(id="n5", text="How does Adam adapt the learning rate?", w=1.0),
+    dict(id="n6", text="Why do gradients vanish in deep networks?", w=1.0),
+    dict(id="n7", text="Does the gradient shrink layer by layer with sigmoid?", w=1.0),
+    dict(id="n8", text="What is momentum in SGD?", w=1.0),
 ]
 
-# Author-assigned scores (1-5, same rubric as the judge). Used only if judge_scores.json does not
-# exist yet. Missing pairs count as 1.
-AUTHOR_SCORES = {
+
+def all_prompts():
+    """Every question of the session in order: id -> text."""
+    return {**{p: d["text"] for p, d in INITIAL_PROMPTS.items()},
+            **{s["id"]: s["text"] for s in SESSION}}
+
+
+# ------------------------------------------------------------------ fallback (no LLM output yet)
+# Proposals and scores written by the authors, used only if judge_scores.json does not exist or
+# contains scores only. Same format as the LLM output: question id -> proposed topic (or nothing).
+AUTHOR_PROPOSALS = {
+    "n1": dict(id="LR",   label="Learning rate",       parent="GD"),
+    "n2": dict(id="BP",   label="Backpropagation",     parent=SUBJECT),
+    "n4": dict(id="SGDV", label="SGD variants",        parent="GD"),
+    "n5": dict(id="OPT",  label="Optimizers",          parent="GD"),
+    "n6": dict(id="VG",   label="Vanishing gradients", parent="BP"),
+}
+
+AUTHOR_SCORES = {   # 1-5, missing pairs = 1
     "p0": {"DLB": 5, "GD": 2, "BP": 2, "VG": 2},
     "p1": {"GD": 5, "DLB": 2, "OPT": 3, "BP": 2, "SGDV": 3, "LR": 2},
     "n1": {"GD": 4, "LR": 5, "OPT": 3},
@@ -56,25 +65,8 @@ AUTHOR_SCORES = {
 }
 
 
-# ------------------------------------------------------------------ helpers
-def all_topics():
-    """Every topic that exists at the start or is proposed at some step: id -> label, parent."""
-    topics = {c: dict(t) for c, t in INITIAL_TOPICS.items()}
-    for step in SESSION:
-        for c, t in step["candidates"].items():
-            topics.setdefault(c, dict(t))
-    return topics
-
-
-def all_prompts():
-    """Every prompt of the session in order: id -> text."""
-    return {**{p: d["text"] for p, d in INITIAL_PROMPTS.items()},
-            **{s["id"]: s["text"] for s in SESSION}}
-
-
-def topic_path(topic_id, topics=None):
+def topic_path(topic_id, topics):
     """'deep learning > Gradient descent > Optimizers'"""
-    topics = topics or all_topics()
     parts, node = [], topic_id
     while node in topics:
         parts.append(topics[node]["label"])
