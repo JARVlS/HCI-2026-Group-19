@@ -1,7 +1,9 @@
-"""The scripted study session used in ui_optimization.ipynb and scored by judge.py.
+"""The scripted study session used in ui_optimization.ipynb.
 
-Single source of truth: the notebook optimizes over exactly these prompts and topics, and judge.py
-asks the LLM judge to score exactly these texts. Edit the session here, then re-run judge.py and
+Single source of truth: the notebook optimizes over exactly these prompts and topics, and the judge
+prompt (judge_prompt.py -> judge_prompt.txt) is built from them. After editing the session:
+    python judge_prompt.py > judge_prompt.txt
+then send judge_prompt.txt to the judge model, save its JSON answer as judge_scores.json and re-run
 the notebook.
 """
 
@@ -39,7 +41,7 @@ SESSION = [
 ]
 
 # Author-assigned scores (1-5, same rubric as the judge). Used only if judge_scores.json does not
-# exist, e.g. before the judge has been run. Missing pairs count as 1.
+# exist yet. Missing pairs count as 1.
 AUTHOR_SCORES = {
     "p0": {"DLB": 5, "GD": 2, "BP": 2, "VG": 2},
     "p1": {"GD": 5, "DLB": 2, "OPT": 3, "BP": 2, "SGDV": 3, "LR": 2},

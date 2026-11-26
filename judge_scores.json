@@ -1,0 +1,12 @@
+{
+ "p0": {"DLB": 5, "GD": 3, "LR": 2, "BP": 3, "SGDV": 2, "OPT": 2, "VG": 2},
+ "p1": {"DLB": 3, "GD": 5, "LR": 3, "BP": 3, "SGDV": 3, "OPT": 3, "VG": 2},
+ "n1": {"DLB": 2, "GD": 3, "LR": 5, "BP": 2, "SGDV": 2, "OPT": 3, "VG": 2},
+ "n2": {"DLB": 3, "GD": 3, "LR": 2, "BP": 5, "SGDV": 2, "OPT": 2, "VG": 3},
+ "n3": {"DLB": 3, "GD": 2, "LR": 1, "BP": 5, "SGDV": 1, "OPT": 1, "VG": 2},
+ "n4": {"DLB": 2, "GD": 4, "LR": 2, "BP": 2, "SGDV": 5, "OPT": 3, "VG": 1},
+ "n5": {"DLB": 2, "GD": 3, "LR": 3, "BP": 2, "SGDV": 3, "OPT": 5, "VG": 1},
+ "n6": {"DLB": 3, "GD": 3, "LR": 2, "BP": 4, "SGDV": 1, "OPT": 2, "VG": 5},
+ "n7": {"DLB": 3, "GD": 2, "LR": 1, "BP": 3, "SGDV": 1, "OPT": 1, "VG": 5},
+ "n8": {"DLB": 2, "GD": 3, "LR": 2, "BP": 1, "SGDV": 5, "OPT": 4, "VG": 1}
+}
