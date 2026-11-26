@@ -1,12 +1,24 @@
 {
- "p0": {"DLB": 5, "GD": 3, "LR": 2, "BP": 3, "SGDV": 2, "OPT": 2, "VG": 2},
- "p1": {"DLB": 3, "GD": 5, "LR": 3, "BP": 3, "SGDV": 3, "OPT": 3, "VG": 2},
- "n1": {"DLB": 2, "GD": 3, "LR": 5, "BP": 2, "SGDV": 2, "OPT": 3, "VG": 2},
- "n2": {"DLB": 3, "GD": 3, "LR": 2, "BP": 5, "SGDV": 2, "OPT": 2, "VG": 3},
- "n3": {"DLB": 3, "GD": 2, "LR": 1, "BP": 5, "SGDV": 1, "OPT": 1, "VG": 2},
- "n4": {"DLB": 2, "GD": 4, "LR": 2, "BP": 2, "SGDV": 5, "OPT": 3, "VG": 1},
- "n5": {"DLB": 2, "GD": 3, "LR": 3, "BP": 2, "SGDV": 3, "OPT": 5, "VG": 1},
- "n6": {"DLB": 3, "GD": 3, "LR": 2, "BP": 4, "SGDV": 1, "OPT": 2, "VG": 5},
- "n7": {"DLB": 3, "GD": 2, "LR": 1, "BP": 3, "SGDV": 1, "OPT": 1, "VG": 5},
- "n8": {"DLB": 2, "GD": 3, "LR": 2, "BP": 1, "SGDV": 5, "OPT": 4, "VG": 1}
+ "proposals": {
+  "n1": {"id": "T1", "name": "Learning rate", "parent": "GD"},
+  "n2": {"id": "T2", "name": "Backpropagation", "parent": "ROOT"},
+  "n3": null,
+  "n4": {"id": "T3", "name": "SGD variants", "parent": "GD"},
+  "n5": {"id": "T4", "name": "Optimizers", "parent": "GD"},
+  "n6": {"id": "T5", "name": "Vanishing gradients", "parent": "T2"},
+  "n7": null,
+  "n8": null
+ },
+ "scores": {
+  "p0": {"DLB": 5, "GD": 3, "T1": 2, "T2": 3, "T3": 2, "T4": 2, "T5": 2},
+  "p1": {"DLB": 3, "GD": 5, "T1": 3, "T2": 3, "T3": 3, "T4": 3, "T5": 2},
+  "n1": {"DLB": 2, "GD": 3, "T1": 5, "T2": 2, "T3": 2, "T4": 3, "T5": 2},
+  "n2": {"DLB": 3, "GD": 3, "T1": 2, "T2": 5, "T3": 2, "T4": 2, "T5": 3},
+  "n3": {"DLB": 3, "GD": 2, "T1": 1, "T2": 5, "T3": 1, "T4": 1, "T5": 2},
+  "n4": {"DLB": 2, "GD": 4, "T1": 2, "T2": 2, "T3": 5, "T4": 3, "T5": 1},
+  "n5": {"DLB": 2, "GD": 3, "T1": 3, "T2": 2, "T3": 3, "T4": 5, "T5": 1},
+  "n6": {"DLB": 3, "GD": 3, "T1": 2, "T2": 4, "T3": 1, "T4": 2, "T5": 5},
+  "n7": {"DLB": 3, "GD": 2, "T1": 1, "T2": 3, "T3": 1, "T4": 1, "T5": 5},
+  "n8": {"DLB": 2, "GD": 3, "T1": 2, "T2": 1, "T3": 5, "T4": 4, "T5": 1}
+ }
 }
