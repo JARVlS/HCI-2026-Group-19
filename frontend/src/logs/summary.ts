@@ -121,6 +121,8 @@ const DESCRIBE: { [T in EventType]: (p: PayloadOf<T>) => Summary } = {
   idle_end: (p) => s(join(isNum(p.ms) ? `quiet for ${clock(p.ms)}` : null)),
   client_error: (p) => s(join(p.message, isText(p.source) ? `at ${p.source}${isNum(p.line) ? `:${p.line}` : ''}` : null)),
   events_dropped: (p) => s(join(count(p.count, 'event'))),
+  click: (p) => s(join(p.region, p.target, isNum(p.x) && isNum(p.y) ? `at ${p.x},${p.y}` : null, secs(p.sincePrev, '+'), yes(p.typed, 'typed before'), p.pointer !== 'mouse' ? p.pointer : null)),
+  hover: (p) => s(join(p.name, p.name === 'radial' ? p.id : null, secs(p.ms))),
 };
 
 /** An event of a type the catalogue does not know: its fields as `name value`, long strings as texts. */

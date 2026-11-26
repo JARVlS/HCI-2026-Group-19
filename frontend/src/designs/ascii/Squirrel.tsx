@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { prefersReducedMotion } from '../../lib/hooks';
 import type { Mode } from '../../lib/types';
-import { G } from './ui';
+import { G, useUi } from './ui';
 
 /**
  * The squirrel, in characters. It mirrors who is thinking with the acorn in its paws, which is
@@ -47,6 +47,7 @@ const DIZZY_CLICKS = 4;
 const DIZZY_WINDOW = 1600;
 
 export function Squirrel({ pose, onPoke }: { pose: Pose; onPoke?: (dizzy: boolean) => void }) {
+  const { restOn } = useUi();
   const [frame, setFrame] = useState<Frame>({});
   const [look, setLook] = useState<'up' | 'dizzy' | null>(null);
   const [toss, setToss] = useState(0);
@@ -116,7 +117,8 @@ export function Squirrel({ pose, onPoke }: { pose: Pose; onPoke?: (dizzy: boolea
   return (
     <button
       className="a-sq-btn"
-      onMouseEnter={notice}
+      onMouseEnter={() => (notice(), restOn('squirrel', 'squirrel'))}
+      onMouseLeave={() => restOn('squirrel', null)}
       onFocus={notice}
       onClick={poke}
       aria-label="Ask the squirrel"

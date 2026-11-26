@@ -53,6 +53,10 @@ describe('summarize', () => {
     expect(ev('client_error', { message: 'x is undefined', source: 'app.js', line: 12 }).line).toBe('x is undefined · at app.js:12');
     expect(ev('tree_created', { treeId: 't1', title: 'ML', splitFrom: null, leaves: 1 }).line).toBe('"ML" · 1 leaf');
     expect(ev('page_hidden', {})).toEqual({ line: '', texts: [] });
+    expect(ev('click', { region: 'pane', target: 'button.a-btn', x: 10, y: 20, sincePrev: 1500, typed: true, pointer: 'mouse' }).line).toBe('pane · button.a-btn · at 10,20 · +1.5 s · typed before');
+    expect(ev('click', { region: 'top', target: 'span', x: 1, y: 2, sincePrev: null, typed: false, pointer: 'touch' }).line).toBe('top · span · at 1,2 · touch');
+    expect(ev('hover', { name: 'radial', id: 'forest', ms: 420 }).line).toBe('radial · forest · 0.4 s');
+    expect(ev('hover', { name: 'message', id: 'm1', ms: 2000 }).line).toBe('message · 2.0 s');
   });
 
   it('never throws, whatever the payload holds (older events, broken rows)', () => {

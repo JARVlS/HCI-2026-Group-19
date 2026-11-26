@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UsageEvent } from './events';
-import { IDLE_MS, MAX_ERRORS, RESIZE_MS, watchUsage } from './pageEvents';
+import { CLICK_CHAIN_MS, IDLE_MS, MAX_ERRORS, RESIZE_MS, watchUsage } from './pageEvents';
 
 /** The usage log's window-level events: visibility, online/offline, resize, errors, idle time. */
 
@@ -100,5 +100,69 @@ describe('window-level usage events', () => {
     t.fire(t.win, 'error', { message: 'x' });
     await wait(10 * IDLE_MS);
     expect(t.events).toEqual([]);
+  });
+});
+
+describe('clicks', () => {
+  function clicks() {
+    const win = new EventTarget();
+    const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+    const events: UsageEvent[] = [];
+    const ctx = { view: 'chat' as const, panel: true };
+    const stop = watchUsage({ win, doc }, (e) => events.push(e), () => ({ width: 1400, height: 900 }), {
+      locate: (_t, x, y) => ({ region: 'pane', target: 'button.a-btn', rx: x / 1000, ry: y / 1000 }),
+      context: () => ctx,
+    });
+    const press = (x: number, y: number, extra: object = {}) =>
+      win.dispatchEvent(Object.assign(new Event('pointerdown'), { button: 0, isPrimary: true, pointerType: 'mouse', clientX: x, clientY: y, ...extra }));
+    const payloads = () => events.filter((e) => e.type === 'click').map((e) => e.payload as Record<string, unknown>);
+    return { win, events, stop, press, payloads };
+  }
+
+  it('a press: where, in which part, on what, in which view, and nothing before it', () => {
+    const t = clicks();
+    t.press(100.4, 200.6);
+    expect(t.payloads()).toEqual([
+      { x: 100, y: 201, width: 1400, height: 900, region: 'pane', target: 'button.a-btn', rx: 0.1004, ry: 0.2006, view: 'chat', panel: true, pointer: 'mouse', sincePrev: null, typed: false },
+    ]);
+  });
+
+  it(`sincePrev: ms since the previous click, null past ${CLICK_CHAIN_MS / 1000} s`, async () => {
+    const t = clicks();
+    t.press(1, 1);
+    await wait(1200);
+    t.press(2, 2);
+    await wait(CLICK_CHAIN_MS);
+    t.press(3, 3);
+    await wait(CLICK_CHAIN_MS + 1);
+    t.press(4, 4);
+    expect(t.payloads().map((p) => p.sincePrev)).toEqual([null, 1200, CLICK_CHAIN_MS, null]);
+  });
+
+  it('typed: a key between two clicks, reset by each click', () => {
+    const t = clicks();
+    t.press(1, 1);
+    t.win.dispatchEvent(new Event('keydown'));
+    t.press(2, 2);
+    t.press(3, 3);
+    expect(t.payloads().map((p) => p.typed)).toEqual([false, true, false]);
+  });
+
+  it('touch counts; other buttons and secondary pointers do not', () => {
+    const t = clicks();
+    t.press(1, 1, { pointerType: 'touch' });
+    t.press(2, 2, { button: 2 });
+    t.press(3, 3, { isPrimary: false });
+    expect(t.payloads().map((p) => p.pointer)).toEqual(['touch']);
+  });
+
+  it('without the click options nothing is logged, and the cleanup stops it', () => {
+    const plain = setup();
+    plain.win.dispatchEvent(Object.assign(new Event('pointerdown'), { button: 0, clientX: 1, clientY: 1 }));
+    expect(plain.events.filter((e) => e.type === 'click')).toEqual([]);
+    const t = clicks();
+    t.stop();
+    t.press(1, 1);
+    expect(t.payloads()).toEqual([]);
   });
 });

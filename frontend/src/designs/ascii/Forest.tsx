@@ -456,6 +456,7 @@ function MiniTree({
   onHover: (id: string | null) => void;
   onOpen: (id: string) => void;
 }) {
+  const { restOn } = useUi();
   const { tree, live, leaves } = info;
   const slots = crown(leaves.length);
   const title = tree.title.toLowerCase();
@@ -474,8 +475,12 @@ function MiniTree({
         const r = ref.current?.getBoundingClientRect();
         setFlip(Boolean(r && r.left > window.innerWidth * 0.6));
         onHover(tree.id);
+        restOn('tree', tree.id);
       }}
-      onMouseLeave={() => onHover(null)}
+      onMouseLeave={() => {
+        onHover(null);
+        restOn('tree', null);
+      }}
       onFocus={() => onHover(tree.id)}
       onBlur={() => onHover(null)}
       onClick={() => onOpen(tree.id)}

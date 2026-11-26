@@ -75,6 +75,25 @@ export function visitEvents(token: string, v: AdminVisit, onCount: (n: number) =
   }, onCount);
 }
 
+/** Every event of these types, all users and visits (one query per type; each reads the whole events table). */
+export async function eventsOfTypes(token: string, types: readonly string[], onCount: (n: number) => void, signal?: AbortSignal): Promise<AdminEvent[]> {
+  const all: AdminEvent[] = [];
+  for (const type of types) {
+    const done = all.length;
+    all.push(
+      ...(await loadAll(
+        async (after) => {
+          const res = await adminGet(`/api/admin/events?${query({ type, limit: EVENTS_PAGE, after })}`, token, signal);
+          const { events, next } = (await res.json()) as { events: AdminEvent[]; next: string | null };
+          return { items: events, next };
+        },
+        (n) => onCount(done + n),
+      )),
+    );
+  }
+  return all;
+}
+
 export async function tableCsv(token: string, table: Table): Promise<Blob> {
   return (await adminGet(`/api/admin/export?${query({ table })}`, token)).blob();
 }

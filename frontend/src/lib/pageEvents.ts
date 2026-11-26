@@ -1,10 +1,13 @@
-import { MAX_ERROR, type UsageEvent } from './events';
+import { MAX_ERROR, type Located, type UsageEvent } from './events';
+import type { ViewKind } from './nav';
 
 /**
  * The usage log's window-level events (IMPLEMENTATION_PLAN.md M6, "Event log"): the page hidden
  * or shown, online and offline, the window's size once it settles, uncaught errors, and idle time.
  * `app.ts` starts it with the page and passes its `track`, which records nothing in the demo.
  * Input only resets a clock (no timer per event), so pointer moves and typing cost nothing.
+ * With `clicks`, every primary press is logged too (`click`: where, on what, and how long after the
+ * previous one), for the logs page's heatmap.
  */
 
 /** No pointer, key or wheel input for this long, while the page is visible: idle. */
@@ -13,6 +16,8 @@ export const IDLE_MS = 60_000;
 export const RESIZE_MS = 500;
 /** At most this many `client_error` events per visit. */
 export const MAX_ERRORS = 10;
+/** Clicks further apart than this are unrelated: `sincePrev` is null and the heatmap draws no line. */
+export const CLICK_CHAIN_MS = 10_000;
 
 const INPUT = ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
 
@@ -21,8 +26,14 @@ export interface Page {
   doc: EventTarget & { visibilityState: string };
 }
 
+/** What a click needs besides the event: where it landed (the DOM, `locate.ts`) and the app's view at the time. */
+export interface Clicks {
+  locate: (target: EventTarget | null, x: number, y: number) => Located;
+  context: () => { view: ViewKind; panel: boolean };
+}
+
 /** Listen. Returns the cleanup. */
-export function watchUsage(page: Page, track: (e: UsageEvent) => void, size: () => { width: number; height: number }): () => void {
+export function watchUsage(page: Page, track: (e: UsageEvent) => void, size: () => { width: number; height: number }, clicks?: Clicks): () => void {
   const { win, doc } = page;
   const off: (() => void)[] = [];
   const listen = (target: EventTarget, type: string, f: (e: Event) => void, opts?: AddEventListenerOptions) => {
@@ -70,6 +81,44 @@ export function watchUsage(page: Page, track: (e: UsageEvent) => void, size: () 
     clearTimeout(resized);
     resized = setTimeout(() => track({ type: 'resize', payload: size() }), RESIZE_MS);
   });
+
+  if (clicks) {
+    let prev: number | null = null;
+    let typed = false;
+    listen(win, 'keydown', () => (typed = true), { capture: true, passive: true });
+    listen(
+      win,
+      'pointerdown',
+      (e) => {
+        const p = e as PointerEvent;
+        if (p.button !== 0 || p.isPrimary === false) return;
+        try {
+          const now = Date.now();
+          const gap = prev === null ? null : now - prev;
+          prev = now;
+          const x = Math.round(p.clientX);
+          const y = Math.round(p.clientY);
+          track({
+            type: 'click',
+            payload: {
+              x,
+              y,
+              ...size(),
+              ...clicks.locate(p.target, p.clientX, p.clientY),
+              ...clicks.context(),
+              pointer: p.pointerType || 'mouse',
+              sincePrev: gap !== null && gap <= CLICK_CHAIN_MS ? gap : null,
+              typed,
+            },
+          });
+          typed = false;
+        } catch (err) {
+          console.error('[arbor events] could not log a click', err);
+        }
+      },
+      { capture: true, passive: true },
+    );
+  }
 
   let errors = 0;
   const error = (message: string, source: string, line: number | null) => {

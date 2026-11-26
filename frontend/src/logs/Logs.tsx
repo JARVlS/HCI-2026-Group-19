@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '../lib/api';
-import { forgetToken, keepToken, readToken, save, TABLES, tableCsv, visitsPage, type Table } from './client';
+import { eventsOfTypes, forgetToken, keepToken, readToken, save, TABLES, tableCsv, visitsPage, type Table } from './client';
+import { Heatmap } from './Heatmap';
 import { Legend } from './Legend';
 import { Timeline } from './Timeline';
 import { Visits } from './Visits';
-import { visitKey, type AdminVisit } from './visit';
+import { visitKey, type AdminEvent, type AdminVisit } from './visit';
 
 /**
  * The logs page (`logs.html`, served at /logs): the usage log for the study team. A token gate,
@@ -75,6 +76,7 @@ function Viewer({ token, onRejected, onForget }: { token: string; onRejected: (m
   const [list, setList] = useState<ListState>({ visits: [], next: null, loading: true, error: null, last: null });
   const [selected, setSelected] = useState<AdminVisit | null>(null);
   const [legend, setLegend] = useState(false);
+  const [everyone, setEveryone] = useState(false);
 
   const fail = useCallback<Fail>(
     (e, show) => {
@@ -111,6 +113,9 @@ function Viewer({ token, onRejected, onForget }: { token: string; onRejected: (m
       <header className="l-top">
         <h1>arbor logs</h1>
         <span className="l-top-actions">
+          <button className={`l-btn${everyone ? ' on' : ''}`} aria-pressed={everyone} onClick={() => setEveryone((on) => !on)}>
+            heatmap (all visits)
+          </button>
           <button className="l-btn" onClick={() => setLegend(true)}>
             what is logged
           </button>
@@ -121,11 +126,13 @@ function Viewer({ token, onRejected, onForget }: { token: string; onRejected: (m
       </header>
       <div className="l-main">
         <section className="l-side" aria-label="visits">
-          <Visits {...list} selected={selected} onSelect={setSelected} onReload={() => void load(null)} onOlder={() => void load(list.next)} onRetry={() => void load(list.last)} />
+          <Visits {...list} selected={selected} onSelect={(v) => (setEveryone(false), setSelected(v))} onReload={() => void load(null)} onOlder={() => void load(list.next)} onRetry={() => void load(list.last)} />
           <Downloads token={token} fail={fail} />
         </section>
         <section className="l-detail" aria-label="timeline">
-          {selected ? (
+          {everyone ? (
+            <AllVisits token={token} fail={fail} />
+          ) : selected ? (
             <Timeline key={visitKey(selected)} token={token} visit={selected} fail={fail} />
           ) : (
             <p className="l-dim l-pad">pick a visit to see what happened in it, in order.</p>
@@ -133,6 +140,47 @@ function Viewer({ token, onRejected, onForget }: { token: string; onRejected: (m
         </section>
       </div>
       {legend && <Legend onClose={() => setLegend(false)} />}
+    </div>
+  );
+}
+
+/** Every visit's clicks, hovers and radial choices in one heatmap. */
+const HEAT_TYPES = ['click', 'hover', 'nav'] as const;
+
+function AllVisits({ token, fail }: { token: string; fail: Fail }) {
+  const [events, setEvents] = useState<AdminEvent[] | null>(null);
+  const [loaded, setLoaded] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const abort = new AbortController();
+    setEvents(null);
+    setError(null);
+    eventsOfTypes(token, HEAT_TYPES, setLoaded, abort.signal).then(setEvents, (e) => {
+      if (!abort.signal.aborted) fail(e, setError);
+    });
+    return () => abort.abort();
+  }, [token, fail, attempt]);
+  return (
+    <div className="l-pad">
+      <header className="l-detail-head">
+        <h2>heatmap of all visits</h2>
+        <p className="l-dim">every click and hover in the log, all users; pick a condition to compare groups.</p>
+      </header>
+      {error ? (
+        <p className="l-error" role="alert">
+          could not load the events: {error}{' '}
+          <button className="l-btn" onClick={() => setAttempt((n) => n + 1)}>
+            retry
+          </button>
+        </p>
+      ) : events ? (
+        <Heatmap events={events} />
+      ) : (
+        <p className="l-dim" role="status">
+          loading clicks, hovers and radial choices… {loaded}
+        </p>
+      )}
     </div>
   );
 }

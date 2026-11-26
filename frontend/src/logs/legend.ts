@@ -93,6 +93,8 @@ export const LEGEND: Record<EventType, LegendLine> = {
   load_failed: { group: 'page', what: "the start or a chat's messages did not load: the error." },
   toast: { group: 'page', what: 'arbor showed a short message at the bottom: its text.' },
   events_dropped: { group: 'page', what: 'the log queue on the device was full and dropped this many old events.' },
+  click: { group: 'page', what: 'a press or tap: where in the window, the part of the page, what was pressed (tag and class, no text), time since the previous click (up to 10 s).', noise: true },
+  hover: { group: 'page', what: 'the pointer left something that reacts to hover (a message, a leaf, a tree, a hint, a radial option): how long it stayed.', noise: true },
 };
 
 const line = (type: string): LegendLine | undefined => (Object.hasOwn(LEGEND, type) ? LEGEND[type as EventType] : undefined);

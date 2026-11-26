@@ -19,6 +19,9 @@
   --ai-soft: #e6e0f6;
   --focus: #2f6fde;
   --error: #b3261e;
+  /* the heatmap: clicks and hovers */
+  --heat-click: #d9480f;
+  --heat-hover: #1c7ed6;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
@@ -37,6 +40,8 @@
     --ai-soft: #262040;
     --focus: #6aa0ff;
     --error: #ff8a80;
+    --heat-click: #ff922b;
+    --heat-hover: #4dabf7;
   }
 }
 
@@ -107,6 +112,10 @@ code {
 .l-btn:hover:not(:disabled)::before,
 .l-btn:hover:not(:disabled)::after {
   color: var(--text);
+}
+.l-btn.on {
+  color: var(--text);
+  font-weight: 600;
 }
 .l-btn:disabled {
   opacity: 0.5;
@@ -477,4 +486,74 @@ code {
     margin-bottom: 4px;
     color: var(--text-3);
   }
+}
+
+/* The heatmap (Heatmap.tsx): a canvas over an optional, faint demo of the app, then three tables */
+.l-tabs {
+  display: flex;
+  gap: 1ch;
+  margin: 8px 0 0;
+}
+.l-heat .l-check input[type='range'] {
+  width: 16ch;
+}
+.l-heat-key {
+  display: inline-block;
+  width: 1.2ch;
+  height: 1.2ch;
+  border-radius: 50%;
+}
+.l-heat-click {
+  background: var(--heat-click);
+}
+.l-heat-hover {
+  background: var(--heat-hover);
+}
+.l-heat-frame {
+  position: relative;
+  max-width: 100%;
+  margin: 6px 0 12px;
+  overflow: hidden;
+  border: 1px dashed var(--rule);
+  background: var(--surface);
+}
+.l-heat-back {
+  position: absolute;
+  inset: 0 auto auto 0;
+  border: 0;
+  transform-origin: 0 0;
+  opacity: 0.35;
+  pointer-events: none;
+}
+.l-heat-canvas {
+  position: absolute;
+  inset: 0 auto auto 0;
+  cursor: crosshair;
+}
+.l-heat-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(32ch, 1fr));
+  gap: 12px 3ch;
+}
+.l-heat-table h3 {
+  margin: 0;
+  font-size: inherit;
+}
+.l-heat-table p {
+  margin: 0 0 4px;
+}
+.l-heat-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.l-heat-table th {
+  color: var(--text-3);
+  font-weight: normal;
+  text-align: left;
+}
+.l-heat-table td,
+.l-heat-table th {
+  padding: 1px 1ch 1px 0;
+  border-bottom: 1px dashed var(--rule);
 }

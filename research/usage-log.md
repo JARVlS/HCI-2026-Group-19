@@ -45,6 +45,8 @@ id, the user's condition and the server time.
 | **Knowledge pane and forest** | `view_start`, `view_change` (via key, command, click), `pane_action` (rest on a leaf, open references, jump to message, scrub), `forest_open` / `forest_close` / `forest_zoom` / `forest_filter`, `pane_tree`, `tree_created` | Time per view (tree vs. outline), pane actions per minute, whether the trees are used for finding things or only looked at |
 | **Navigation and discoverability** | `nav` (from, to, via, time to choose), `radial_open` / `radial_cancel` (reason, time), `shortcut`, `command`, `onboarding`, `concept_try`, `squirrel_poke` / `squirrel_tip` | Which ways of moving around people actually use; how learnable the radial menu is (cancel rate, time to choose); which features get found |
 | **Re-reading and reuse** | `message_rest`, `message_jump`, `transcript_copy` | Which messages people come back to; whether reply text gets reused |
+| **Clicks** | `click` (position in the window and its size, the part of the page and the place inside it, what was pressed as tag and class, the view, mouse or touch, time since the previous click up to 10 s, whether a key was pressed in between) | Which parts of the page get used; how fast people get from one part to another (the logs page's heatmap and its *from part to part* table) |
+| **Hover durations** | `hover` (which kind of place, its id, how long, where it began) on messages, leaves, prompt hints, forest trees, the why list, the squirrel and the radial menu's options | Whether hover-driven features are found and how long they hold attention; how long people rest on each radial option before choosing |
 | **Attention over time** | `page_hidden` / `page_visible`, `idle_start` / `idle_end` (no input for 60 s on a visible page) | Active time: a visit's length minus its hidden and idle stretches |
 | **Robustness** | `client_error`, `load_failed`, `analysis_failed`, `toast`, `offline` / `online`, `events_dropped` | Bugs to fix before and during the study, and whether any data was lost |
 
@@ -63,6 +65,9 @@ id, the user's condition and the server time.
   (`turn_sent.clientTs − compose.ms`).
 - **Radial menu:** cancels ÷ opens; median `nav.ms` where `via` is `radial` or `radial_flick`.
 - **Answer latency:** `reply_first.ms` and `reply_done.ms`.
+- **Navigation speed:** median `click.sincePrev` per pair of regions, with the threshold that separates related clicks (the logs page has it as a slider, up to 10 s). Leave out pairs with `typed` when typing is not part of the path.
+- **Hover to action:** the share of `hover`s with a click inside `[clientTs − ms, clientTs]`, per kind of place.
+- **Radial choice time:** per option, the dwell of the last `hover` (`radial`) before a `nav` via `radial`; compare with `nav.ms` for the whole gesture.
 - **Cost:** the `usage` table (tokens per user, day and task).
 
 ## Reading the data correctly
@@ -77,6 +82,7 @@ id, the user's condition and the server time.
 - `events_dropped` means the local queue overflowed, and its `count` says how many events were
   lost. Report it if it appears.
 - A text field shorter than its `chars` value was cut at 8,000 characters.
+- `click` and `hover` hold no text: positions, window sizes, fixed names of parts of the page and their classes, and ids. Positions only compare across visits with a similar window size; regions compare across all of them.
 
 ## Not logged yet (24 Nov 2026)
 

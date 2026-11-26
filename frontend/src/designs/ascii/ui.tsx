@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { PaneKind, TreeView, ViewVia } from '../../lib/events';
+import type { HoverName, PaneKind, TreeView, ViewVia } from '../../lib/events';
+import { HoverClock } from '../../lib/hoverLog';
 import { MODE_SCORE } from '../../lib/modes';
 import { sheetOf, type NavVia, type Sheet } from '../../lib/nav';
 import { useStore } from '../../lib/store';
@@ -43,12 +44,13 @@ interface Ui {
   /**
    * Usage log: the pointer is on `key` (null: on none of this slot's places); once it has rested
    * there REST_MS, `log` runs, once per visit of the place. One slot per kind of place, so a late
-   * "left" of one kind never cancels another.
+   * "left" of one kind never cancels another. When it leaves, how long it stayed is logged too
+   * (`hover`, `lib/hoverLog.ts`), so `key` is an id or a position, never text.
    */
   restOn: (slot: RestSlot, key: string | null, log?: () => void) => void;
 }
 
-export type RestSlot = 'leaf' | 'message' | 'word' | 'line';
+export type RestSlot = HoverName;
 
 /** A pointer that stays this long on a leaf, a message or a hint rests there (usage log). */
 const REST_MS = 400;
@@ -109,8 +111,35 @@ export function UiProvider({ children }: { children: ReactNode }) {
     },
     [paneAction],
   );
+  // How long each hover lasted (`hover`): the pointer's place from a passive listener, the view from the store.
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  const latest = useRef({ track, kind: state.ui.view.kind });
+  latest.current = { track, kind: state.ui.view.kind };
+  const clock = useRef<HoverClock | null>(null);
+  clock.current ??= new HoverClock({
+    track: (e) => latest.current.track(e),
+    pointer: () => pointer.current,
+    view: () => latest.current.kind,
+    size: () => ({ width: window.innerWidth, height: window.innerHeight }),
+  });
+  useEffect(() => {
+    const hovers = clock.current;
+    const move = (e: PointerEvent) => {
+      pointer.current = { x: e.clientX, y: e.clientY };
+    };
+    const hidden = () => document.visibilityState === 'hidden' && hovers?.endAll();
+    window.addEventListener('pointermove', move, { capture: true, passive: true });
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      window.removeEventListener('pointermove', move, { capture: true });
+      document.removeEventListener('visibilitychange', hidden);
+      hovers?.endAll();
+    };
+  }, []);
+
   const resting = useRef(new Map<RestSlot, { key: string; timer?: number }>());
   const restOn = useCallback((slot: RestSlot, key: string | null, log?: () => void) => {
+    clock.current?.set(slot, key);
     const r = resting.current.get(slot);
     if ((r?.key ?? null) === key) return;
     clearTimeout(r?.timer);
