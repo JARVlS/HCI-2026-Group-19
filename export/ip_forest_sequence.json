@@ -1,13 +1,13 @@
 {
  "source": "LLM, step by step (Claude Haiku 5.5 (claude-haiku-5-5), one fresh conversation per question that sees only that step's prompt); answers in llm_steps/",
  "params": {
-  "U": 3,
-  "L": 2,
-  "lam": 0.2,
-  "lam_G": 0.3,
-  "beta": 0.12,
-  "mu": 0.1,
-  "F": 0.15,
+  "H": 10,
+  "a": 1.1,
+  "b": 0.15,
+  "R": 1.0,
+  "lam": 1.0,
+  "lam_G": 1.0,
+  "F": 5.0,
   "MAX_NEW": 1
  },
  "start": {
@@ -15,8 +15,8 @@
    "G1": "Deep learning"
   },
   "topics": {
-   "DLB": {
-    "label": "Deep learning basics",
+   "NN": {
+    "label": "Neural networks",
     "parent": "G1"
    },
    "GD": {
@@ -25,8 +25,12 @@
    }
   },
   "assign": {
-   "p0": "DLB",
-   "p1": "GD"
+   "p0": "NN",
+   "p1": "NN",
+   "p2": "GD",
+   "p3": "GD",
+   "p4": "GD",
+   "p5": "GD"
   }
  },
  "steps": [
@@ -34,115 +38,74 @@
    "step": 1,
    "question": "n1",
    "text": "What does the learning rate do?",
-   "outcome": "(a) add to existing topic",
+   "outcome": "(e) restructure: move p3, p4 + new branch",
    "groups": {
     "G1": "Deep learning"
    },
    "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
+    "NN": {
+     "label": "Neural networks",
      "parent": "G1"
     },
     "GD": {
      "label": "Gradient descent",
      "parent": "G1"
+    },
+    "T1": {
+     "label": "Learning rate",
+     "parent": "GD"
     }
    },
    "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD"
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1"
    }
   },
   {
    "step": 2,
    "question": "n2",
-   "text": "How does backpropagation compute the gradients?",
-   "outcome": "(a) add to existing topic",
+   "text": "Why is ReLU used instead of sigmoid?",
+   "outcome": "(b) new branch",
    "groups": {
     "G1": "Deep learning"
    },
    "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
+    "NN": {
+     "label": "Neural networks",
      "parent": "G1"
     },
     "GD": {
      "label": "Gradient descent",
      "parent": "G1"
+    },
+    "T1": {
+     "label": "Learning rate",
+     "parent": "GD"
+    },
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
     }
    },
    "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
-    "n2": "GD"
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
+    "n2": "T2"
    }
   },
   {
    "step": 3,
    "question": "n3",
-   "text": "Chain rule through a 2-layer network",
-   "outcome": "(e) restructure: move n2 + new branch",
-   "groups": {
-    "G1": "Deep learning"
-   },
-   "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
-     "parent": "G1"
-    },
-    "GD": {
-     "label": "Gradient descent",
-     "parent": "G1"
-    },
-    "T2": {
-     "label": "Backpropagation",
-     "parent": "GD"
-    }
-   },
-   "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
-    "n2": "T2",
-    "n3": "T2"
-   }
-  },
-  {
-   "step": 4,
-   "question": "n4",
-   "text": "SGD vs. mini-batch gradient descent",
-   "outcome": "(a) add to existing topic",
-   "groups": {
-    "G1": "Deep learning"
-   },
-   "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
-     "parent": "G1"
-    },
-    "GD": {
-     "label": "Gradient descent",
-     "parent": "G1"
-    },
-    "T2": {
-     "label": "Backpropagation",
-     "parent": "GD"
-    }
-   },
-   "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
-    "n2": "T2",
-    "n3": "T2",
-    "n4": "GD"
-   }
-  },
-  {
-   "step": 5,
-   "question": "n5",
    "text": "How do I find the eigenvalues of a 2x2 matrix?",
    "outcome": "(d) new group",
    "groups": {
@@ -150,121 +113,189 @@
     "G2": "Linear algebra"
    },
    "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
+    "NN": {
+     "label": "Neural networks",
      "parent": "G1"
     },
     "GD": {
      "label": "Gradient descent",
      "parent": "G1"
     },
-    "T2": {
-     "label": "Backpropagation",
+    "T1": {
+     "label": "Learning rate",
      "parent": "GD"
     },
-    "T4": {
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
+    },
+    "T3": {
      "label": "Eigenvalues",
      "parent": "G2"
     }
    },
    "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
     "n2": "T2",
-    "n3": "T2",
-    "n4": "GD",
-    "n5": "T4"
+    "n3": "T3"
    }
   },
   {
-   "step": 6,
-   "question": "n6",
-   "text": "How does Adam adapt the learning rate?",
-   "outcome": "(e) restructure: move n4 + new branch",
+   "step": 4,
+   "question": "n4",
+   "text": "How does backpropagation compute the gradients?",
+   "outcome": "(b) new branch",
    "groups": {
     "G1": "Deep learning",
     "G2": "Linear algebra"
    },
    "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
+    "NN": {
+     "label": "Neural networks",
      "parent": "G1"
     },
     "GD": {
      "label": "Gradient descent",
      "parent": "G1"
     },
-    "T2": {
-     "label": "Backpropagation",
+    "T1": {
+     "label": "Learning rate",
      "parent": "GD"
     },
-    "T4": {
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
+    },
+    "T3": {
      "label": "Eigenvalues",
      "parent": "G2"
     },
-    "T3": {
-     "label": "Gradient descent variants",
-     "parent": "GD"
+    "T4": {
+     "label": "Backpropagation",
+     "parent": "NN"
     }
    },
    "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
     "n2": "T2",
-    "n3": "T2",
-    "n4": "T3",
-    "n5": "T4",
-    "n6": "T3"
+    "n3": "T3",
+    "n4": "T4"
    }
   },
   {
-   "step": 7,
-   "question": "n7",
-   "text": "Why do gradients vanish in deep networks?",
+   "step": 5,
+   "question": "n5",
+   "text": "Chain rule through a 2-layer network",
    "outcome": "(a) add to existing topic",
    "groups": {
     "G1": "Deep learning",
     "G2": "Linear algebra"
    },
    "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
+    "NN": {
+     "label": "Neural networks",
      "parent": "G1"
     },
     "GD": {
      "label": "Gradient descent",
      "parent": "G1"
     },
-    "T2": {
-     "label": "Backpropagation",
+    "T1": {
+     "label": "Learning rate",
      "parent": "GD"
     },
-    "T4": {
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
+    },
+    "T3": {
      "label": "Eigenvalues",
      "parent": "G2"
     },
-    "T3": {
-     "label": "Gradient descent variants",
-     "parent": "GD"
+    "T4": {
+     "label": "Backpropagation",
+     "parent": "NN"
     }
    },
    "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
     "n2": "T2",
-    "n3": "T2",
-    "n4": "T3",
-    "n5": "T4",
-    "n6": "T3",
-    "n7": "T2"
+    "n3": "T3",
+    "n4": "T4",
+    "n5": "T4"
    }
   },
   {
-   "step": 8,
-   "question": "n8",
+   "step": 6,
+   "question": "n6",
+   "text": "What does the softmax function output?",
+   "outcome": "(a) add to existing topic",
+   "groups": {
+    "G1": "Deep learning",
+    "G2": "Linear algebra"
+   },
+   "topics": {
+    "NN": {
+     "label": "Neural networks",
+     "parent": "G1"
+    },
+    "GD": {
+     "label": "Gradient descent",
+     "parent": "G1"
+    },
+    "T1": {
+     "label": "Learning rate",
+     "parent": "GD"
+    },
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
+    },
+    "T3": {
+     "label": "Eigenvalues",
+     "parent": "G2"
+    },
+    "T4": {
+     "label": "Backpropagation",
+     "parent": "NN"
+    }
+   },
+   "assign": {
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
+    "n2": "T2",
+    "n3": "T3",
+    "n4": "T4",
+    "n5": "T4",
+    "n6": "T2"
+   }
+  },
+  {
+   "step": 7,
+   "question": "n7",
    "text": "If a matrix has an eigenvalue 0, is it still invertible?",
    "outcome": "(a) add to existing topic",
    "groups": {
@@ -272,92 +303,106 @@
     "G2": "Linear algebra"
    },
    "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
+    "NN": {
+     "label": "Neural networks",
      "parent": "G1"
     },
     "GD": {
      "label": "Gradient descent",
      "parent": "G1"
     },
-    "T2": {
-     "label": "Backpropagation",
+    "T1": {
+     "label": "Learning rate",
      "parent": "GD"
     },
-    "T4": {
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
+    },
+    "T3": {
      "label": "Eigenvalues",
      "parent": "G2"
     },
-    "T3": {
-     "label": "Gradient descent variants",
-     "parent": "GD"
+    "T4": {
+     "label": "Backpropagation",
+     "parent": "NN"
     }
    },
    "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
     "n2": "T2",
-    "n3": "T2",
-    "n4": "T3",
+    "n3": "T3",
+    "n4": "T4",
     "n5": "T4",
-    "n6": "T3",
-    "n7": "T2",
-    "n8": "T4"
+    "n6": "T2",
+    "n7": "T3"
    }
   },
   {
-   "step": 9,
-   "question": "n9",
-   "text": "Does the gradient shrink layer by layer with sigmoid?",
-   "outcome": "(e) restructure: move n7 + new branch",
+   "step": 8,
+   "question": "n8",
+   "text": "How does Adam adapt the learning rate?",
+   "outcome": "(b) new branch",
    "groups": {
     "G1": "Deep learning",
     "G2": "Linear algebra"
    },
    "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
+    "NN": {
+     "label": "Neural networks",
      "parent": "G1"
     },
     "GD": {
      "label": "Gradient descent",
      "parent": "G1"
     },
-    "T2": {
-     "label": "Backpropagation",
+    "T1": {
+     "label": "Learning rate",
      "parent": "GD"
     },
-    "T4": {
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
+    },
+    "T3": {
      "label": "Eigenvalues",
      "parent": "G2"
     },
-    "T3": {
-     "label": "Gradient descent variants",
-     "parent": "GD"
+    "T4": {
+     "label": "Backpropagation",
+     "parent": "NN"
     },
     "T5": {
-     "label": "Vanishing gradients",
-     "parent": "T2"
+     "label": "Optimizers",
+     "parent": "GD"
     }
    },
    "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
     "n2": "T2",
-    "n3": "T2",
-    "n4": "T3",
+    "n3": "T3",
+    "n4": "T4",
     "n5": "T4",
-    "n6": "T3",
-    "n7": "T5",
-    "n8": "T4",
-    "n9": "T5"
+    "n6": "T2",
+    "n7": "T3",
+    "n8": "T5"
    }
   },
   {
-   "step": 10,
-   "question": "n10",
+   "step": 9,
+   "question": "n9",
    "text": "What is momentum in SGD?",
    "outcome": "(a) add to existing topic",
    "groups": {
@@ -365,49 +410,56 @@
     "G2": "Linear algebra"
    },
    "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
+    "NN": {
+     "label": "Neural networks",
      "parent": "G1"
     },
     "GD": {
      "label": "Gradient descent",
      "parent": "G1"
     },
-    "T2": {
-     "label": "Backpropagation",
+    "T1": {
+     "label": "Learning rate",
      "parent": "GD"
     },
-    "T4": {
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
+    },
+    "T3": {
      "label": "Eigenvalues",
      "parent": "G2"
     },
-    "T3": {
-     "label": "Gradient descent variants",
-     "parent": "GD"
+    "T4": {
+     "label": "Backpropagation",
+     "parent": "NN"
     },
     "T5": {
-     "label": "Vanishing gradients",
-     "parent": "T2"
+     "label": "Optimizers",
+     "parent": "GD"
     }
    },
    "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
     "n2": "T2",
-    "n3": "T2",
-    "n4": "T3",
+    "n3": "T3",
+    "n4": "T4",
     "n5": "T4",
-    "n6": "T3",
-    "n7": "T5",
-    "n8": "T4",
-    "n9": "T5",
-    "n10": "T3"
+    "n6": "T2",
+    "n7": "T3",
+    "n8": "T5",
+    "n9": "T5"
    }
   },
   {
-   "step": 11,
-   "question": "n11",
+   "step": 10,
+   "question": "n10",
    "text": "How is the SVD used for a low-rank approximation?",
    "outcome": "(c) new tree",
    "groups": {
@@ -415,49 +467,123 @@
     "G2": "Linear algebra"
    },
    "topics": {
-    "DLB": {
-     "label": "Deep learning basics",
+    "NN": {
+     "label": "Neural networks",
      "parent": "G1"
     },
     "GD": {
      "label": "Gradient descent",
      "parent": "G1"
     },
-    "T2": {
-     "label": "Backpropagation",
+    "T1": {
+     "label": "Learning rate",
      "parent": "GD"
     },
-    "T4": {
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
+    },
+    "T3": {
      "label": "Eigenvalues",
      "parent": "G2"
     },
-    "T3": {
-     "label": "Gradient descent variants",
-     "parent": "GD"
+    "T4": {
+     "label": "Backpropagation",
+     "parent": "NN"
     },
     "T5": {
-     "label": "Vanishing gradients",
-     "parent": "T2"
+     "label": "Optimizers",
+     "parent": "GD"
     },
     "T6": {
-     "label": "SVD",
+     "label": "Singular value decomposition",
      "parent": "G2"
     }
    },
    "assign": {
-    "p0": "DLB",
-    "p1": "GD",
-    "n1": "GD",
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
     "n2": "T2",
-    "n3": "T2",
-    "n4": "T3",
+    "n3": "T3",
+    "n4": "T4",
     "n5": "T4",
-    "n6": "T3",
-    "n7": "T5",
-    "n8": "T4",
+    "n6": "T2",
+    "n7": "T3",
+    "n8": "T5",
     "n9": "T5",
-    "n10": "T3",
-    "n11": "T6"
+    "n10": "T6"
+   }
+  },
+  {
+   "step": 11,
+   "question": "n11",
+   "text": "How does dropout reduce overfitting?",
+   "outcome": "(b) new branch",
+   "groups": {
+    "G1": "Deep learning",
+    "G2": "Linear algebra"
+   },
+   "topics": {
+    "NN": {
+     "label": "Neural networks",
+     "parent": "G1"
+    },
+    "GD": {
+     "label": "Gradient descent",
+     "parent": "G1"
+    },
+    "T1": {
+     "label": "Learning rate",
+     "parent": "GD"
+    },
+    "T2": {
+     "label": "Activation functions",
+     "parent": "NN"
+    },
+    "T3": {
+     "label": "Eigenvalues",
+     "parent": "G2"
+    },
+    "T4": {
+     "label": "Backpropagation",
+     "parent": "NN"
+    },
+    "T5": {
+     "label": "Optimizers",
+     "parent": "GD"
+    },
+    "T6": {
+     "label": "Singular value decomposition",
+     "parent": "G2"
+    },
+    "T7": {
+     "label": "Regularization",
+     "parent": "NN"
+    }
+   },
+   "assign": {
+    "p0": "NN",
+    "p1": "NN",
+    "p2": "GD",
+    "p3": "T1",
+    "p4": "T1",
+    "p5": "GD",
+    "n1": "T1",
+    "n2": "T2",
+    "n3": "T3",
+    "n4": "T4",
+    "n5": "T4",
+    "n6": "T2",
+    "n7": "T3",
+    "n8": "T5",
+    "n9": "T5",
+    "n10": "T6",
+    "n11": "T7"
    }
   }
  ]

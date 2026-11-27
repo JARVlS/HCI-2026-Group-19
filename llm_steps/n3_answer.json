@@ -1,3 +1,1 @@
-{"proposal": null,
- "new_question": {"DLB": 3, "GD": 3, "T1": 2, "T2": 5},
- "earlier_questions": {"p0": {"DLB": 5}, "p1": {"GD": 5}, "n1": {"GD": 3}, "n2": {"GD": 3}}}
+{"proposal": {"id": "NEW", "name": "Eigenvalues", "parent": "NEW_GROUP: Linear algebra"}, "new_question": {"NN": 2, "GD": 2, "T1": 1, "T2": 1, "NEW": 5}, "earlier_questions": {"p0": {"NEW": 1}, "p1": {"NEW": 1}, "p2": {"NEW": 2}, "p3": {"NEW": 1}, "p4": {"NEW": 1}, "p5": {"NEW": 1}, "n1": {"NEW": 1}, "n2": {"NEW": 1}}}

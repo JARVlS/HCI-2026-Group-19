@@ -1,1 +1,1 @@
-{"proposal": {"id": "NEW", "name": "Learning rate", "parent": "GD"}, "new_question": {"DLB": 3, "GD": 4, "NEW": 5}, "earlier_questions": {"p0": {"DLB": 5, "GD": 2, "NEW": 2}, "p1": {"DLB": 3, "GD": 5, "NEW": 2}}}
+{"proposal": {"id": "NEW", "name": "Learning rate", "parent": "GD"}, "new_question": {"NN": 3, "GD": 4, "NEW": 5}, "earlier_questions": {"p0": {"NN": 5, "GD": 3, "NEW": 1}, "p1": {"NN": 5, "GD": 3, "NEW": 1}, "p2": {"NN": 3, "GD": 5, "NEW": 2}, "p3": {"NN": 3, "GD": 4, "NEW": 5}, "p4": {"NN": 3, "GD": 4, "NEW": 5}, "p5": {"NN": 3, "GD": 5, "NEW": 2}}}

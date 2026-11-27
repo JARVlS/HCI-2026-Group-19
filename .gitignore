@@ -1,6 +1,7 @@
 __pycache__/
 .ipynb_checkpoints/
 .venv/
+.vscode/
 .env
 *.gif
 .DS_Store

@@ -1,20 +1,21 @@
-"""Drawing helpers for ui_optimization.ipynb (HCI 2026, Group 19, Milestone 3).
+"""Figures and tables for ui_optimization.ipynb (HCI 2026, Group 19, Milestone 3).
 
-The notebook represents a knowledge forest as a *state*:
-    state = {"groups": {group_id: label},
-             "topics": {topic_id: {"label": str, "parent": group_id or topic_id}},
-             "assign": {prompt_id: topic_id},
-             "w":      {prompt_id: float}}
-and a session as a *history*: one dict per step with the keys
-    k, step, before, after, action, parts, params
-(produced by run_session in the notebook).
+A forest is a *state* and a session a *history* (see forest.py):
+    state   = {"groups", "topics", "assign"}
+    history = [{"k", "step", "before", "after", "action", "parts", "params"}, ...]   (run_session in the notebook)
 
-Public functions
+Figures
     draw_tree(state, ax, ...)          one forest (all groups side by side) on a matplotlib axis
     show_session(history)              one tree per step (grid)
     show_step(history, k)              one step, before and after
+    show_final_trees(histories)        final forests of several designs (2 per row)
     animate_step(history, k)           one step as an animation
     animate_session(history)           the whole session as an animation
+Tables
+    question_table()                   the questions of the session
+    proposal_tables(s)                 the LLM's proposals and the fits s(p, c)
+    step_table(history, s, lookup)     what happened in every step
+    outcome_table(histories)           the outcome (a)-(e) of every step, per design
 """
 import textwrap
 
@@ -23,13 +24,17 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch
-from IPython.display import HTML
+import pandas as pd
+from IPython.display import HTML, display
+
+import forest
+from session import SESSION, INITIAL_GROUPS, all_prompts
 
 COL = {"new": "#2a78d6", "moved": "#eb6834", "old": "#b8b7b2", "ink": "#0b0b0b",
        "muted": "#52514e", "wood": "#8c8579", "warn": "#e34948"}
 FONT = dict(family="monospace")
-X, V, DOT = 2.0, 1.7, 0.17          # horizontal / vertical spacing of the tree, spacing of prompt dots
-WRAP = 14                           # topic labels are wrapped after this many characters
+X, V, DOT = 2.6, 1.7, 0.17          # horizontal / vertical spacing of the tree, spacing of prompt dots
+WRAP = 12                           # topic labels are wrapped after this many characters (whole words)
 
 plt.rcParams["animation.embed_limit"] = 60   # MB, allows embedding the session animation
 
@@ -78,18 +83,23 @@ def geometry(state):
 
 def _label(text):
     """A topic label wrapped onto short lines, and how many lines it has."""
-    lines = textwrap.wrap(text, WRAP) or [""]
+    lines = textwrap.wrap(text, WRAP, break_long_words=False) or [""]
     return "\n".join(lines), len(lines)
 
 
-def _size_note(k, U=None, L=None, kids=0):
-    """'3 prompts', red if over U, or under L counting the prompts and the subtopics (as the IP does)."""
-    note, color = f"{k} prompt{'s' if k != 1 else ''}", COL["muted"]
-    if U is not None and k > U:
-        note, color = note + f" · over U={U}", COL["warn"]
-    elif L is not None and k + kids < L:
-        note, color = note + f" · under L={L}", COL["warn"]
-    return note, color
+def _size_note(k):
+    """'3 prompts'"""
+    return f"{k} prompt{'s' if k != 1 else ''}", COL["muted"]
+
+
+def _font_size(state, node, ax):
+    """Topic labels as large as possible (at most 8.5 pt) without overlapping their neighbours."""
+    width_pt = ax.get_position().width * ax.figure.get_figwidth() * 72
+    xs = [v[0] for v in node.values()]
+    pt_per_unit = width_pt / (max(xs) - min(xs) + 2.6)
+    longest = max((len(line) for t in state["topics"].values() for line in _label(t["label"])[0].split("\n")),
+                  default=1)
+    return float(np.clip(0.95 * X * pt_per_unit / (0.6 * longest), 6.5, 8.5))
 
 
 def step_title(h, width=42):
@@ -109,15 +119,15 @@ def legend(fig, y=-0.02, moves=True):
 
 
 # ------------------------------------------------------------------ static trees
-def draw_tree(state, ax, title="", prev=None, new_prompt=None, U=None, L=None):
+def draw_tree(state, ax, title="", prev=None, new_prompt=None):
     """Draw the forest like the prototype's tree view: one tree per group, the group name on the ground.
 
     prev:       state before the step; marks moved prompts, new topics and a new group
     new_prompt: id of the prompt asked in this step (blue)
-    U, L:       if given, topics over U or under L are flagged in red
     """
     groups, topics = state["groups"], state["topics"]
     node, dots = geometry(state)
+    fs = _font_size(state, node, ax)
 
     def load(c):  # prompts in the subtree of c: the wood gets thicker towards the root
         return len(_members(state, c)) + sum(load(k) for k in _children(state, c))
@@ -142,13 +152,14 @@ def draw_tree(state, ax, title="", prev=None, new_prompt=None, U=None, L=None):
         box = dict(boxstyle="round,pad=0.3", fc="white", ec=COL["moved"] if is_new else "none",
                    ls="--" if is_new else "-", lw=1.2)
         text, lines = _label(topics[c]["label"])
-        ax.text(x, y, text, ha="center", va="center", fontsize=8.5, zorder=4, bbox=box, linespacing=1.0, **FONT)
+        ax.text(x, y, text, ha="center", va="center", fontsize=fs, zorder=4, bbox=box, linespacing=1.0, **FONT)
         for p in _members(state, c):
             moved = prev is not None and p in prev["assign"] and prev["assign"][p] != c
             kind = "new" if p == new_prompt else ("moved" if moved else "old")
             ax.scatter(*dots[p], s=55, color=COL[kind], edgecolors="white", linewidths=1.2, zorder=5)
-        note, color = _size_note(len(_members(state, c)), U, L, len(_children(state, c)))
-        ax.text(x, y - 0.27 - 0.07 * (lines - 1), note, ha="center", va="center", fontsize=7, color=color, zorder=4, **FONT)
+        note, color = _size_note(len(_members(state, c)))
+        ax.text(x, y - 0.27 - 0.07 * (lines - 1), note, ha="center", va="center", fontsize=fs - 1.5, color=color,
+                zorder=4, **FONT)
 
     if prev is not None:                             # moves: dashed arrow from the old topic
         for p, c1 in state["assign"].items():
@@ -166,20 +177,14 @@ def draw_tree(state, ax, title="", prev=None, new_prompt=None, U=None, L=None):
     ax.set_title(title, loc="left", fontsize=9.5)
 
 
-def _UL(h):
-    params = h.get("params", {})
-    return params.get("U"), params.get("L")
-
-
-def show_session(history, title=None, cols=3):
+def show_session(history, title=None, cols=2):
     """One tree per step, starting with the tree before the session."""
-    U, L = _UL(history[0])
     panels = [("Start of the session", history[0]["before"], None, None)] + \
              [(step_title(h), h["after"], h["before"], h["step"]["id"]) for h in history]
     rows = int(np.ceil(len(panels) / cols))
-    fig, axes = plt.subplots(rows, cols, figsize=(6.2 * cols, 4.6 * rows))
+    fig, axes = plt.subplots(rows, cols, figsize=(8.5 * cols, 4.8 * rows))
     for ax, (t, st, prev, new) in zip(axes.ravel(), panels):
-        draw_tree(st, ax, t, prev, new, U, L)
+        draw_tree(st, ax, t, prev, new)
     for ax in axes.ravel()[len(panels):]:
         ax.axis("off")
     if title:
@@ -192,22 +197,23 @@ def show_session(history, title=None, cols=3):
 def show_step(history, k):
     """One step in detail: the tree before and after step k."""
     h = history[k - 1]
-    U, L = _UL(h)
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
-    draw_tree(h["before"], axes[0], f"Before step {k}", U=U, L=L)
-    draw_tree(h["after"], axes[1], step_title(h, 60), h["before"], h["step"]["id"], U, L)
+    fig, axes = plt.subplots(1, 2, figsize=(17, 5.2))
+    draw_tree(h["before"], axes[0], f"Before step {k}")
+    draw_tree(h["after"], axes[1], step_title(h, 60), h["before"], h["step"]["id"])
     legend(fig, y=-0.04)
     plt.tight_layout()
     plt.show()
 
 
-def show_final_trees(histories, metrics=None):
-    """Final forest of several designs side by side. histories: {name: history}."""
-    fig, axes = plt.subplots(1, len(histories), figsize=(6.3 * len(histories), 5.2))
-    for ax, (name, hist) in zip(np.atleast_1d(axes), histories.items()):
-        U, L = _UL(hist[0])
+def show_final_trees(histories, metrics=None, cols=2):
+    """Final forests of several designs, `cols` per row. histories: {name: history}."""
+    rows = int(np.ceil(len(histories) / cols))
+    fig, axes = plt.subplots(rows, cols, figsize=(8.5 * cols, 5.2 * rows))
+    for ax, (name, hist) in zip(np.atleast_1d(axes).ravel(), histories.items()):
         sub = f"\n{metrics(hist)}" if metrics else ""
-        draw_tree(hist[-1]["after"], ax, f"{name}: final forest{sub}", U=U, L=L)
+        draw_tree(hist[-1]["after"], ax, f"{name}: final forest{sub}")
+    for ax in np.atleast_1d(axes).ravel()[len(histories):]:
+        ax.axis("off")
     plt.tight_layout()
     plt.show()
 
@@ -220,7 +226,6 @@ def _ease(t):
 def _draw_frame(ax, h, t, limits):
     """Frame at time t in [0, 1] of the morph from h['before'] to h['after']."""
     ax.clear()
-    U, _ = _UL(h)
     before, after, n = h["before"], h["after"], h["step"]["id"]
     groups = after["groups"]
     nb, db = geometry(before)
@@ -248,7 +253,7 @@ def _draw_frame(ax, h, t, limits):
         ax.text(*P[c], text, ha="center", va="center", fontsize=9, zorder=4, bbox=box, linespacing=1.0,
                 alpha=A[c], **FONT)
         if c in shown["topics"]:
-            note, color = _size_note(len(_members(shown, c)), U)
+            note, color = _size_note(len(_members(shown, c)))
             ax.text(P[c][0], P[c][1] - 0.27 - 0.07 * (lines - 1), note, ha="center", va="center", fontsize=7.5, color=color,
                     alpha=A[c], **FONT)
     for p in after["assign"]:                        # prompts
@@ -300,3 +305,85 @@ def animate_step(history, k, gif=None):
 def animate_session(history, gif=None):
     """Animate the whole session, step after step."""
     return _animate(history, frames_hold=3, frames_move=10, gif=gif)
+
+
+# ------------------------------------------------------------------ tables
+def _steps_index():
+    return pd.Index([f'{k}: {st["id"]}' for k, st in enumerate(SESSION, start=1)], name="step")
+
+
+def question_table():
+    """The questions of the session, in the order they arrive."""
+    return pd.DataFrame({"question": [st["text"] for st in SESSION]}, index=_steps_index())
+
+
+def _born(c):
+    """Step at which topic c was proposed (0: in the starting forest)."""
+    return next((forest.STEP_K[q] for q, t in forest.PROPOSALS.items() if t["id"] == c), 0)
+
+
+def proposal_tables(s):
+    """The LLM's proposals, the fits s(p, c) when a question arrived, and the later ratings of earlier questions
+    against new proposals (with the step at which they were asked)."""
+    J, labels, props = forest.JUDGE, forest.ALL_LABELS, forest.PROPOSALS
+
+    def where(t):
+        if t["parent"] in forest.ALL_TOPICS:
+            return f'branch of {labels[t["parent"]]}'
+        new = " (new group)" if t["parent"] not in INITIAL_GROUPS and t["kind"] == "new_group" else ""
+        return f'new tree in {forest.ALL_GROUPS[t["parent"]]}' + new
+
+    def best_before(n, k):
+        c = max([c for c in forest.ALL_TOPICS if _born(c) < k], key=lambda c: int(J[n].get(c, 1)))
+        return f'{labels[c]} ({int(J[n].get(c, 1))})'
+
+    display(pd.DataFrame({
+        "question": [st["text"] for st in SESSION],
+        "best topic before this step": [best_before(st["id"], k) for k, st in enumerate(SESSION, start=1)],
+        "proposed topic": [props[st["id"]]["label"] if st["id"] in props else "-" for st in SESSION],
+        "where": [where(props[st["id"]]) if st["id"] in props else "" for st in SESSION],
+    }, index=_steps_index()))
+
+    arrival = lambda p: forest.STEP_K.get(p, 0)
+    ps, cols = list(all_prompts()), list(labels.values())
+    now = pd.DataFrame([[f"{s(p, c):.2f}" if _born(c) <= arrival(p) and c in J[p] else "-" for c in labels]
+                        for p in ps], index=ps, columns=cols)
+    print("Fit s_pc when the question arrived ('-' = topic proposed later)")
+    display(now)
+    later = pd.DataFrame([[f"{s(p, c):.2f} (step {_born(c)})" if _born(c) > arrival(p) and c in J[p] else ""
+                           for c in labels] for p in ps], index=ps, columns=cols)
+    later = later.loc[(later != "").any(axis=1), (later != "").any(axis=0)]
+    print("Ratings of earlier questions against later proposals (for moving them), with the step they were asked")
+    display(later)
+
+
+def step_table(history, s, lookup):
+    """One row per step: where the new question went, what was created, moved or deleted, the outcome, and the
+    mean lookup time lookup(state, params) of the forest after the step."""
+    rows = []
+    for h in history:
+        n, before, after = h["step"]["id"], h["before"], h["after"]
+        label = lambda state, c: state["topics"][c]["label"]
+        c = after["assign"][n]
+        moved, created, deleted, new_groups = forest.changes(before, after)
+        rows.append({
+            "new question": h["step"]["text"],
+            "placed in": label(after, c),
+            "fit (judge score)": f'{s(n, c):.2f} ({int(forest.JUDGE[n].get(c, 1))})',
+            "created": ", ".join([label(after, t) for t in created]
+                                 + [f'group {after["groups"][g]}' for g in new_groups]) or "-",
+            "moved / deleted": ", ".join([f'{p} → {label(after, after["assign"][p])}' for p in moved]
+                                         + [f'deleted {label(before, d)}' for d in deleted]) or "-",
+            "outcome": h["action"],
+            "lookup time (s)": lookup(after, h["params"]),
+        })
+    return pd.DataFrame(rows, index=pd.Index([h["k"] for h in history], name="step"))
+
+
+def outcome_table(histories):
+    """The outcome letter (a)-(e) of every step, one column per design. histories: {name: history}."""
+    first = next(iter(histories.values()))
+    index = pd.Index([f'{h["k"]}: {textwrap.shorten(h["step"]["text"], 45, placeholder="…")}' for h in first],
+                     name="step")
+    return pd.DataFrame({name: [forest.code_of(h["action"]) for h in hist] for name, hist in histories.items()},
+                        index=index)

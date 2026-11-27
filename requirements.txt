@@ -1,6 +1,9 @@
-# Tested with Python 3.14 and the versions in the comments (Colab's preinstalled versions also work).
+# Exactly the versions in the project's .venv (Python 3.14.3). Also tested locally with Python 3.12 and 3.13
+# (identical results). In Google Colab only gurobipy is installed; Colab's preinstalled versions of the others work.
 gurobipy==14.0.0      # the free size-limited pip license is enough (< 2000 variables and constraints)
-numpy>=2.0            # 2.5.5
-pandas>=2.2           # 3.1.1
-matplotlib>=3.9       # 3.11.2
-pillow>=10.0          # 13.0.0, only for saving animations as GIF
+numpy==2.5.5
+pandas==3.1.1
+matplotlib==3.11.2
+pillow==13.0.0        # only for saving animations as GIF
+ipython==9.19.1       # IPython.display (tables, animations) and get_ipython (autoreload)
+ipykernel==7.4.0      # runs the notebook in VS Code or Jupyter with this environment
